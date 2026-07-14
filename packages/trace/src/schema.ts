@@ -16,6 +16,7 @@ export type TargetDescriptor = {
   tagName: string;
   boundingBox: BoundingBox;
   locators: Locator[];
+  value?: string;
 };
 
 export type TraceEventType =
