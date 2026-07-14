@@ -2,8 +2,8 @@ import { expect, it } from 'vitest';
 import { buildExportPlan } from './export';
 
 const meta = { capture: { width: 1920, height: 1080, fps: 30 } };
-const segments = [{ id: 'z1', eventId: 'e1', startMs: 100, clickMs: 500, endMs: 1_400,
-  focus: { x: 100, y: 100, width: 640, height: 360 }, scale: 2 }];
+const segments = [{ id: 'z1', eventId: 'e1', startMs: 350, clickMs: 1_000, endMs: 2_650,
+  focus: { x: 100, y: 100, width: 640, height: 360 }, scale: 1.8, viewport: { width: 1_200, height: 760 } }];
 
 it('builds one global-palette 800px README GIF', () => {
   const plan = buildExportPlan('gif', segments, meta);
@@ -19,6 +19,9 @@ it('builds one global-palette 800px README GIF', () => {
 });
 
 it('builds a 1080p H.264 yuv420p MP4', () => {
-  expect(buildExportPlan('mp4', segments, meta).args.join(' ')).toContain('s=1920x1080');
-  expect(buildExportPlan('mp4', segments, meta).args).toEqual(expect.arrayContaining(['libx264', 'yuv420p']));
+  const plan = buildExportPlan('mp4', segments, meta);
+  expect(plan.args.join(' ')).toContain('fps=60,zoompan=');
+  expect(plan.args.join(' ')).toContain('s=1920x1080:fps=60');
+  expect(plan.args).toEqual(expect.arrayContaining(['libx264', 'yuv420p', 'ultrafast']));
+  expect(plan.args.join(' ')).toContain('max(iw/(2*zoom)');
 });

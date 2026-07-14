@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { parseBundle } from './bundle';
+import { pageEventAt, parseBundle, readBundleFiles } from './bundle';
 
 const meta = JSON.stringify({ schemaVersion: 1, recordingId: 'rec_1', createdAt: '2026-07-14T09:00:00.000Z', sessionEpoch: 1,
   url: 'https://example.com', origin: 'https://example.com', viewport: { width: 1280, height: 800, dpr: 1 },
@@ -26,4 +26,14 @@ it('rejects a bundle without a usable clock fit', () => {
   expect(parseBundle(meta, JSON.stringify({ ...base, t: 100, type: 'interaction.click' }))).toEqual({
     ok: false, error: 'at least two distinct clock markers are required',
   });
+});
+
+it('names every missing recording file', async () => {
+  const result = await readBundleFiles([new File(['video'], 'media.webm')]);
+  expect(result).toEqual({ ok: false, error: 'Missing trace.jsonl and meta.json.' });
+});
+
+it('ignores clock markers when resolving current page state', () => {
+  const parsed = parseBundle(meta, trace);
+  expect(parsed.ok && pageEventAt(parsed.value.events, 1_100)?.type).toBe('interaction.click');
 });

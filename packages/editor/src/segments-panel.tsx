@@ -1,7 +1,15 @@
 import { useEditorStore } from './store';
 
 export function SegmentsPanel() {
-  const { bundle, segments, selectedSegmentId, selectedEventId, selectSegment, addSegment, deleteSegment, retimeSegment, retargetSegment } = useEditorStore();
+  const bundle = useEditorStore((state) => state.bundle);
+  const segments = useEditorStore((state) => state.segments);
+  const selectedSegmentId = useEditorStore((state) => state.selectedSegmentId);
+  const selectedEventId = useEditorStore((state) => state.selectedEventId);
+  const selectSegment = useEditorStore((state) => state.selectSegment);
+  const addSegment = useEditorStore((state) => state.addSegment);
+  const deleteSegment = useEditorStore((state) => state.deleteSegment);
+  const retimeSegment = useEditorStore((state) => state.retimeSegment);
+  const retargetSegment = useEditorStore((state) => state.retargetSegment);
   if (!bundle) return null;
   const selected = segments.find(({ id }) => id === selectedSegmentId);
   return <div className="segment-row">

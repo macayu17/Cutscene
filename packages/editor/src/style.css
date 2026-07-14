@@ -5,13 +5,17 @@ body { margin: 0; overflow: hidden; background: var(--bg); color: var(--text); f
 button, input { font: inherit; }
 button { color: inherit; }
 button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
-.empty { height: 100%; display: grid; place-content: center; gap: 16px; color: var(--text-dim); font-family: 'IBM Plex Sans', sans-serif; }
+.empty { height: 100%; display: grid; place-content: center; justify-items: start; gap: 10px; color: var(--text-dim); font-family: 'IBM Plex Sans', sans-serif; }
+.empty h1 { margin: 0 0 6px; color: var(--text); font: 500 var(--t-sm)/1.4 'IBM Plex Mono', monospace; letter-spacing: .12em; }
+.empty p, .empty small { margin: 0; }
+.empty code { margin-bottom: 10px; color: var(--text-dim); font: var(--t-xs)/1.4 'IBM Plex Mono', monospace; }
 .file-label { border: 1px solid var(--line); color: var(--text); padding: 7px 10px; font-family: 'IBM Plex Mono', monospace; cursor: pointer; }
 .file-label input { position: absolute; opacity: 0; pointer-events: none; }
 .error { color: var(--danger); max-width: 560px; }
 .instrument { height: 100%; display: grid; grid-template: 32px minmax(0, 1fr) 156px / 240px minmax(0, 1fr); }
 .topbar { grid-column: 1 / -1; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; padding: 0 10px; font-size: var(--t-xs); letter-spacing: .03em; white-space: nowrap; }
 .topbar .push { margin-left: auto; }
+.topbar .file-label { padding: 3px 8px; font-size: var(--t-xs); }
 .topbar button { border: 1px solid var(--line); background: var(--surface); padding: 3px 8px; }
 .export-progress { position: absolute; top: 31px; left: 0; height: 1px; background: var(--text); }
 .export-error { position: fixed; top: 38px; right: 8px; color: var(--danger); background: var(--surface); padding: 6px 8px; border: 1px solid var(--danger); }
@@ -23,7 +27,7 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 2
 .event span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .viewer { min-width: 0; min-height: 0; display: grid; place-items: center; padding: 20px; background: #121418; }
 .video-stage { position: relative; max-width: 100%; max-height: 100%; width: 100%; overflow: hidden; }
-.video-transform { position: absolute; inset: 0; }
+.video-transform { position: absolute; inset: 0; transform-origin: 0 0; will-change: transform; }
 .video-stage video { width: 100%; height: 100%; display: block; }
 .semantic-box { position: absolute; border: 2px solid var(--signal); pointer-events: none; animation: measure 120ms steps(4, end); }
 @keyframes measure { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }

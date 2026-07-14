@@ -50,8 +50,9 @@ const creator = (set: StoreApi<EditorState>['setState']): EditorState => ({
     if (!state.bundle || !state.selectedSegmentId || !state.selectedEventId) return {};
     const event = eventById(state.bundle.events, state.selectedEventId);
     if (!event?.target) return {};
-    const derived = deriveZoomSegments([{ t: state.bundle.clock.toMediaTime(event.t), box: event.target.boundingBox, scroll: event.scroll }], state.bundle.meta.viewport)[0];
-    return derived ? { segments: retargetSegment(state.segments, state.selectedSegmentId, event.id, derived.focus) } : {};
+    const derived = deriveZoomSegments([{ t: state.bundle.clock.toMediaTime(event.t), box: event.target.boundingBox, scroll: event.scroll,
+      viewport: event.viewport }], state.bundle.meta.viewport)[0];
+    return derived ? { segments: retargetSegment(state.segments, state.selectedSegmentId, event.id, derived.focus, event.viewport) } : {};
   }),
   setExport: (exportProgress, exportError = null) => set({ exportProgress, exportError }),
 });

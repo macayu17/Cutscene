@@ -8,8 +8,8 @@ const click = (t: number, x: number, scrollY = 0) => ({
 describe('deriveZoomSegments', () => {
   it('pads, times, and caps a click zoom', () => {
     const [segment] = deriveZoomSegments([click(2_000, 600)], { width: 1280, height: 800 });
-    expect(segment).toMatchObject({ startMs: 1_600, clickMs: 2_000, endMs: 3_300 });
-    expect(segment?.scale).toBeLessThanOrEqual(2.5);
+    expect(segment).toMatchObject({ startMs: 1_350, clickMs: 2_000, endMs: 3_550 });
+    expect(segment?.scale).toBeLessThanOrEqual(1.8);
     expect(segment?.focus.width).toBeGreaterThanOrEqual(320);
   });
 
@@ -19,5 +19,11 @@ describe('deriveZoomSegments', () => {
 
   it('suppresses a zoom across a scroll change', () => {
     expect(deriveZoomSegments([click(2_000, 600, 0), click(2_500, 600, 100)], { width: 1280, height: 800 })).toHaveLength(0);
+  });
+
+  it('uses the click viewport and suppresses an explicitly recorded scroll', () => {
+    const resized = { ...click(2_000, 600), viewport: { width: 1_200, height: 760 } };
+    expect(deriveZoomSegments([resized], { width: 1_280, height: 800 })[0]?.viewport).toEqual(resized.viewport);
+    expect(deriveZoomSegments([resized], { width: 1_280, height: 800 }, [2_300])).toHaveLength(0);
   });
 });

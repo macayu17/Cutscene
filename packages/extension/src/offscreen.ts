@@ -2,7 +2,7 @@ import type { RecordingMeta, TraceEvent, Viewport, ScrollPosition } from '@cutsc
 import type { RecorderStatus, Result } from './messages';
 import { saveBundle } from './storage';
 
-type PageContext = { viewport: Viewport; scroll: ScrollPosition; route: string; url: string; origin: string };
+type PageContext = { viewport: Viewport; scroll: ScrollPosition; route: string; url: string; origin: string; contentClockMs: number };
 type State = {
   recorder: MediaRecorder; stream: MediaStream; mic: MediaStream | null; chunks: Blob[]; events: TraceEvent[];
   tabId: number; sessionEpoch: number; startedAt: number; mediaStart: number; timer: number; recordingId: string; context: PageContext;
@@ -43,6 +43,7 @@ async function sync(): Promise<void> {
   const sample = await chrome.runtime.sendMessage({ type: 'clock.sample', tabId: current.tabId, sessionEpoch: current.sessionEpoch }) as Result<{ contentClockMs: number; workerClockMs: number }>;
   if (!sample.ok || state !== current) return;
   const mediaTimeMs = (before + performance.now() - current.mediaStart) / 2;
+  current.context.contentClockMs = sample.value.contentClockMs;
   current.events.push({ v: 1, id: `evt_${crypto.randomUUID()}`, t: sample.value.contentClockMs, type: 'system.clockSync',
     stepId: 'step_clock', route: current.context.route, viewport: current.context.viewport, scroll: current.context.scroll,
     contentClockMs: sample.value.contentClockMs, workerClockMs: sample.value.workerClockMs, mediaTimeMs });
@@ -63,11 +64,12 @@ async function start(message: { streamId: string; tabId: number; sessionEpoch: n
     const current: State = { recorder, stream, mic, chunks, events: [], tabId: message.tabId, sessionEpoch: message.sessionEpoch,
       startedAt: Date.now(), mediaStart: performance.now(), timer: 0, recordingId: `rec_${crypto.randomUUID()}`, context: message.context,
       capture: { ...dimensions, fps: tab.getVideoTracks()[0]?.getSettings().frameRate ?? 30 } };
-    current.events.push(systemEvent('system.recordingStart', current, 0), systemEvent('navigation', current, 0));
     recorder.start(1_000);
     state = current;
-    current.timer = window.setInterval(() => void sync(), 2_000);
     await sync();
+    current.events.unshift(systemEvent('system.recordingStart', current, current.context.contentClockMs),
+      systemEvent('navigation', current, current.context.contentClockMs));
+    current.timer = window.setInterval(() => void sync(), 2_000);
     return { ok: true, value: status() };
   } catch (error: unknown) { return { ok: false, error: error instanceof Error ? error.message : String(error) }; }
 }
@@ -79,7 +81,7 @@ async function stop(): Promise<Result<RecorderStatus>> {
     clearInterval(current.timer);
     await sync();
     const durationMs = performance.now() - current.mediaStart;
-    current.events.push(systemEvent('system.recordingStop', current, durationMs));
+    current.events.push(systemEvent('system.recordingStop', current, current.context.contentClockMs));
     await new Promise<void>((resolve) => { current.recorder.addEventListener('stop', () => resolve(), { once: true }); current.recorder.stop(); });
     current.stream.getTracks().forEach((track) => track.stop()); current.mic?.getTracks().forEach((track) => track.stop());
     const media = new Blob(current.chunks, { type: current.recorder.mimeType });

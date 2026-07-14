@@ -1,7 +1,7 @@
 import { rankLocators, sanitizeTarget, type TargetDescriptor, type TraceEvent, type TraceEventType } from '@cutscene/trace';
 import type { Result } from './messages';
 
-type PageContext = { viewport: ReturnType<typeof viewport>; scroll: ReturnType<typeof scroll>; route: string; url: string; origin: string };
+type PageContext = { viewport: ReturnType<typeof viewport>; scroll: ReturnType<typeof scroll>; route: string; url: string; origin: string; contentClockMs: number };
 
 let sessionEpoch: number | null = null;
 let step = 0;
@@ -97,7 +97,8 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, respond) => {
   if (!message || typeof message !== 'object' || !('type' in message)) return false;
   if (message.type === 'session.start' && 'sessionEpoch' in message && typeof message.sessionEpoch === 'number') {
     sessionEpoch = message.sessionEpoch; step = 0;
-    respond({ ok: true, value: { viewport: viewport(), scroll: scroll(), route: route(), url: location.href, origin: location.origin } } satisfies Result<PageContext>);
+    respond({ ok: true, value: { viewport: viewport(), scroll: scroll(), route: route(), url: location.href,
+      origin: location.origin, contentClockMs: now() } } satisfies Result<PageContext>);
   } else if (message.type === 'session.stop') { sessionEpoch = null; respond({ ok: true, value: undefined } satisfies Result); }
   else if (message.type === 'clock.sample') respond({ ok: true, value: now() } satisfies Result<number>);
   else return false;

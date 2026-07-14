@@ -84,6 +84,9 @@ test('captures a playable, complete, masked recording bundle', async () => {
       'interaction.click', 'interaction.input', 'interaction.scroll', 'viewport.resize']) expect(types.has(type)).toBe(true);
     expect(traceText).not.toContain('raw-secret-value');
     expect(events.filter((event) => event.type === 'interaction.click')).toHaveLength(requestedClicks);
+    const navigation = events.find((event) => event.type === 'navigation');
+    const firstSync = events.find((event) => event.type === 'system.clockSync');
+    expect(Math.abs(Number(navigation?.t) - Number(firstSync?.t))).toBeLessThan(100);
     const click = events.find((event) => event.type === 'interaction.click');
     expect(click).toMatchObject({ v: 1, stepId: expect.any(String), scroll: expect.any(Object) });
     expect((click?.target as { locators?: unknown[] }).locators?.length).toBeGreaterThan(0);

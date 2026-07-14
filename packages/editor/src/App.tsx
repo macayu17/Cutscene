@@ -8,12 +8,31 @@ import { exportRecording, type ExportFormat } from './export';
 export default function App() {
   const video = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
-  const { bundle, mediaUrl, media, segments, selectedEventId, exportProgress, exportError, load, selectEvent, setExport } = useEditorStore();
-  if (!bundle || !mediaUrl) return <main className="empty"><p>Record a tab to begin. Chrome only. Works on DOM-based pages.</p>
-    <label className="file-label">Load recording bundle<input type="file" multiple accept=".webm,.json,.jsonl" onChange={async (event) => {
-      const result = await readBundleFiles(Array.from(event.currentTarget.files ?? []));
-      if (result.ok) { load(result.value, result.value.mediaUrl, result.value.media); setError(null); } else setError(result.error);
-    }}/></label>{error ? <output className="error">{error}</output> : null}</main>;
+  const bundle = useEditorStore((state) => state.bundle);
+  const mediaUrl = useEditorStore((state) => state.mediaUrl);
+  const media = useEditorStore((state) => state.media);
+  const segments = useEditorStore((state) => state.segments);
+  const selectedEventId = useEditorStore((state) => state.selectedEventId);
+  const exportProgress = useEditorStore((state) => state.exportProgress);
+  const exportError = useEditorStore((state) => state.exportError);
+  const load = useEditorStore((state) => state.load);
+  const selectEvent = useEditorStore((state) => state.selectEvent);
+  const setExport = useEditorStore((state) => state.setExport);
+  const loadFiles = async (files: readonly File[]) => {
+    const result = await readBundleFiles(files);
+    if (result.ok) { load(result.value, result.value.mediaUrl, result.value.media); setError(null); } else setError(result.error);
+  };
+  const input = (label: string) => <label className="file-label">{label}<input type="file" multiple accept=".webm,.json,.jsonl"
+    {...{ webkitdirectory: '' }} onChange={(event) => void loadFiles(Array.from(event.currentTarget.files ?? []))}/></label>;
+  if (!bundle || !mediaUrl) return <main className="empty" onDragOver={(event) => event.preventDefault()}
+    onDrop={(event) => { event.preventDefault(); void loadFiles(Array.from(event.dataTransfer.files)); }}>
+    <h1>NO RECORDING LOADED</h1>
+    <p>Choose the folder created by the Cutscene extension.</p>
+    <code>media.webm · trace.jsonl · meta.json</code>
+    {input('Choose recording folder')}
+    <small>or drop the three files anywhere here</small>
+    {error ? <output className="error">{error}</output> : null}
+  </main>;
   const selected = eventById(bundle.events, selectedEventId);
   const runExport = async (format: ExportFormat) => {
     if (!media) return;
@@ -25,8 +44,8 @@ export default function App() {
     } catch (cause: unknown) { setExport(null, cause instanceof Error ? cause.message : String(cause)); }
   };
   return <main className="instrument">
-    <header className="topbar"><span>{bundle.meta.recordingId}</span><span>·</span><span>{new URL(bundle.meta.url).host}</span><span>·</span><span>{bundle.meta.capture.width}×{bundle.meta.capture.height}</span><span>·</span><span>{(bundle.meta.media.durationMs / 1_000).toFixed(1)}s</span><button className="push" disabled={exportProgress !== null} onClick={() => void runExport('gif')}>Export GIF</button><button disabled={exportProgress !== null} onClick={() => void runExport('mp4')}>Export MP4</button>{exportProgress !== null ? <span className="export-progress" style={{ width: `${exportProgress * 100}%` }}/> : null}</header>
-    <aside className="events"><h2>EVENTS</h2>{bundle.events.map((event) => { const time = bundle.clock.toMediaTime(event.t); return <button className="event" key={event.id} aria-current={selected?.id === event.id} onClick={() => { selectEvent(event.id, time); if (video.current) video.current.currentTime = time / 1_000; }}><time>{(time / 1_000).toFixed(1)}s</time><span>{event.type}<br/><small>{event.target?.accessibleName || event.route}</small></span></button>; })}</aside>
+    <header className="topbar"><span>{bundle.meta.recordingId}</span><span>·</span><span>{new URL(bundle.meta.url).host}</span><span>·</span><span>{bundle.meta.capture.width}×{bundle.meta.capture.height}</span><span>·</span><span>{(bundle.meta.media.durationMs / 1_000).toFixed(1)}s</span><span className="push">{input('Load another recording')}</span><button disabled={exportProgress !== null} onClick={() => void runExport('gif')}>Export GIF</button><button disabled={exportProgress !== null} onClick={() => void runExport('mp4')}>Export MP4</button>{exportProgress !== null ? <span className="export-progress" style={{ width: `${exportProgress * 100}%` }}/> : null}</header>
+    <aside className="events"><h2>EVENTS</h2>{bundle.events.filter((event) => event.type.startsWith('interaction.') || event.type === 'navigation').map((event) => { const time = Math.max(0, bundle.clock.toMediaTime(event.t)); return <button className="event" key={event.id} aria-current={selected?.id === event.id} onClick={() => { selectEvent(event.id, time); if (video.current) video.current.currentTime = time / 1_000; }}><time>{(time / 1_000).toFixed(1)}s</time><span>{event.type}<br/><small>{event.target?.accessibleName || event.route}</small></span></button>; })}</aside>
     <section className="viewer" aria-label="Video preview"><VideoView video={video}/></section>
     <Timeline video={video}/>
     {exportError ? <output className="export-error">{exportError}</output> : null}
