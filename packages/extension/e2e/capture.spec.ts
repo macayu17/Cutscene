@@ -40,7 +40,11 @@ test('captures a playable, complete, masked recording bundle', async () => {
     const tabId = await worker.evaluate(async (url) => (await chrome.tabs.query({})).find((tab) => tab.url === url)?.id, page.url());
     const control = await context.newPage();
     await control.goto(`chrome-extension://${extensionId}/control.html?tabId=${tabId}`);
-    await control.locator('#redact').fill('.todo-list li');
+    await control.locator('#redact').fill('[');
+    await control.locator('#start').click();
+    await expect(control.locator('#start')).toBeEnabled();
+    await expect(control.locator('#stop')).toBeDisabled();
+    await control.locator('#redact').fill('.new-todo, .todo-list li');
     await control.locator('#start').click();
     await expect(control.locator('#status')).toContainText('recording');
 
@@ -57,7 +61,18 @@ test('captures a playable, complete, masked recording bundle', async () => {
         await page.locator('.toggle').nth(index).click();
       }
       if (index === 0) {
-        await page.locator('.todo-list li').first().evaluate((element) => { element.style.transform = 'translateY(24px)'; });
+        const todo = page.locator('.todo-list li').first();
+        await todo.evaluate((element) => { element.style.visibility = 'hidden'; });
+        await page.waitForTimeout(100);
+        await todo.evaluate((element) => { element.style.visibility = 'visible'; });
+        await page.waitForTimeout(100);
+        await todo.evaluate((element) => { element.style.transform = 'translateY(24px)'; });
+        await page.waitForTimeout(100);
+        await todo.evaluate((element) => {
+          const box = element.getBoundingClientRect();
+          Object.assign(element.style, { position: 'fixed', left: `${box.x}px`, top: `${box.y}px`,
+            width: `${box.width}px`, boxSizing: 'border-box', transform: 'none' });
+        });
         await page.waitForTimeout(100);
         await page.evaluate(() => history.pushState({}, '', '#captured-route'));
         await page.evaluate(() => { document.body.style.minHeight = '1600px'; scrollTo(0, 20); });
@@ -94,17 +109,24 @@ test('captures a playable, complete, masked recording bundle', async () => {
     expect(click).toMatchObject({ v: 1, stepId: expect.any(String), scroll: expect.any(Object) });
     expect((click?.target as { locators?: unknown[] }).locators?.length).toBeGreaterThan(0);
     const meta = JSON.parse(await readFile(metaItem.filename, 'utf8')) as Record<string, unknown>;
-    expect(meta).toMatchObject({ schemaVersion: 1, privacy: { visualRedactionSelectors: ['.todo-list li'] },
+    expect(meta).toMatchObject({ schemaVersion: 1, privacy: { visualRedactionSelectors: ['.new-todo, .todo-list li'] },
       app: { commit: null, version: null, environment: null } });
     const redaction = events.find((event) => event.type === 'annotation.redaction' && event.visible === true);
-    expect(redaction).toMatchObject({ selector: '.todo-list li', instanceId: expect.any(String), visible: true,
+    expect(redaction).toMatchObject({ selector: '.new-todo, .todo-list li', instanceId: expect.any(String), visible: true,
       box: { x: expect.any(Number), y: expect.any(Number), width: expect.any(Number), height: expect.any(Number) } });
     expect(redaction).not.toHaveProperty('target');
     expect(redaction).not.toHaveProperty('text');
     expect(redaction).not.toHaveProperty('value');
     const redactionSamples = events.filter((event) => event.type === 'annotation.redaction' && event.visible === true);
     expect(redactionSamples.length).toBeGreaterThan(1);
+    const firstRedaction = events.find((event) => event.type === 'annotation.redaction');
+    expect(firstRedaction?.visible).toBe(true);
+    expect(firstRedaction?.t).toBe(0);
     expect(new Set(redactionSamples.map((event) => (event.box as { y: number }).y)).size).toBeGreaterThan(1);
+    expect(events.some((event) => event.type === 'annotation.redaction' && event.visible === false)).toBe(true);
+    expect(redactionSamples.some((left, index) => redactionSamples.slice(index + 1).some((right) =>
+      JSON.stringify(left.box) === JSON.stringify(right.box) &&
+      (left.viewport as { width: number }).width !== (right.viewport as { width: number }).width))).toBe(true);
     expect((await readFile(mediaItem.filename)).length).toBeGreaterThan(0);
     const probe = JSON.parse((await execute('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'json', mediaItem.filename])).stdout) as { streams: Array<{ width: number; height: number }> };
     expect(meta.capture).toMatchObject(probe.streams[0] ?? {});

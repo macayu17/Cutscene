@@ -58,7 +58,7 @@ function redactionChain(redactions: readonly CompiledRedaction[]): { filters: st
     const source = `redact_source_${index}`;
     const patch = `redact_patch_${index}`;
     const output = `redacted_${index}`;
-    const filter = `[${input}]split[${base}][${source}];[${source}]crop=${redaction.width}:${redaction.height}:${redaction.x}:${redaction.y},boxblur=10[${patch}];` +
+    const filter = `[${input}]split[${base}][${source}];[${source}]crop=${redaction.width}:${redaction.height}:${redaction.x}:${redaction.y},boxblur=${redaction.blurRadius}[${patch}];` +
       `[${base}][${patch}]overlay=${redaction.x}:${redaction.y}:enable='between(t,${redaction.startSeconds},${redaction.endSeconds})'[${output}]`;
     input = output;
     return filter;

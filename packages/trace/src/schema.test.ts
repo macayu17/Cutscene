@@ -47,6 +47,8 @@ describe('parseTraceEvent', () => {
     expect(parseTraceEvent({ ...visible, visible: 'yes' })).toEqual({ ok: false, error: 'redaction sample is invalid' });
     expect(parseTraceEvent({ ...visible, box: { x: 1 } })).toEqual({ ok: false, error: 'redaction sample is invalid' });
     expect(parseTraceEvent({ ...visible, target: {} })).toEqual({ ok: false, error: 'redaction sample is invalid' });
+    expect(parseTraceEvent({ ...visible, text: 'secret' })).toEqual({ ok: false, error: 'redaction sample is invalid' });
+    expect(parseTraceEvent({ ...visible, value: 'secret' })).toEqual({ ok: false, error: 'redaction sample is invalid' });
   });
 });
 

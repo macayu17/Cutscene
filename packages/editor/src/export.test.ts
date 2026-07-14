@@ -27,7 +27,7 @@ it('builds a 1080p H.264 yuv420p MP4', () => {
 });
 
 const overlay = { filename: 'callout_0.png', x: 120, y: 80, startSeconds: 1, endSeconds: 2 };
-const redaction = { x: 100, y: 200, width: 300, height: 40, startSeconds: 1, endSeconds: 2 };
+const redaction = { x: 100, y: 200, width: 300, height: 40, blurRadius: 10, startSeconds: 1, endSeconds: 2 };
 
 it('composites callouts before the GIF global palette', () => {
   const plan = buildExportPlan('gif', segments, meta, [overlay]);

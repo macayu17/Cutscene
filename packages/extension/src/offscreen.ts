@@ -110,6 +110,18 @@ async function stop(): Promise<Result<RecorderStatus>> {
   }
 }
 
+async function cancel(): Promise<Result> {
+  const current = state;
+  if (!current) return { ok: true, value: undefined };
+  clearInterval(current.timer);
+  if (current.recorder.state !== 'inactive') await new Promise<void>((resolve) => {
+    current.recorder.addEventListener('stop', () => resolve(), { once: true }); current.recorder.stop();
+  });
+  current.stream.getTracks().forEach((track) => track.stop()); current.mic?.getTracks().forEach((track) => track.stop());
+  state = null;
+  return { ok: true, value: undefined };
+}
+
 chrome.runtime.onMessage.addListener((message: unknown, _sender, respond) => {
   if (!message || typeof message !== 'object' || !('type' in message)) return false;
   if (message.type === 'trace.event' && 'event' in message) { if (state) state.events.push(message.event as TraceEvent); return false; }
@@ -119,6 +131,7 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, respond) => {
       includeMic: 'includeMic' in message && message.includeMic === true, context: message.context as PageContext }).then(respond); return true;
   }
   if (message.type === 'offscreen.stop') { void stop().then(respond); return true; }
+  if (message.type === 'offscreen.cancel') { void cancel().then(respond); return true; }
   if (message.type === 'offscreen.status') { respond({ ok: true, value: status() } satisfies Result<RecorderStatus>); return false; }
   return false;
 });

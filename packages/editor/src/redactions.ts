@@ -4,7 +4,8 @@ import { mapBoxToCapture, type BoundingBox, type MediaClockFit, type RecordingMe
 export type EditableRedaction = { selector: string; enabled: boolean };
 export type RedactionBox = { selector: string; instanceId: string; startMs: number; endMs: number;
   box: BoundingBox; viewport: Viewport };
-export type CompiledRedaction = { x: number; y: number; width: number; height: number; startSeconds: number; endSeconds: number };
+export type CompiledRedaction = { x: number; y: number; width: number; height: number; blurRadius: number;
+  startSeconds: number; endSeconds: number };
 
 function samples(events: readonly TraceEvent[]): RedactionSampleEvent[] {
   return events.filter((event): event is RedactionSampleEvent => event.type === 'annotation.redaction');
@@ -38,7 +39,7 @@ export function deriveRedactionIntervals(events: readonly TraceEvent[], clock: M
       if (!event.visible || !event.box) return;
       const startMs = Math.max(0, clock.toMediaTime(event.t));
       const next = ordered[index + 1];
-      const endMs = next ? Math.min(durationMs, clock.toMediaTime(next.t) - 1) : durationMs;
+      const endMs = next ? Math.min(durationMs, clock.toMediaTime(next.t)) : durationMs;
       if (endMs >= startMs) intervals.push({ selector: event.selector, instanceId: event.instanceId,
         startMs, endMs, box: event.box, viewport: event.viewport });
     });
@@ -49,7 +50,23 @@ export function deriveRedactionIntervals(events: readonly TraceEvent[], clock: M
 export function redactionBoxesAt(boxes: readonly RedactionBox[], redactions: readonly EditableRedaction[],
   timeMs: number): RedactionBox[] {
   const enabled = new Set(redactions.filter(({ enabled: value }) => value).map(({ selector }) => selector));
-  return boxes.filter((box) => enabled.has(box.selector) && timeMs >= box.startMs && timeMs <= box.endMs);
+  return boxes.filter((box) => enabled.has(box.selector) && timeMs >= box.startMs && timeMs < box.endMs);
+}
+
+function evenFloor(value: number): number { return Math.floor(value / 2) * 2; }
+function evenCeil(value: number): number { return Math.ceil(value / 2) * 2; }
+
+function cropAxis(start: number, end: number, limit: number): { start: number; size: number } | null {
+  if (end <= 0 || start >= limit) return null;
+  const ceiling = evenFloor(limit);
+  if (ceiling < 4) return null;
+  let lower = Math.max(0, evenFloor(start));
+  let upper = Math.min(ceiling, evenCeil(end));
+  if (upper - lower < 4) {
+    if (lower + 4 <= ceiling) upper = lower + 4;
+    else lower = upper - 4;
+  }
+  return { start: lower, size: upper - lower };
 }
 
 export function compileRedactions(boxes: readonly RedactionBox[], redactions: readonly EditableRedaction[],
@@ -58,12 +75,11 @@ export function compileRedactions(boxes: readonly RedactionBox[], redactions: re
   return boxes.flatMap((sample) => {
     if (!enabled.has(sample.selector)) return [];
     const mapped = mapBoxToCapture(sample.box, sample.viewport, capture);
-    const x = Math.max(0, Math.floor(mapped.x));
-    const y = Math.max(0, Math.floor(mapped.y));
-    const right = Math.min(capture.width, Math.ceil(mapped.x + mapped.width));
-    const bottom = Math.min(capture.height, Math.ceil(mapped.y + mapped.height));
-    if (right <= x || bottom <= y) return [];
-    return [{ x, y, width: right - x, height: bottom - y, startSeconds: sample.startMs / 1_000,
-      endSeconds: sample.endMs / 1_000 }];
+    const horizontal = cropAxis(mapped.x, mapped.x + mapped.width, capture.width);
+    const vertical = cropAxis(mapped.y, mapped.y + mapped.height, capture.height);
+    if (!horizontal || !vertical) return [];
+    const blurRadius = Math.max(1, Math.min(10, Math.floor(Math.min(horizontal.size, vertical.size) / 4)));
+    return [{ x: horizontal.start, y: vertical.start, width: horizontal.size, height: vertical.size, blurRadius,
+      startSeconds: sample.startMs / 1_000, endSeconds: sample.endMs / 1_000 }];
   });
 }

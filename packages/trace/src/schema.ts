@@ -91,6 +91,8 @@ const eventTypes = new Set<TraceEventType>([
   'interaction.hover', 'annotation.callout', 'annotation.redaction', 'interaction.keypress', 'dom.mutation',
   'network.request', 'annotation.comment', 'system.checkpoint',
 ]);
+const redactionKeys = new Set(['v', 'id', 't', 'type', 'stepId', 'route', 'viewport', 'scroll',
+  'selector', 'instanceId', 'visible', 'box']);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -131,7 +133,8 @@ export function parseTraceEvent(input: unknown): Result<TraceEvent> {
   if (input.type === 'annotation.redaction' &&
       (typeof input.selector !== 'string' || input.selector.length === 0 || typeof input.instanceId !== 'string' ||
        input.instanceId.length === 0 || typeof input.visible !== 'boolean' ||
-       (input.visible ? !isBox(input.box) : input.box !== undefined) || input.target !== undefined)) {
+       (input.visible ? !isBox(input.box) : input.box !== undefined) ||
+       Object.keys(input).some((key) => !redactionKeys.has(key)))) {
     return { ok: false, error: 'redaction sample is invalid' };
   }
   return { ok: true, value: input as TraceEvent };

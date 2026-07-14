@@ -26,14 +26,16 @@ Callout evidence:
 
 Redaction evidence:
   target: https://todomvc.com/examples/react/dist/
-  selector: .todo-list li
-  captured geometry samples: 3
-  recorded y positions: 219.8, 199.8 CSS px
+  selector: .new-todo, .todo-list li
+  captured geometry samples: 8 (7 visible, 1 hidden)
+  recorded todo y positions: 195.8, 219.8 CSS px
+  identical todo box resampled across viewport widths: 1280, 1200 CSS px
+  first geometry sample after capture-ready handshake: visible at trace t=0
   trace target/text/value fields in redaction samples: 0
   preview viewport: 1440x900
   enable/disable preview check: passed
-  GIF: 800x450, 15 fps, 2.99 s, 284,139 bytes
-  MP4: 1920x1080, 60 fps, 3.0167 s, 383,547 bytes
+  GIF: 800x450, 16.67 fps, 2.67 s, 464,536 bytes
+  MP4: 1920x1080, 60 fps, 2.6833 s, 588,059 bytes
   local artifacts: artifacts/phase3-redaction.gif,
                    artifacts/phase3-redaction.mp4
   screenshots: artifacts/screenshots/phase3-redaction-preview.png,

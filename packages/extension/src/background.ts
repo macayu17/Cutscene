@@ -9,17 +9,33 @@ async function ensureOffscreen(): Promise<void> {
 }
 
 async function start(tabId: number, includeMic: boolean, redactSelectors: readonly string[]): Promise<Result<RecorderStatus>> {
+  let sessionStarted = false;
+  let offscreenStarted = false;
   try {
     await ensureOffscreen();
     const sessionEpoch = Date.now();
     const context = await chrome.tabs.sendMessage(tabId, { type: 'session.start', sessionEpoch, redactSelectors }) as Result;
     if (!context.ok) return context;
+    sessionStarted = true;
     const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tabId });
     const result = await chrome.runtime.sendMessage({ type: 'offscreen.start', streamId, tabId, sessionEpoch, includeMic,
       context: context.value }) as Result<RecorderStatus>;
-    if (!result.ok) await chrome.tabs.sendMessage(tabId, { type: 'session.stop' });
+    if (!result.ok) { await chrome.tabs.sendMessage(tabId, { type: 'session.stop' }); sessionStarted = false; }
+    else {
+      offscreenStarted = true;
+      const ready = await chrome.tabs.sendMessage(tabId, { type: 'session.captureReady' }) as Result;
+      if (!ready.ok) {
+        await chrome.runtime.sendMessage({ type: 'offscreen.cancel' }); offscreenStarted = false;
+        await chrome.tabs.sendMessage(tabId, { type: 'session.stop' }).catch(() => undefined); sessionStarted = false;
+        return ready;
+      }
+    }
     return result;
-  } catch (error: unknown) { return { ok: false, error: error instanceof Error ? error.message : String(error) }; }
+  } catch (error: unknown) {
+    if (offscreenStarted) await chrome.runtime.sendMessage({ type: 'offscreen.cancel' }).catch(() => undefined);
+    if (sessionStarted) await chrome.tabs.sendMessage(tabId, { type: 'session.stop' }).catch(() => undefined);
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
 }
 
 async function stop(): Promise<Result<RecorderStatus>> {

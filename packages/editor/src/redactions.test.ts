@@ -27,19 +27,30 @@ describe('redaction tracks', () => {
   it('maps appearance, movement, disappearance, and multiple instances through the media clock', () => {
     const intervals = deriveRedactionIntervals(events, clock, 300);
     expect(intervals).toEqual([
-      { selector: '.secret', instanceId: 'one', startMs: 0, endMs: 99, box: { x: 10, y: 20, width: 100, height: 24 }, viewport },
-      { selector: '.secret', instanceId: 'one', startMs: 100, endMs: 199, box: { x: 10, y: 60, width: 100, height: 24 }, viewport },
+      { selector: '.secret', instanceId: 'one', startMs: 0, endMs: 100, box: { x: 10, y: 20, width: 100, height: 24 }, viewport },
+      { selector: '.secret', instanceId: 'one', startMs: 100, endMs: 200, box: { x: 10, y: 60, width: 100, height: 24 }, viewport },
       { selector: '.secret', instanceId: 'two', startMs: 150, endMs: 300, box: { x: 300, y: 60, width: 120, height: 24 }, viewport },
     ]);
     const tracks = deriveRedactions(meta, events);
     expect(redactionBoxesAt(intervals, tracks, 50)).toHaveLength(1);
+    expect(redactionBoxesAt(intervals, tracks, 99.5)[0]?.box.y).toBe(20);
+    expect(redactionBoxesAt(intervals, tracks, 100)[0]?.box.y).toBe(60);
     expect(redactionBoxesAt(intervals, tracks, 150).map(({ instanceId }) => instanceId)).toEqual(['one', 'two']);
     expect(redactionBoxesAt(intervals, tracks, 200).map(({ instanceId }) => instanceId)).toEqual(['two']);
     expect(redactionBoxesAt(intervals, toggleRedaction(tracks, '.secret'), 150)).toEqual([]);
     expect(compileRedactions(intervals, tracks, { width: 1_920, height: 1_080 })[0]).toEqual({
-      x: 109, y: 27, width: 136, height: 33, startSeconds: 0, endSeconds: 0.099,
+      x: 108, y: 26, width: 138, height: 34, blurRadius: 8, startSeconds: 0, endSeconds: 0.1,
     });
     expect(compileRedactions(intervals, toggleRedaction(tracks, '.secret'), { width: 1_920, height: 1_080 })).toEqual([]);
+    const tiny = compileRedactions([{ ...intervals[0]!, box: { x: 1, y: 1, width: 1, height: 1 }, viewport: { width: 1_920,
+      height: 1_080, dpr: 1 } }], tracks, { width: 1_920, height: 1_080 })[0];
+    expect(tiny).toMatchObject({ width: 4, height: 4, blurRadius: 1 });
+    expect((tiny?.x ?? 1) % 2).toBe(0);
+    expect((tiny?.y ?? 1) % 2).toBe(0);
+    expect(compileRedactions([{ ...intervals[0]!, box: { x: -200, y: 1, width: 50, height: 10 } }], tracks,
+      { width: 1_920, height: 1_080 })).toEqual([]);
+    expect(compileRedactions([{ ...intervals[0]!, box: { x: 2_000, y: 1, width: 50, height: 10 } }], tracks,
+      { width: 1_920, height: 1_080 })).toEqual([]);
   });
 
   it('falls back to captured samples when older metadata has no selector list', () => {
