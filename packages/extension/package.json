@@ -1,0 +1,22 @@
+{
+  "name": "@cutscene/extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "e2e": "playwright test",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cutscene/trace": "workspace:*"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.7.1",
+    "@playwright/test": "^1.61.1",
+    "@types/chrome": "^0.1.43",
+    "@types/node": "^24.13.3",
+    "vite": "^7.3.6"
+  }
+}

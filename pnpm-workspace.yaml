@@ -3,7 +3,13 @@ packages:
   - packages/extension
   - packages/editor
 
+allowBuilds:
+  esbuild: true
+
 minimumReleaseAge: 1440
 
 minimumReleaseAgeExclude:
   - '@cutscene/*'
+
+onlyBuiltDependencies:
+  - esbuild
