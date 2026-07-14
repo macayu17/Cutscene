@@ -14,6 +14,7 @@ type Size = { width: number; height: number };
 
 export const AUTO_ZOOM_TRANSITION_MS = 650;
 export const AUTO_ZOOM_HOLD_MS = 900;
+export const AUTO_ZOOM_EXIT_MS = 900;
 export const AUTO_ZOOM_MAX_SCALE = 1.8;
 
 function focusRect(box: BoundingBox, viewport: Size): BoundingBox {
@@ -53,7 +54,7 @@ export function deriveZoomSegments(clicks: readonly ZoomClick[], viewport: Size,
     if (duringScroll.has(index)) return [];
     const clickViewport = click.viewport ?? viewport;
     const startMs = Math.max(0, click.t - AUTO_ZOOM_TRANSITION_MS);
-    const endMs = click.t + AUTO_ZOOM_HOLD_MS + AUTO_ZOOM_TRANSITION_MS;
+    const endMs = click.t + AUTO_ZOOM_HOLD_MS + AUTO_ZOOM_EXIT_MS;
     if (scrollTimes.some((time) => time >= startMs && time <= endMs)) return [];
     const focus = focusRect(click.box, clickViewport);
     return [{

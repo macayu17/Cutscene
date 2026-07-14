@@ -4,22 +4,22 @@ import type { EditableSegment } from './segments';
 
 const viewport = { width: 1_280, height: 800 };
 const segment: EditableSegment = {
-  id: 'zoom_1', eventId: 'event_1', startMs: 1_350, clickMs: 2_000, endMs: 3_550,
+  id: 'zoom_1', eventId: 'event_1', startMs: 1_350, clickMs: 2_000, endMs: 3_800,
   focus: { x: 720, y: 120, width: 320, height: 200 }, scale: 1.8, viewport,
 };
 
 describe('cameraAt', () => {
   it('derives shared entry, hold, and exit boundaries', () => {
-    expect(cameraTiming(segment)).toEqual({ startMs: 1_350, peakMs: 2_000, exitStartMs: 2_900, endMs: 3_550 });
+    expect(cameraTiming(segment)).toEqual({ startMs: 1_350, peakMs: 2_000, exitStartMs: 2_900, endMs: 3_800 });
   });
 
-  it('uses one symmetric cubic trajectory for entry, hold, and exit', () => {
+  it('uses one smooth cubic trajectory with a slower exit', () => {
     expect(cameraAt(1_350, [segment], viewport)).toEqual({ scale: 1, centerX: 640, centerY: 400, strength: 0 });
     expect(cameraAt(1_675, [segment], viewport)).toEqual({ scale: 1.4, centerX: 760, centerY: 310, strength: 0.5 });
     expect(cameraAt(2_000, [segment], viewport)).toEqual({ scale: 1.8, centerX: 880, centerY: 800 / 3.6, strength: 1 });
     expect(cameraAt(2_900, [segment], viewport)).toEqual({ scale: 1.8, centerX: 880, centerY: 800 / 3.6, strength: 1 });
-    expect(cameraAt(3_225, [segment], viewport)).toEqual({ scale: 1.4, centerX: 760, centerY: 310, strength: 0.5 });
-    expect(cameraAt(3_550, [segment], viewport)).toEqual({ scale: 1, centerX: 640, centerY: 400, strength: 0 });
+    expect(cameraAt(3_350, [segment], viewport)).toEqual({ scale: 1.4, centerX: 760, centerY: 310, strength: 0.5 });
+    expect(cameraAt(3_800, [segment], viewport)).toEqual({ scale: 1, centerX: 640, centerY: 400, strength: 0 });
   });
 
   it('is deterministic when seeking in either direction', () => {

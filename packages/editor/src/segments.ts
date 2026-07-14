@@ -1,4 +1,4 @@
-import { AUTO_ZOOM_HOLD_MS, AUTO_ZOOM_MAX_SCALE, AUTO_ZOOM_TRANSITION_MS, deriveZoomSegments, type BoundingBox, type MediaClockFit, type TraceEvent, type Viewport } from '@cutscene/trace';
+import { AUTO_ZOOM_EXIT_MS, AUTO_ZOOM_HOLD_MS, AUTO_ZOOM_MAX_SCALE, AUTO_ZOOM_TRANSITION_MS, deriveZoomSegments, type BoundingBox, type MediaClockFit, type TraceEvent, type Viewport } from '@cutscene/trace';
 
 export type EditableSegment = {
   id: string;
@@ -25,7 +25,7 @@ export function addSegment(segments: readonly EditableSegment[], playheadMs: num
   const width = Math.max(320, viewport.width / 2);
   const height = width * viewport.height / viewport.width;
   return [...segments, { id: `zoom_${crypto.randomUUID()}`, eventId: null, startMs: Math.max(0, playheadMs - AUTO_ZOOM_TRANSITION_MS),
-    clickMs: playheadMs, endMs: playheadMs + AUTO_ZOOM_HOLD_MS + AUTO_ZOOM_TRANSITION_MS,
+    clickMs: playheadMs, endMs: playheadMs + AUTO_ZOOM_HOLD_MS + AUTO_ZOOM_EXIT_MS,
     focus: { x: (viewport.width - width) / 2, y: (viewport.height - height) / 2, width, height },
     scale: Math.min(AUTO_ZOOM_MAX_SCALE, viewport.width / width), viewport }];
 }

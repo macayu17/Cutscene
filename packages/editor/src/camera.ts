@@ -1,4 +1,4 @@
-import { mapBoxToCapture } from '@cutscene/trace';
+import { AUTO_ZOOM_EXIT_MS, mapBoxToCapture } from '@cutscene/trace';
 import type { EditableSegment } from './segments';
 
 export type CameraState = { scale: number; centerX: number; centerY: number; strength: number };
@@ -8,9 +8,8 @@ type Size = { width: number; height: number };
 function smoothstep(value: number): number { return value * value * (3 - 2 * value); }
 
 export function cameraTiming(segment: EditableSegment): CameraTiming {
-  const transitionMs = Math.max(1, segment.clickMs - segment.startMs);
   return { startMs: segment.startMs, peakMs: segment.clickMs,
-    exitStartMs: Math.max(segment.clickMs, segment.endMs - transitionMs), endMs: segment.endMs };
+    exitStartMs: Math.max(segment.clickMs, segment.endMs - AUTO_ZOOM_EXIT_MS), endMs: segment.endMs };
 }
 
 export function segmentStrength(segment: EditableSegment, timeMs: number): number {

@@ -30,7 +30,7 @@ The ten-event browser evidence is
 
 ## Motion and export
 
-- Automatic zoom: 650 ms symmetric cubic entry, 900 ms hold, 650 ms exit
+- Automatic zoom: 650 ms cubic entry, 900 ms hold, 900 ms cubic exit
 - Maximum automatic scale: 1.8x
 - Browser frame sample: 180 frames
 - Browser frame interval: 16.8 ms p95, 16.8 ms maximum

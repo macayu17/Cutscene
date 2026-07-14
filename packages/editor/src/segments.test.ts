@@ -7,16 +7,16 @@ const segment: EditableSegment = { id: 'z1', eventId: 'e1', startMs: 100, clickM
   focus: { x: 10, y: 20, width: 320, height: 200 }, scale: 2, viewport: { width: 1_280, height: 800 } };
 
 it('holds an automatic zoom for 900ms after the click before returning', () => {
-  const automatic = { ...segment, startMs: 1_350, clickMs: 2_000, endMs: 3_550 };
+  const automatic = { ...segment, startMs: 1_350, clickMs: 2_000, endMs: 3_800 };
   expect(segmentStrength(automatic, 2_900)).toBe(1);
-  expect(segmentStrength(automatic, 3_225)).toBeCloseTo(0.5);
-  expect(segmentStrength(automatic, 3_550)).toBe(0);
+  expect(segmentStrength(automatic, 3_350)).toBeCloseTo(0.5);
+  expect(segmentStrength(automatic, 3_800)).toBe(0);
 });
 
 it('adds and deletes a manual segment', () => {
   const added = addSegment([], 2_000, { width: 1280, height: 800 });
   expect(added).toHaveLength(1);
-  expect(added[0]).toMatchObject({ startMs: 1_350, clickMs: 2_000, endMs: 3_550, scale: 1.8 });
+  expect(added[0]).toMatchObject({ startMs: 1_350, clickMs: 2_000, endMs: 3_800, scale: 1.8 });
   expect(deleteSegment(added, added[0]?.id ?? '')).toEqual([]);
 });
 
