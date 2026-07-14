@@ -6,6 +6,8 @@ import { addSegment, automaticSegments, deleteSegment, retargetSegment, retimeSe
 import { deriveZoomSegments } from '@cutscene/trace';
 import { addCallout as addCalloutEdit, deleteCallout as deleteCalloutEdit, updateCallout as updateCalloutEdit,
   type EditableCallout } from './callouts';
+import { deleteRedaction as deleteRedactionEdit, deriveRedactionIntervals, deriveRedactions,
+  toggleRedaction as toggleRedactionEdit, type EditableRedaction, type RedactionBox } from './redactions';
 
 export type EditorState = {
   bundle: BundleData | null;
@@ -13,6 +15,8 @@ export type EditorState = {
   media: File | null;
   segments: EditableSegment[];
   callouts: EditableCallout[];
+  redactions: EditableRedaction[];
+  redactionBoxes: RedactionBox[];
   selectedSegmentId: string | null;
   selectedEventId: string | null;
   hoveredEventId: string | null;
@@ -34,15 +38,19 @@ export type EditorState = {
   addCallout: () => void;
   updateCallout: (id: string, text: string) => void;
   deleteCallout: (id: string) => void;
+  toggleRedaction: (selector: string) => void;
+  deleteRedaction: (selector: string) => void;
   setExport: (progress: number | null, error?: string | null) => void;
 };
 
 const creator = (set: StoreApi<EditorState>['setState']): EditorState => ({
-  bundle: null, mediaUrl: null, media: null, segments: [], callouts: [], selectedSegmentId: null,
+  bundle: null, mediaUrl: null, media: null, segments: [], callouts: [], redactions: [], redactionBoxes: [], selectedSegmentId: null,
   selectedEventId: null, hoveredEventId: null, playheadMs: 0, exportProgress: null, exportError: null,
   selectionStartMs: null, selectionEndMs: null,
   load: (bundle, mediaUrl, media) => set({ bundle, mediaUrl, ...(media ? { media } : {}),
-    segments: automaticSegments(bundle.events, bundle.clock, bundle.meta.viewport), callouts: [], playheadMs: 0,
+    segments: automaticSegments(bundle.events, bundle.clock, bundle.meta.viewport), callouts: [],
+    redactions: deriveRedactions(bundle.meta, bundle.events),
+    redactionBoxes: deriveRedactionIntervals(bundle.events, bundle.clock, bundle.meta.media.durationMs), playheadMs: 0,
     selectedEventId: null, hoveredEventId: null, selectedSegmentId: null }),
   selectEvent: (selectedEventId, playheadMs) => set({ selectedEventId, playheadMs }),
   hoverEvent: (hoveredEventId) => set({ hoveredEventId }),
@@ -68,6 +76,8 @@ const creator = (set: StoreApi<EditorState>['setState']): EditorState => ({
   }),
   updateCallout: (id, text) => set((state) => ({ callouts: updateCalloutEdit(state.callouts, id, text) })),
   deleteCallout: (id) => set((state) => ({ callouts: deleteCalloutEdit(state.callouts, id) })),
+  toggleRedaction: (selector) => set((state) => ({ redactions: toggleRedactionEdit(state.redactions, selector) })),
+  deleteRedaction: (selector) => set((state) => ({ redactions: deleteRedactionEdit(state.redactions, selector) })),
   setExport: (exportProgress, exportError = null) => set({ exportProgress, exportError }),
 });
 

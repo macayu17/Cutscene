@@ -2,6 +2,7 @@ import type { RefObject } from 'react';
 import { useEditorStore } from './store';
 import { SegmentsPanel } from './segments-panel';
 import { CalloutsPanel } from './callouts-panel';
+import { RedactionsPanel } from './redactions-panel';
 
 export function seekForKey(key: string, currentMs: number, durationMs: number): number | null {
   if (key === 'ArrowLeft') return Math.max(0, currentMs - 250);
@@ -35,5 +36,6 @@ export function Timeline({ video }: { video: RefObject<HTMLVideoElement | null> 
     </div>
     <SegmentsPanel/>
     <CalloutsPanel/>
+    <RedactionsPanel/>
   </section>;
 }

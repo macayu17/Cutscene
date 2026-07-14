@@ -4,6 +4,7 @@ import { eventById, useEditorStore } from './store';
 import { cameraAt, cameraMatrix } from './camera';
 import { pageEventAt } from './bundle';
 import { activeCallout, calloutLayout, calloutSize } from './callouts';
+import { redactionBoxesAt } from './redactions';
 
 function SemanticBox() {
   const bundle = useEditorStore((state) => state.bundle);
@@ -36,6 +37,21 @@ function CalloutOverlay() {
   return <div className="callout-overlay" style={{ left: `${layout.card.x / output.width * 100}%`,
     top: `${layout.card.y / output.height * 100}%`, width: `${layout.card.width / output.width * 100}%`,
     height: `${layout.card.height / output.height * 100}%` }}>{callout.text}</div>;
+}
+
+function RedactionOverlay() {
+  const bundle = useEditorStore((state) => state.bundle);
+  const redactions = useEditorStore((state) => state.redactions);
+  const redactionBoxes = useEditorStore((state) => state.redactionBoxes);
+  const playheadMs = useEditorStore((state) => state.playheadMs);
+  if (!bundle) return null;
+  return redactionBoxesAt(redactionBoxes, redactions, playheadMs).map((sample) => {
+    const box = mapBoxToCapture(sample.box, sample.viewport, bundle.meta.capture);
+    return <div key={`${sample.selector}\0${sample.instanceId}`} className="redaction-overlay" style={{
+      left: `${box.x / bundle.meta.capture.width * 100}%`, top: `${box.y / bundle.meta.capture.height * 100}%`,
+      width: `${box.width / bundle.meta.capture.width * 100}%`, height: `${box.height / bundle.meta.capture.height * 100}%`,
+    }}/>;
+  });
 }
 
 export function VideoView({ video }: { video: RefObject<HTMLVideoElement | null> }) {
@@ -89,6 +105,7 @@ export function VideoView({ video }: { video: RefObject<HTMLVideoElement | null>
   return <div className="video-stage" style={{ aspectRatio: `${bundle.meta.capture.width}/${bundle.meta.capture.height}` }}>
     <div ref={transform} className="video-transform">
       <video ref={video} src={mediaUrl} controls/>
+      <RedactionOverlay/>
       <SemanticBox/>
     </div>
     <CalloutOverlay/>

@@ -12,7 +12,7 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 2
 .file-label { border: 1px solid var(--line); color: var(--text); padding: 7px 10px; font-family: 'IBM Plex Mono', monospace; cursor: pointer; }
 .file-label input { position: absolute; opacity: 0; pointer-events: none; }
 .error { color: var(--danger); max-width: 560px; }
-.instrument { height: 100%; display: grid; grid-template: 32px minmax(0, 1fr) 184px / 240px minmax(0, 1fr); }
+.instrument { height: 100%; display: grid; grid-template: 32px minmax(0, 1fr) 224px / 240px minmax(0, 1fr); }
 .topbar { grid-column: 1 / -1; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; padding: 0 10px; font-size: var(--t-xs); letter-spacing: .03em; white-space: nowrap; }
 .topbar .push { margin-left: auto; }
 .topbar .file-label { padding: 3px 8px; font-size: var(--t-xs); }
@@ -30,6 +30,7 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 2
 .video-transform { position: absolute; inset: 0; transform-origin: 0 0; will-change: transform; }
 .video-stage video { width: 100%; height: 100%; display: block; }
 .semantic-box { position: absolute; border: 2px solid var(--signal); pointer-events: none; animation: measure 120ms steps(4, end); }
+.redaction-overlay { position: absolute; background: rgb(30 33 38 / 18%); backdrop-filter: blur(12px); pointer-events: none; }
 .callout-overlay { position: absolute; display: flex; align-items: center; padding: 8px 10px; border-left: 3px solid var(--signal); background: var(--surface); color: var(--text); font-size: var(--t-sm); overflow: hidden; pointer-events: none; }
 @keyframes measure { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
 .timeline { grid-column: 1 / -1; border-top: 1px solid var(--line); background: var(--surface); padding: 10px; }
@@ -49,4 +50,8 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 2
 .callout-controls { display: flex; align-items: center; gap: 6px; height: 28px; font-size: var(--t-xs); color: var(--text-dim); }
 .callout-controls button, .callout-controls input { border: 1px solid var(--line); background: var(--bg); color: var(--text); padding: 2px 5px; }
 .callout-controls input { width: min(320px, 32vw); }
+.redaction-controls { display: flex; align-items: center; gap: 8px; min-height: 32px; font-size: var(--t-xs); color: var(--text-dim); overflow-x: auto; }
+.redaction-controls label { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.redaction-controls code { color: var(--text); }
+.redaction-controls button { border: 1px solid var(--line); background: var(--bg); color: var(--text); padding: 2px 5px; }
 @media (prefers-reduced-motion: reduce) { .semantic-box { animation: none; } }
