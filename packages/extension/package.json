@@ -6,7 +6,7 @@
   "scripts": {
     "build": "vite build",
     "e2e": "playwright test",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run src --passWithNoTests",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
