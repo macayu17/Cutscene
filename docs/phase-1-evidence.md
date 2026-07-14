@@ -1,6 +1,6 @@
 # Phase 1 evidence
 
-Status: implementation verified; phase gate pending uninformed-human comparison.
+Status: passed.
 
 ## Production recording
 
@@ -62,6 +62,5 @@ The current local evidence artifact is `artifacts/side-by-side-v2.mp4`:
 known off-center pointer coordinate; the right crop uses the recorded input
 bounds.
 
-Pending gate: a person who was not told what to look for must confirm that the
-difference is obvious within ten seconds. `STATUS.md` remains Phase 1 until that
-response is recorded.
+An uninformed viewer identified the difference within ten seconds on
+2026-07-14. The Phase 1 comparison gate passed.

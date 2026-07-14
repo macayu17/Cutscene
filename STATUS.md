@@ -1,4 +1,11 @@
-Phase: 1
+Phase: 3
+
+Phase 2 was waived by explicit owner override on 2026-07-14.
+No external PRs were opened. The missing demand-validation evidence is an
+accepted product risk, not a successful Phase 2 result. See PRD.md §6.
+
+Phase 1 passed on 2026-07-14. See docs/phase-1-evidence.md.
+An uninformed viewer identified the side-by-side difference within 10 seconds.
 
 Phase 0 spike passed on 2026-07-14. See PRD.md §4.
 

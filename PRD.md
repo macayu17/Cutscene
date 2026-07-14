@@ -331,6 +331,13 @@ That is the gate. Not stars, not installs, not signups.
 
 If three PRs are opened and none are merged, the wedge is wrong. Stop and reconsider before Phase 3. Do not build a better editor for a product nobody wants.
 
+### Owner override — 2026-07-14
+
+The external PR experiment is waived because public AI-assisted contributions
+create an unacceptable account-safety risk for the owner. No external PRs are
+authorised. Phase 3 may begin without this demand-validation evidence; this is
+an accepted product risk, not a successful Phase 2 result.
+
 ---
 
 ## 7. Phase 3 — element-aware editing
