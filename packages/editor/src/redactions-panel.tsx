@@ -5,8 +5,8 @@ export function RedactionsPanel() {
   const toggleRedaction = useEditorStore((state) => state.toggleRedaction);
   const deleteRedaction = useEditorStore((state) => state.deleteRedaction);
   return <div className="redaction-controls"><span>REDACTIONS</span>{redactions.length ? redactions.map((redaction) =>
-    <label key={redaction.selector}><input type="checkbox" checked={redaction.enabled}
-      onChange={() => toggleRedaction(redaction.selector)}/><code>{redaction.selector}</code>
+    <span className="redaction-control" key={redaction.selector}><label><input type="checkbox" checked={redaction.enabled}
+      onChange={() => toggleRedaction(redaction.selector)}/><code>{redaction.selector}</code></label>
       <button type="button" aria-label={`Delete redaction ${redaction.selector}`}
-        onClick={() => deleteRedaction(redaction.selector)}>Delete</button></label>) : <span>none captured</span>}</div>;
+        onClick={() => deleteRedaction(redaction.selector)}>Delete</button></span>) : <span>none captured</span>}</div>;
 }

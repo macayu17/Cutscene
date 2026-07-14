@@ -51,7 +51,7 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 2
 .callout-controls button, .callout-controls input { border: 1px solid var(--line); background: var(--bg); color: var(--text); padding: 2px 5px; }
 .callout-controls input { width: min(320px, 32vw); }
 .redaction-controls { display: flex; align-items: center; gap: 8px; min-height: 32px; font-size: var(--t-xs); color: var(--text-dim); overflow-x: auto; }
-.redaction-controls label { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.redaction-control, .redaction-controls label { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
 .redaction-controls code { color: var(--text); }
 .redaction-controls button { border: 1px solid var(--line); background: var(--bg); color: var(--text); padding: 2px 5px; }
 @media (prefers-reduced-motion: reduce) { .semantic-box { animation: none; } }
