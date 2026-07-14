@@ -6,9 +6,24 @@ type PageContext = { viewport: Viewport; scroll: ScrollPosition; route: string; 
 type State = {
   recorder: MediaRecorder; stream: MediaStream; mic: MediaStream | null; chunks: Blob[]; events: TraceEvent[];
   tabId: number; sessionEpoch: number; startedAt: number; mediaStart: number; timer: number; recordingId: string; context: PageContext;
+  capture: { width: number; height: number; fps: number };
 };
 
 let state: State | null = null;
+
+async function captureDimensions(stream: MediaStream): Promise<{ width: number; height: number }> {
+  const video = document.createElement('video');
+  video.muted = true;
+  video.srcObject = stream;
+  await new Promise<void>((resolve, reject) => {
+    video.addEventListener('loadedmetadata', () => resolve(), { once: true });
+    video.addEventListener('error', () => reject(new Error('Captured video metadata is unavailable.')), { once: true });
+    void video.play();
+  });
+  const dimensions = { width: video.videoWidth, height: video.videoHeight };
+  video.pause(); video.srcObject = null;
+  return dimensions;
+}
 
 function status(): RecorderStatus {
   return { recording: state !== null, tabId: state?.tabId ?? null,
@@ -40,12 +55,14 @@ async function start(message: { streamId: string; tabId: number; sessionEpoch: n
     const tab = await navigator.mediaDevices.getUserMedia({ video, audio: false });
     const mic = message.includeMic ? await navigator.mediaDevices.getUserMedia({ audio: true }) : null;
     const stream = new MediaStream([...tab.getVideoTracks(), ...(mic?.getAudioTracks() ?? [])]);
+    const dimensions = await captureDimensions(stream);
     const mimeType = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp9', 'video/webm'].find(MediaRecorder.isTypeSupported.bind(MediaRecorder));
     const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
     const chunks: Blob[] = [];
     recorder.addEventListener('dataavailable', (event) => { if (event.data.size) chunks.push(event.data); });
     const current: State = { recorder, stream, mic, chunks, events: [], tabId: message.tabId, sessionEpoch: message.sessionEpoch,
-      startedAt: Date.now(), mediaStart: performance.now(), timer: 0, recordingId: `rec_${crypto.randomUUID()}`, context: message.context };
+      startedAt: Date.now(), mediaStart: performance.now(), timer: 0, recordingId: `rec_${crypto.randomUUID()}`, context: message.context,
+      capture: { ...dimensions, fps: tab.getVideoTracks()[0]?.getSettings().frameRate ?? 30 } };
     current.events.push(systemEvent('system.recordingStart', current, 0), systemEvent('navigation', current, 0));
     recorder.start(1_000);
     state = current;
@@ -67,10 +84,9 @@ async function stop(): Promise<Result<RecorderStatus>> {
     current.stream.getTracks().forEach((track) => track.stop()); current.mic?.getTracks().forEach((track) => track.stop());
     const media = new Blob(current.chunks, { type: current.recorder.mimeType });
     const trace = new Blob([`${current.events.map((event) => JSON.stringify(event)).join('\n')}\n`], { type: 'application/x-ndjson' });
-    const settings = current.stream.getVideoTracks()[0]?.getSettings();
     const meta: RecordingMeta = { schemaVersion: 1, recordingId: current.recordingId, createdAt: new Date(current.sessionEpoch).toISOString(),
       sessionEpoch: current.sessionEpoch, url: current.context.url, origin: current.context.origin, viewport: current.context.viewport,
-      capture: { width: settings?.width ?? current.context.viewport.width, height: settings?.height ?? current.context.viewport.height, fps: settings?.frameRate ?? 30 },
+      capture: current.capture,
       media: { mimeType: current.recorder.mimeType, hasAudio: current.stream.getAudioTracks().length > 0, durationMs },
       privacy: { maskInputValues: true, captureNetwork: false, maskedSelectors: ['[data-sensitive]', '[data-private]', 'input[type=password]'] },
       app: { commit: null, version: null, environment: null } };

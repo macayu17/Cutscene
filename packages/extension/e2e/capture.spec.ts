@@ -1,6 +1,10 @@
 import { copyFile, mkdir, readFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
 import path from 'node:path';
+import { promisify } from 'node:util';
 import { chromium, expect, test } from '@playwright/test';
+
+const execute = promisify(execFile);
 
 test('captures a playable, complete, masked recording bundle', async () => {
   const output = path.resolve('test-results', 'capture');
@@ -63,6 +67,8 @@ test('captures a playable, complete, masked recording bundle', async () => {
     const meta = JSON.parse(await readFile(metaItem.filename, 'utf8')) as Record<string, unknown>;
     expect(meta).toMatchObject({ schemaVersion: 1, app: { commit: null, version: null, environment: null } });
     expect((await readFile(mediaItem.filename)).length).toBeGreaterThan(0);
+    const probe = JSON.parse((await execute('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'json', mediaItem.filename])).stdout) as { streams: Array<{ width: number; height: number }> };
+    expect(meta.capture).toMatchObject(probe.streams[0] ?? {});
   } finally {
     await context.close();
   }
