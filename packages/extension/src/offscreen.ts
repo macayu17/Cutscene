@@ -2,7 +2,8 @@ import type { RecordingMeta, TraceEvent, Viewport, ScrollPosition } from '@cutsc
 import type { RecorderStatus, Result } from './messages';
 import { saveBundle } from './storage';
 
-type PageContext = { viewport: Viewport; scroll: ScrollPosition; route: string; url: string; origin: string; contentClockMs: number };
+type PageContext = { viewport: Viewport; scroll: ScrollPosition; route: string; url: string; origin: string; contentClockMs: number;
+  visualRedactionSelectors: string[] };
 type State = {
   recorder: MediaRecorder; stream: MediaStream; mic: MediaStream | null; chunks: Blob[]; events: TraceEvent[];
   tabId: number; sessionEpoch: number; startedAt: number; mediaStart: number; timer: number; recordingId: string; context: PageContext;
@@ -90,7 +91,9 @@ async function stop(): Promise<Result<RecorderStatus>> {
       sessionEpoch: current.sessionEpoch, url: current.context.url, origin: current.context.origin, viewport: current.context.viewport,
       capture: current.capture,
       media: { mimeType: current.recorder.mimeType, hasAudio: current.stream.getAudioTracks().length > 0, durationMs },
-      privacy: { maskInputValues: true, captureNetwork: false, maskedSelectors: ['[data-sensitive]', '[data-private]', 'input[type=password]'] },
+      privacy: { maskInputValues: true, captureNetwork: false, maskedSelectors: ['[data-sensitive]', '[data-private]', 'input[type=password]'],
+        ...(current.context.visualRedactionSelectors.length ?
+          { visualRedactionSelectors: current.context.visualRedactionSelectors } : {}) },
       app: { commit: null, version: null, environment: null } };
     await saveBundle(current.recordingId, media, trace, meta);
     const urls = { mediaUrl: URL.createObjectURL(media), traceUrl: URL.createObjectURL(trace),

@@ -1,12 +1,18 @@
-import { rankLocators, sanitizeTarget, type TargetDescriptor, type TraceEvent, type TraceEventType } from '@cutscene/trace';
+import { rankLocators, sanitizeTarget, type BoundingBox, type RedactionSampleEvent, type TargetDescriptor, type TraceEvent,
+  type TraceEventType } from '@cutscene/trace';
 import type { Result } from './messages';
 
-type PageContext = { viewport: ReturnType<typeof viewport>; scroll: ReturnType<typeof scroll>; route: string; url: string; origin: string; contentClockMs: number };
+type PageContext = { viewport: ReturnType<typeof viewport>; scroll: ReturnType<typeof scroll>; route: string; url: string; origin: string;
+  contentClockMs: number; visualRedactionSelectors: string[] };
 
 let sessionEpoch: number | null = null;
 let step = 0;
 let scheduledScroll = false;
 let scheduledResize = false;
+let redactionFrame = 0;
+let redactionSelectors: string[] = [];
+let redactionIds = new WeakMap<Element, string>();
+let previousRedactions = new Map<string, { selector: string; instanceId: string; box: BoundingBox }>();
 
 function now(): number { return performance.timeOrigin + performance.now() - (sessionEpoch ?? Date.now()); }
 function route(): string { return `${location.pathname}${location.search}${location.hash}`; }
@@ -64,14 +70,46 @@ function target(element: Element): TargetDescriptor | null {
   return sanitizeTarget(observation);
 }
 
-function emit(type: TraceEventType, targetDescriptor?: TargetDescriptor): void {
+function emit(type: Exclude<TraceEventType, 'system.clockSync' | 'annotation.redaction'>, targetDescriptor?: TargetDescriptor): void {
   if (sessionEpoch === null) return;
   const event: TraceEvent = {
-    v: 1, id: `evt_${crypto.randomUUID()}`, t: now(), type: type as Exclude<TraceEventType, 'system.clockSync'>,
+    v: 1, id: `evt_${crypto.randomUUID()}`, t: now(), type,
     stepId: `step_${String(++step).padStart(4, '0')}`, route: route(), viewport: viewport(), scroll: scroll(),
     ...(targetDescriptor ? { target: targetDescriptor } : {}),
   };
   void chrome.runtime.sendMessage({ type: 'trace.event', event });
+}
+
+function emitRedaction(selector: string, instanceId: string, box?: BoundingBox): void {
+  if (sessionEpoch === null) return;
+  const event: RedactionSampleEvent = { v: 1, id: `evt_${crypto.randomUUID()}`, t: now(), type: 'annotation.redaction',
+    stepId: `step_${String(++step).padStart(4, '0')}`, route: route(), viewport: viewport(), scroll: scroll(),
+    selector, instanceId, visible: box !== undefined, ...(box ? { box } : {}) };
+  void chrome.runtime.sendMessage({ type: 'trace.event', event });
+}
+
+function changed(left: BoundingBox, right: BoundingBox): boolean {
+  return Math.abs(left.x - right.x) >= 0.5 || Math.abs(left.y - right.y) >= 0.5 ||
+    Math.abs(left.width - right.width) >= 0.5 || Math.abs(left.height - right.height) >= 0.5;
+}
+
+function sampleRedactions(): void {
+  if (sessionEpoch === null) return;
+  const current = new Map<string, { selector: string; instanceId: string; box: BoundingBox }>();
+  for (const selector of redactionSelectors) for (const element of Array.from(document.querySelectorAll(selector))) {
+    const rect = element.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) continue;
+    let instanceId = redactionIds.get(element);
+    if (!instanceId) { instanceId = `redaction_${crypto.randomUUID()}`; redactionIds.set(element, instanceId); }
+    const key = `${selector}\0${instanceId}`;
+    const sample = { selector, instanceId, box: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } };
+    current.set(key, sample);
+    const previous = previousRedactions.get(key);
+    if (!previous || changed(previous.box, sample.box)) emitRedaction(selector, instanceId, sample.box);
+  }
+  for (const [key, previous] of previousRedactions) if (!current.has(key)) emitRedaction(previous.selector, previous.instanceId);
+  previousRedactions = current;
+  redactionFrame = requestAnimationFrame(sampleRedactions);
 }
 
 function actionable(value: EventTarget | null): Element | null {
@@ -96,10 +134,17 @@ history.replaceState = function(data: unknown, unused: string, url?: string | UR
 chrome.runtime.onMessage.addListener((message: unknown, _sender, respond) => {
   if (!message || typeof message !== 'object' || !('type' in message)) return false;
   if (message.type === 'session.start' && 'sessionEpoch' in message && typeof message.sessionEpoch === 'number') {
+    const selectors = 'redactSelectors' in message && Array.isArray(message.redactSelectors) &&
+      message.redactSelectors.every((value) => typeof value === 'string') ? message.redactSelectors : [];
+    try { selectors.forEach((selector) => document.querySelectorAll(selector)); }
+    catch (error: unknown) { respond({ ok: false, error: error instanceof Error ? error.message : String(error) } satisfies Result); return false; }
     sessionEpoch = message.sessionEpoch; step = 0;
+    redactionSelectors = [...selectors]; redactionIds = new WeakMap(); previousRedactions = new Map();
+    cancelAnimationFrame(redactionFrame); redactionFrame = requestAnimationFrame(sampleRedactions);
     respond({ ok: true, value: { viewport: viewport(), scroll: scroll(), route: route(), url: location.href,
-      origin: location.origin, contentClockMs: now() } } satisfies Result<PageContext>);
-  } else if (message.type === 'session.stop') { sessionEpoch = null; respond({ ok: true, value: undefined } satisfies Result); }
+      origin: location.origin, contentClockMs: now(), visualRedactionSelectors: redactionSelectors } } satisfies Result<PageContext>);
+  } else if (message.type === 'session.stop') { sessionEpoch = null; cancelAnimationFrame(redactionFrame); redactionSelectors = [];
+    previousRedactions.clear(); respond({ ok: true, value: undefined } satisfies Result); }
   else if (message.type === 'clock.sample') respond({ ok: true, value: now() } satisfies Result<number>);
   else return false;
   return false;

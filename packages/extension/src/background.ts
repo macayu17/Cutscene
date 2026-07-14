@@ -8,14 +8,15 @@ async function ensureOffscreen(): Promise<void> {
   await chrome.offscreen.createDocument({ url: offscreenPath, reasons: [chrome.offscreen.Reason.USER_MEDIA, chrome.offscreen.Reason.BLOBS], justification: 'Record a tab and persist its local recording bundle.' });
 }
 
-async function start(tabId: number, includeMic: boolean): Promise<Result<RecorderStatus>> {
+async function start(tabId: number, includeMic: boolean, redactSelectors: readonly string[]): Promise<Result<RecorderStatus>> {
   try {
     await ensureOffscreen();
     const sessionEpoch = Date.now();
-    const context = await chrome.tabs.sendMessage(tabId, { type: 'session.start', sessionEpoch }) as Result;
+    const context = await chrome.tabs.sendMessage(tabId, { type: 'session.start', sessionEpoch, redactSelectors }) as Result;
     if (!context.ok) return context;
     const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tabId });
-    const result = await chrome.runtime.sendMessage({ type: 'offscreen.start', streamId, tabId, sessionEpoch, includeMic, context: context.value }) as Result<RecorderStatus>;
+    const result = await chrome.runtime.sendMessage({ type: 'offscreen.start', streamId, tabId, sessionEpoch, includeMic,
+      context: context.value }) as Result<RecorderStatus>;
     if (!result.ok) await chrome.tabs.sendMessage(tabId, { type: 'session.stop' });
     return result;
   } catch (error: unknown) { return { ok: false, error: error instanceof Error ? error.message : String(error) }; }
@@ -34,7 +35,9 @@ async function stop(): Promise<Result<RecorderStatus>> {
 chrome.runtime.onMessage.addListener((message: unknown, _sender, respond) => {
   if (!message || typeof message !== 'object' || !('type' in message)) return false;
   if (message.type === 'recording.start' && 'tabId' in message && typeof message.tabId === 'number') {
-    void start(message.tabId, 'includeMic' in message && message.includeMic === true).then(respond); return true;
+    const redactSelectors = 'redactSelectors' in message && Array.isArray(message.redactSelectors) &&
+      message.redactSelectors.every((value) => typeof value === 'string') ? message.redactSelectors : [];
+    void start(message.tabId, 'includeMic' in message && message.includeMic === true, redactSelectors).then(respond); return true;
   }
   if (message.type === 'recording.stop') { void stop().then(respond); return true; }
   if (message.type === 'recording.status') { void ensureOffscreen().then(() => chrome.runtime.sendMessage({ type: 'offscreen.status' })).then(respond); return true; }

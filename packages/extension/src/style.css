@@ -1,8 +1,10 @@
 :root { color-scheme: dark; font: 12px/1.4 ui-monospace, monospace; background: #16181c; color: #c8cdd4; }
 body { margin: 0; min-width: 220px; }
 main { display: grid; gap: 8px; padding: 12px; }
-button, label { font: inherit; }
+button, label, textarea { font: inherit; }
+label { display: grid; gap: 4px; }
+textarea { resize: vertical; border: 1px solid #2c3037; background: #1e2126; color: inherit; padding: 6px; }
 button { border: 1px solid #2c3037; background: #1e2126; color: inherit; padding: 6px 8px; text-align: left; }
 button:disabled { color: #727a85; }
-button:focus-visible, input:focus-visible { outline: 2px solid #c8cdd4; outline-offset: 2px; }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid #c8cdd4; outline-offset: 2px; }
 output { color: #727a85; }

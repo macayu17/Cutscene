@@ -40,6 +40,7 @@ test('captures a playable, complete, masked recording bundle', async () => {
     const tabId = await worker.evaluate(async (url) => (await chrome.tabs.query({})).find((tab) => tab.url === url)?.id, page.url());
     const control = await context.newPage();
     await control.goto(`chrome-extension://${extensionId}/control.html?tabId=${tabId}`);
+    await control.locator('#redact').fill('.todo-list li');
     await control.locator('#start').click();
     await expect(control.locator('#status')).toContainText('recording');
 
@@ -81,7 +82,7 @@ test('captures a playable, complete, masked recording bundle', async () => {
     const events = traceText.trim().split(/\r?\n/).map((line) => JSON.parse(line) as Record<string, unknown>);
     const types = new Set(events.map((event) => event.type));
     for (const type of ['system.recordingStart', 'system.recordingStop', 'system.clockSync', 'navigation',
-      'interaction.click', 'interaction.input', 'interaction.scroll', 'viewport.resize']) expect(types.has(type)).toBe(true);
+      'interaction.click', 'interaction.input', 'interaction.scroll', 'viewport.resize', 'annotation.redaction']) expect(types.has(type)).toBe(true);
     expect(traceText).not.toContain('raw-secret-value');
     expect(events.filter((event) => event.type === 'interaction.click')).toHaveLength(requestedClicks);
     const navigation = events.find((event) => event.type === 'navigation');
@@ -91,7 +92,14 @@ test('captures a playable, complete, masked recording bundle', async () => {
     expect(click).toMatchObject({ v: 1, stepId: expect.any(String), scroll: expect.any(Object) });
     expect((click?.target as { locators?: unknown[] }).locators?.length).toBeGreaterThan(0);
     const meta = JSON.parse(await readFile(metaItem.filename, 'utf8')) as Record<string, unknown>;
-    expect(meta).toMatchObject({ schemaVersion: 1, app: { commit: null, version: null, environment: null } });
+    expect(meta).toMatchObject({ schemaVersion: 1, privacy: { visualRedactionSelectors: ['.todo-list li'] },
+      app: { commit: null, version: null, environment: null } });
+    const redaction = events.find((event) => event.type === 'annotation.redaction' && event.visible === true);
+    expect(redaction).toMatchObject({ selector: '.todo-list li', instanceId: expect.any(String), visible: true,
+      box: { x: expect.any(Number), y: expect.any(Number), width: expect.any(Number), height: expect.any(Number) } });
+    expect(redaction).not.toHaveProperty('target');
+    expect(redaction).not.toHaveProperty('text');
+    expect(redaction).not.toHaveProperty('value');
     expect((await readFile(mediaItem.filename)).length).toBeGreaterThan(0);
     const probe = JSON.parse((await execute('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'json', mediaItem.filename])).stdout) as { streams: Array<{ width: number; height: number }> };
     expect(meta.capture).toMatchObject(probe.streams[0] ?? {});

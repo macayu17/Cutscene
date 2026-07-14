@@ -35,6 +35,19 @@ describe('parseTraceEvent', () => {
       error: 'trace event must have v: 1',
     });
   });
+
+  it('parses privacy-safe redaction geometry and rejects malformed samples', () => {
+    const visible = { ...envelope, type: 'annotation.redaction', selector: '.customer-email', instanceId: 'redaction_1',
+      visible: true, box: { x: 20, y: 30, width: 180, height: 24 } };
+    const hidden = { ...visible, visible: false };
+    delete (hidden as { box?: unknown }).box;
+    expect(parseTraceEvent(visible)).toEqual({ ok: true, value: visible });
+    expect(parseTraceEvent(hidden)).toEqual({ ok: true, value: hidden });
+    expect(parseTraceEvent({ ...visible, selector: '' })).toEqual({ ok: false, error: 'redaction sample is invalid' });
+    expect(parseTraceEvent({ ...visible, visible: 'yes' })).toEqual({ ok: false, error: 'redaction sample is invalid' });
+    expect(parseTraceEvent({ ...visible, box: { x: 1 } })).toEqual({ ok: false, error: 'redaction sample is invalid' });
+    expect(parseTraceEvent({ ...visible, target: {} })).toEqual({ ok: false, error: 'redaction sample is invalid' });
+  });
 });
 
 describe('parseRecordingMeta', () => {
@@ -53,11 +66,25 @@ describe('parseRecordingMeta', () => {
         maskInputValues: true,
         captureNetwork: false,
         maskedSelectors: ['[data-sensitive]', 'input[type=password]'],
+        visualRedactionSelectors: ['.customer-email'],
       },
       app: { commit: null, version: null, environment: null },
     };
 
     const parsed = parseRecordingMeta(JSON.parse(JSON.stringify(meta)));
     expect(parsed).toEqual({ ok: true, value: meta });
+  });
+
+  it('accepts old metadata and rejects malformed visual redaction selectors', () => {
+    const base = {
+      schemaVersion: 1, recordingId: 'rec_1', createdAt: '2026-07-14T09:00:00.000Z', sessionEpoch: 1,
+      url: 'https://example.com', origin: 'https://example.com', viewport: envelope.viewport,
+      capture: { width: 1920, height: 1080, fps: 30 }, media: { mimeType: 'video/webm', hasAudio: false, durationMs: 1 },
+      privacy: { maskInputValues: true, captureNetwork: false, maskedSelectors: [] },
+      app: { commit: null, version: null, environment: null },
+    };
+    expect(parseRecordingMeta(base).ok).toBe(true);
+    expect(parseRecordingMeta({ ...base, privacy: { ...base.privacy, visualRedactionSelectors: ['.safe', 2] } }))
+      .toEqual({ ok: false, error: 'metadata privacy is invalid' });
   });
 });

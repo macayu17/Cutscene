@@ -30,6 +30,7 @@ export type TraceEventType =
   | 'viewport.resize'
   | 'interaction.hover'
   | 'annotation.callout'
+  | 'annotation.redaction'
   | 'interaction.keypress'
   | 'dom.mutation'
   | 'network.request'
@@ -54,10 +55,16 @@ export type ClockSyncEvent = EventEnvelope & {
   mediaTimeMs: number;
 };
 
-export type TraceEvent = EventEnvelope & (
-  | ClockSyncEvent
-  | { type: Exclude<TraceEventType, 'system.clockSync'> }
-);
+export type RedactionSampleEvent = EventEnvelope & {
+  type: 'annotation.redaction';
+  selector: string;
+  instanceId: string;
+  visible: boolean;
+  box?: BoundingBox;
+};
+
+export type TraceEvent = ClockSyncEvent | RedactionSampleEvent |
+  (EventEnvelope & { type: Exclude<TraceEventType, 'system.clockSync' | 'annotation.redaction'> });
 
 export type RecordingMeta = {
   schemaVersion: 1;
@@ -73,6 +80,7 @@ export type RecordingMeta = {
     maskInputValues: boolean;
     captureNetwork: false;
     maskedSelectors: string[];
+    visualRedactionSelectors?: string[];
   };
   app: { commit: string | null; version: string | null; environment: string | null };
 };
@@ -80,7 +88,7 @@ export type RecordingMeta = {
 const eventTypes = new Set<TraceEventType>([
   'system.recordingStart', 'system.recordingStop', 'system.clockSync', 'navigation',
   'interaction.click', 'interaction.input', 'interaction.scroll', 'viewport.resize',
-  'interaction.hover', 'annotation.callout', 'interaction.keypress', 'dom.mutation',
+  'interaction.hover', 'annotation.callout', 'annotation.redaction', 'interaction.keypress', 'dom.mutation',
   'network.request', 'annotation.comment', 'system.checkpoint',
 ]);
 
@@ -104,6 +112,11 @@ function isScroll(value: unknown): value is ScrollPosition {
   return isRecord(value) && hasNumber(value, 'x') && hasNumber(value, 'y');
 }
 
+function isBox(value: unknown): value is BoundingBox {
+  return isRecord(value) && hasNumber(value, 'x') && hasNumber(value, 'y') &&
+    hasNumber(value, 'width') && hasNumber(value, 'height');
+}
+
 export function parseTraceEvent(input: unknown): Result<TraceEvent> {
   if (!isRecord(input) || input.v !== 1) return { ok: false, error: 'trace event must have v: 1' };
   if (!hasString(input, 'type') || !eventTypes.has(input.type as TraceEventType)) return { ok: false, error: 'unknown trace event type' };
@@ -114,6 +127,12 @@ export function parseTraceEvent(input: unknown): Result<TraceEvent> {
   if (input.type === 'system.clockSync' &&
       (!hasNumber(input, 'contentClockMs') || !hasNumber(input, 'workerClockMs') || !hasNumber(input, 'mediaTimeMs'))) {
     return { ok: false, error: 'clock sync readings are invalid' };
+  }
+  if (input.type === 'annotation.redaction' &&
+      (typeof input.selector !== 'string' || input.selector.length === 0 || typeof input.instanceId !== 'string' ||
+       input.instanceId.length === 0 || typeof input.visible !== 'boolean' ||
+       (input.visible ? !isBox(input.box) : input.box !== undefined) || input.target !== undefined)) {
+    return { ok: false, error: 'redaction sample is invalid' };
   }
   return { ok: true, value: input as TraceEvent };
 }
@@ -134,7 +153,10 @@ export function parseRecordingMeta(input: unknown): Result<RecordingMeta> {
   }
   if (!isRecord(input.privacy) || typeof input.privacy.maskInputValues !== 'boolean' ||
       input.privacy.captureNetwork !== false || !Array.isArray(input.privacy.maskedSelectors) ||
-      !input.privacy.maskedSelectors.every((item) => typeof item === 'string')) {
+      !input.privacy.maskedSelectors.every((item) => typeof item === 'string') ||
+      (input.privacy.visualRedactionSelectors !== undefined &&
+       (!Array.isArray(input.privacy.visualRedactionSelectors) ||
+        !input.privacy.visualRedactionSelectors.every((item) => typeof item === 'string' && item.length > 0)))) {
     return { ok: false, error: 'metadata privacy is invalid' };
   }
   if (!isRecord(input.app)) return { ok: false, error: 'metadata app is invalid' };
