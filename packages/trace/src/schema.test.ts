@@ -1,0 +1,63 @@
+import { describe, expect, it } from 'vitest';
+import { parseRecordingMeta, parseTraceEvent } from './schema';
+
+const envelope = {
+  v: 1,
+  id: 'evt_1',
+  t: 42,
+  stepId: 'step_1',
+  route: '/projects',
+  viewport: { width: 1280, height: 800, dpr: 1.5 },
+  scroll: { x: 0, y: 240 },
+};
+
+describe('parseTraceEvent', () => {
+  it.each([
+    'system.recordingStart',
+    'system.recordingStop',
+    'system.clockSync',
+    'navigation',
+    'interaction.click',
+    'interaction.input',
+    'interaction.scroll',
+    'viewport.resize',
+  ])('parses %s', (type) => {
+    const event = type === 'system.clockSync'
+      ? { ...envelope, type, contentClockMs: 40, workerClockMs: 43, mediaTimeMs: 41 }
+      : { ...envelope, type };
+
+    expect(parseTraceEvent(event)).toEqual({ ok: true, value: event });
+  });
+
+  it('rejects an event without v: 1', () => {
+    expect(parseTraceEvent({ ...envelope, v: 2, type: 'interaction.click' })).toEqual({
+      ok: false,
+      error: 'trace event must have v: 1',
+    });
+  });
+});
+
+describe('parseRecordingMeta', () => {
+  it('round-trips the complete metadata contract', () => {
+    const meta = {
+      schemaVersion: 1,
+      recordingId: 'rec_1',
+      createdAt: '2026-07-14T09:00:00.000Z',
+      sessionEpoch: 1_752_483_600_000,
+      url: 'https://app.example.com/dashboard',
+      origin: 'https://app.example.com',
+      viewport: { width: 1280, height: 800, dpr: 1.5 },
+      capture: { width: 1920, height: 1080, fps: 30 },
+      media: { mimeType: 'video/webm;codecs=vp9', hasAudio: false, durationMs: 61_340 },
+      privacy: {
+        maskInputValues: true,
+        captureNetwork: false,
+        maskedSelectors: ['[data-sensitive]', 'input[type=password]'],
+      },
+      app: { commit: null, version: null, environment: null },
+    };
+
+    const parsed = parseRecordingMeta(JSON.parse(JSON.stringify(meta)));
+    expect(parsed).toEqual({ ok: true, value: meta });
+  });
+});

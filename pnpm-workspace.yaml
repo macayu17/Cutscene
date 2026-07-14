@@ -1,0 +1,9 @@
+packages:
+  - packages/trace
+  - packages/extension
+  - packages/editor
+
+minimumReleaseAge: 1440
+
+minimumReleaseAgeExclude:
+  - '@cutscene/*'
