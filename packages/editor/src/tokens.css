@@ -1,0 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400&display=swap');
+:root {
+  --bg: #16181c; --surface: #1e2126; --line: #2c3037; --text: #c8cdd4; --text-dim: #727a85;
+  --signal: #f2a63b; --danger: #c7524b; --t-xs: 11px; --t-sm: 12px; --t-md: 13px; --t-lg: 16px;
+}
