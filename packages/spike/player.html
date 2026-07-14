@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cutscene spike playback</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body class="player">
+    <header class="toolbar">
+      <label>media.webm <input id="media-file" type="file" accept="video/webm" /></label>
+      <label>trace.jsonl <input id="trace-file" type="file" accept=".jsonl,application/x-ndjson" /></label>
+    </header>
+    <main class="workspace">
+      <section class="stage">
+        <video controls></video>
+        <div id="overlay" hidden></div>
+        <output id="readout">Load a recording bundle.</output>
+      </section>
+      <aside><h1>10 SAMPLES</h1><ol id="samples"></ol></aside>
+    </main>
+    <script type="module" src="/src/player.ts"></script>
+  </body>
+</html>
