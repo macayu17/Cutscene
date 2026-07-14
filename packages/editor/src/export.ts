@@ -1,10 +1,13 @@
-import { mapBoxToCapture } from '@cutscene/trace';
+import { mapBoxToCapture, type MediaClockFit, type TraceEvent } from '@cutscene/trace';
 import type { EditableSegment } from './segments';
 import { cameraTiming } from './camera';
+import { calloutLayout, calloutSize, calloutWindow, type EditableCallout } from './callouts';
+import { renderCalloutCard } from './callout-render';
 
 type ExportMeta = { capture: { width: number; height: number; fps: number }; viewport?: { width: number; height: number } };
 export type ExportFormat = 'gif' | 'mp4';
 export type ExportPlan = { args: string[]; output: 'output.gif' | 'output.mp4'; mimeType: 'image/gif' | 'video/mp4' };
+export type ExportOverlay = { filename: string; x: number; y: number; startSeconds: number; endSeconds: number };
 
 function escape(expression: string): string { return expression.replaceAll(',', '\\,'); }
 
@@ -36,16 +39,36 @@ function zoomPanFilter(segments: readonly EditableSegment[], meta: ExportMeta, w
   return `zoompan=z='${escape(zoom)}':x='${escape(x)}':y='${escape(y)}':d=1:s=${width}x${height}:fps=${fps}`;
 }
 
-export function buildExportPlan(format: ExportFormat, segments: readonly EditableSegment[], meta: ExportMeta): ExportPlan {
+function overlayChain(overlays: readonly ExportOverlay[]): { filters: string[]; output: string } {
+  let input = 'base';
+  const filters = overlays.map((overlay, index) => {
+    const output = `overlay_${index}`;
+    const filter = `[${input}][${index + 1}:v]overlay=${overlay.x}:${overlay.y}:enable='between(t,${overlay.startSeconds},${overlay.endSeconds})':eof_action=repeat[${output}]`;
+    input = output;
+    return filter;
+  });
+  return { filters, output: input };
+}
+
+export function buildExportPlan(format: ExportFormat, segments: readonly EditableSegment[], meta: ExportMeta,
+  overlays: readonly ExportOverlay[] = []): ExportPlan {
+  const inputs = ['-i', 'input.webm', ...overlays.flatMap(({ filename }) => ['-i', filename])];
   if (format === 'gif') {
     const zoom = zoomPanFilter(segments, meta, 800, 450, 15);
-    return { output: 'output.gif', mimeType: 'image/gif', args: ['-i', 'input.webm', '-filter_complex',
-      `[0:v]fps=15,${zoom},split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle[out]`,
+    const chain = overlayChain(overlays);
+    const overlayFilters = chain.filters.length ? `;${chain.filters.join(';')}` : '';
+    return { output: 'output.gif', mimeType: 'image/gif', args: [...inputs, '-filter_complex',
+      `[0:v]fps=15,${zoom}[base]${overlayFilters};[${chain.output}]split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle[out]`,
       '-map', '[out]', '-loop', '0', 'output.gif'] };
   }
   const zoom = zoomPanFilter(segments, meta, 1920, 1080, 60);
-  return { output: 'output.mp4', mimeType: 'video/mp4', args: ['-i', 'input.webm', '-vf', `fps=60,${zoom},format=yuv420p`,
+  if (!overlays.length) return { output: 'output.mp4', mimeType: 'video/mp4', args: [...inputs, '-vf', `fps=60,${zoom},format=yuv420p`,
     '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-movflags', '+faststart', 'output.mp4'] };
+  const chain = overlayChain(overlays);
+  return { output: 'output.mp4', mimeType: 'video/mp4', args: [...inputs, '-filter_complex',
+    `[0:v]fps=60,${zoom}[base];${chain.filters.join(';')};[${chain.output}]format=yuv420p[out]`,
+    '-map', '[out]', '-map', '0:a?', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p',
+    '-c:a', 'aac', '-movflags', '+faststart', 'output.mp4'] };
 }
 
 let loaded: Promise<InstanceType<typeof import('@ffmpeg/ffmpeg')['FFmpeg']>> | null = null;
@@ -62,13 +85,28 @@ async function ffmpeg() {
 }
 
 export async function exportRecording(media: Blob, format: ExportFormat, segments: readonly EditableSegment[], meta: ExportMeta,
+  callouts: readonly EditableCallout[], events: readonly TraceEvent[], clock: MediaClockFit,
   progress: (value: number) => void): Promise<Blob> {
   const engine = await ffmpeg();
   const listener = ({ progress: value }: { progress: number }) => progress(value);
   engine.on('progress', listener);
   try {
-    const plan = buildExportPlan(format, segments, meta);
+    const outputSize = format === 'gif' ? { width: 800, height: 450 } : { width: 1_920, height: 1_080 };
+    const cardSize = calloutSize(outputSize);
+    const prepared = callouts.flatMap((callout, index) => {
+      const event = events.find(({ id }) => id === callout.sourceEventId);
+      const segment = segments.find(({ eventId }) => eventId === callout.sourceEventId);
+      const window = calloutWindow(callout, segments, events, clock);
+      const layout = event && segment ? calloutLayout(event, segment, meta.capture, outputSize, cardSize) : null;
+      if (!event || !window || !layout || !callout.text.trim()) return [];
+      const filename = `callout_${index}.png`;
+      return [{ filename, data: renderCalloutCard(callout.text, cardSize), overlay: { filename,
+        x: Math.round(layout.card.x), y: Math.round(layout.card.y), startSeconds: window.startMs / 1_000,
+        endSeconds: window.endMs / 1_000 } satisfies ExportOverlay }];
+    });
+    const plan = buildExportPlan(format, segments, meta, prepared.map(({ overlay }) => overlay));
     await engine.writeFile('input.webm', new Uint8Array(await media.arrayBuffer()));
+    for (const item of prepared) await engine.writeFile(item.filename, await item.data);
     await engine.exec(plan.args);
     const data = await engine.readFile(plan.output);
     if (!(data instanceof Uint8Array)) throw new Error('Export produced invalid binary output.');

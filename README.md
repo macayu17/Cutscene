@@ -28,6 +28,7 @@ right.
   recorded element; click it to seek.
 - Automatic element-locked zooms with manual add, delete, retime, and retarget
   controls.
+- Element-anchored callouts rendered consistently in preview, GIF, and MP4.
 - README GIF export with one global palette, plus 1080p H.264 MP4 export.
 
 ## Run locally
@@ -67,8 +68,8 @@ zooms landed on the correct element; mean timing error was 0.258 frame and the
 maximum was 0.422 frame. The 800×450 README GIF was 2,352,555 bytes at 15fps.
 See [the evidence report](docs/phase-1-evidence.md) for the full measurements.
 
-Phase 1 passed. Phase 3 is authorized but not implemented. See
-[`STATUS.md`](STATUS.md) for the gate history.
+Phase 1 passed. Phase 3 is in progress. See [`STATUS.md`](STATUS.md) for the
+current implementation evidence and gate history.
 
 ## Development
 

@@ -25,3 +25,20 @@ it('builds a 1080p H.264 yuv420p MP4', () => {
   expect(plan.args).toEqual(expect.arrayContaining(['libx264', 'yuv420p', 'ultrafast']));
   expect(plan.args.join(' ')).toContain('max(iw/(2*zoom)');
 });
+
+const overlay = { filename: 'callout_0.png', x: 120, y: 80, startSeconds: 1, endSeconds: 2 };
+
+it('composites callouts before the GIF global palette', () => {
+  const plan = buildExportPlan('gif', segments, meta, [overlay]);
+  const command = plan.args.join(' ');
+  expect(command).toContain('-i callout_0.png');
+  expect(command).toContain("overlay=120:80:enable='between(t,1,2)':eof_action=repeat");
+  expect(command.indexOf('overlay=')).toBeLessThan(command.indexOf('palettegen='));
+  expect(command.match(/palettegen/g)).toHaveLength(1);
+});
+
+it('maps filtered callout video and optional source audio for MP4', () => {
+  const plan = buildExportPlan('mp4', segments, meta, [overlay]);
+  expect(plan.args.join(' ')).toContain("overlay=120:80:enable='between(t,1,2)':eof_action=repeat");
+  expect(plan.args).toEqual(expect.arrayContaining(['-map', '[out]', '-map', '0:a?']));
+});

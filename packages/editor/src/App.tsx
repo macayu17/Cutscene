@@ -12,6 +12,7 @@ export default function App() {
   const mediaUrl = useEditorStore((state) => state.mediaUrl);
   const media = useEditorStore((state) => state.media);
   const segments = useEditorStore((state) => state.segments);
+  const callouts = useEditorStore((state) => state.callouts);
   const selectedEventId = useEditorStore((state) => state.selectedEventId);
   const exportProgress = useEditorStore((state) => state.exportProgress);
   const exportError = useEditorStore((state) => state.exportError);
@@ -38,7 +39,8 @@ export default function App() {
     if (!media) return;
     setExport(0);
     try {
-      const output = await exportRecording(media, format, segments, bundle.meta, (value) => setExport(value));
+      const output = await exportRecording(media, format, segments, bundle.meta, callouts, bundle.events, bundle.clock,
+        (value) => setExport(value));
       const link = document.createElement('a'); link.href = URL.createObjectURL(output); link.download = `${bundle.meta.recordingId}.${format}`; link.click();
       setTimeout(() => URL.revokeObjectURL(link.href), 60_000); setExport(null);
     } catch (cause: unknown) { setExport(null, cause instanceof Error ? cause.message : String(cause)); }

@@ -7,6 +7,26 @@ accepted product risk, not a successful Phase 2 result. See PRD.md §6.
 Phase 1 passed on 2026-07-14. See docs/phase-1-evidence.md.
 An uninformed viewer identified the side-by-side difference within 10 seconds.
 
+Phase 3 progress:
+  [x] element-anchored callouts in preview, GIF, and MP4
+  [ ] selector-based visual redaction
+  [ ] 9:16 intelligent crop export
+  [ ] local brand presets
+  [ ] cursor treatment
+
+Callout evidence:
+  preview viewport: 1440x900
+  preview callout / target overlap: false
+  GIF: 800x450, 15 fps, 5.74 s, 2,440,497 bytes
+  MP4: 1920x1080, 60 fps, 5.7167 s, 4,205,910 bytes
+  local artifacts: artifacts/phase3-callout.gif, artifacts/phase3-callout.mp4
+  screenshots: artifacts/screenshots/phase3-callout-preview.png,
+               artifacts/screenshots/phase3-callout-export.png,
+               artifacts/screenshots/phase3-callout-gif.png
+
+Phase 3 remains active. Its exit criterion requires repeat use on a different
+project and has not been met.
+
 Phase 0 spike passed on 2026-07-14. See PRD.md §4.
 
 Evidence: `packages/spike/artifacts/2026-07-14T09-30-21-498Z/`

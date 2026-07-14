@@ -3,6 +3,7 @@ import { useEffect, useRef, type RefObject } from 'react';
 import { eventById, useEditorStore } from './store';
 import { cameraAt, cameraMatrix } from './camera';
 import { pageEventAt } from './bundle';
+import { activeCallout, calloutLayout, calloutSize } from './callouts';
 
 function SemanticBox() {
   const bundle = useEditorStore((state) => state.bundle);
@@ -18,6 +19,23 @@ function SemanticBox() {
   return box ? <div className="semantic-box" style={{ left: `${box.x / bundle.meta.capture.width * 100}%`,
     top: `${box.y / bundle.meta.capture.height * 100}%`, width: `${box.width / bundle.meta.capture.width * 100}%`,
     height: `${box.height / bundle.meta.capture.height * 100}%` }}/> : null;
+}
+
+function CalloutOverlay() {
+  const bundle = useEditorStore((state) => state.bundle);
+  const callouts = useEditorStore((state) => state.callouts);
+  const segments = useEditorStore((state) => state.segments);
+  const playheadMs = useEditorStore((state) => state.playheadMs);
+  if (!bundle) return null;
+  const callout = activeCallout(callouts, segments, bundle.events, bundle.clock, playheadMs);
+  const event = callout ? eventById(bundle.events, callout.sourceEventId) : null;
+  const segment = callout ? segments.find(({ eventId }) => eventId === callout.sourceEventId) : null;
+  const output = { width: 1_000, height: 1_000 * bundle.meta.capture.height / bundle.meta.capture.width };
+  const layout = event && segment ? calloutLayout(event, segment, bundle.meta.capture, output, calloutSize(output)) : null;
+  if (!callout || !layout) return null;
+  return <div className="callout-overlay" style={{ left: `${layout.card.x / output.width * 100}%`,
+    top: `${layout.card.y / output.height * 100}%`, width: `${layout.card.width / output.width * 100}%`,
+    height: `${layout.card.height / output.height * 100}%` }}>{callout.text}</div>;
 }
 
 export function VideoView({ video }: { video: RefObject<HTMLVideoElement | null> }) {
@@ -73,5 +91,6 @@ export function VideoView({ video }: { video: RefObject<HTMLVideoElement | null>
       <video ref={video} src={mediaUrl} controls/>
       <SemanticBox/>
     </div>
+    <CalloutOverlay/>
   </div>;
 }

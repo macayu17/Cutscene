@@ -38,14 +38,18 @@ is immutable evidence; annotations are edits derived from it.
 
 ## Timing and geometry
 
-The matching zoom segment supplies callout timing: visible from `clickMs` to
-`cameraTiming(segment).exitStartMs`. This covers the stable hold and avoids
-tracking a label during camera motion.
+The matching zoom segment supplies callout timing: visible from 50 ms before
+`clickMs` to `cameraTiming(segment).exitStartMs`. The one-frame tolerance keeps
+native video seeks from missing the boundary; the remaining interval covers
+the stable hold and avoids tracking a label during camera motion. The window
+ends one millisecond before the first later scroll event, so a recorded box is
+never reused after its viewport coordinates become stale.
 
-A pure placement function receives the transformed target rectangle, output
-size, and callout size. It tries top, bottom, right, then left, chooses the first
-non-overlapping rectangle inside the frame, and clamps the fallback. Preview
-and export use this function.
+A pure placement function receives the transformed target rectangle and output
+size. Card dimensions and the anchor gap are fixed ratios of that output. It
+tries top, bottom, right, then left, chooses the first non-overlapping rectangle
+inside the frame, and clamps the fallback. Preview, GIF, and MP4 use this same
+geometry path.
 
 ## Preview
 

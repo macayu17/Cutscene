@@ -1,6 +1,7 @@
 import type { RefObject } from 'react';
 import { useEditorStore } from './store';
 import { SegmentsPanel } from './segments-panel';
+import { CalloutsPanel } from './callouts-panel';
 
 export function seekForKey(key: string, currentMs: number, durationMs: number): number | null {
   if (key === 'ArrowLeft') return Math.max(0, currentMs - 250);
@@ -33,5 +34,6 @@ export function Timeline({ video }: { video: RefObject<HTMLVideoElement | null> 
         onFocus={() => hoverEvent(event.id)} onBlur={() => hoverEvent(null)} onClick={() => { selectEvent(event.id, mediaTime); seek(mediaTime); }}/>; })}
     </div>
     <SegmentsPanel/>
+    <CalloutsPanel/>
   </section>;
 }
