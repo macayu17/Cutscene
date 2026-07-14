@@ -20,11 +20,11 @@ export function parseBundle(metaText: string, traceText: string): Result<BundleD
   return clock.ok ? { ok: true, value: { meta: meta.value, events, clock: clock.value } } : clock;
 }
 
-export async function readBundleFiles(files: readonly File[]): Promise<Result<BundleData & { mediaUrl: string }>> {
+export async function readBundleFiles(files: readonly File[]): Promise<Result<BundleData & { mediaUrl: string; media: File }>> {
   const media = files.find((file) => file.name === 'media.webm');
   const trace = files.find((file) => file.name === 'trace.jsonl');
   const meta = files.find((file) => file.name === 'meta.json');
   if (!media || !trace || !meta) return { ok: false, error: 'Select media.webm, trace.jsonl, and meta.json.' };
   const parsed = parseBundle(await meta.text(), await trace.text());
-  return parsed.ok ? { ok: true, value: { ...parsed.value, mediaUrl: URL.createObjectURL(media) } } : parsed;
+  return parsed.ok ? { ok: true, value: { ...parsed.value, mediaUrl: URL.createObjectURL(media), media } } : parsed;
 }

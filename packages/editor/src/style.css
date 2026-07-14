@@ -9,10 +9,12 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 2
 .file-label { border: 1px solid var(--line); color: var(--text); padding: 7px 10px; font-family: 'IBM Plex Mono', monospace; cursor: pointer; }
 .file-label input { position: absolute; opacity: 0; pointer-events: none; }
 .error { color: var(--danger); max-width: 560px; }
-.instrument { height: 100%; display: grid; grid-template: 32px minmax(0, 1fr) 116px / 240px minmax(0, 1fr); }
+.instrument { height: 100%; display: grid; grid-template: 32px minmax(0, 1fr) 156px / 240px minmax(0, 1fr); }
 .topbar { grid-column: 1 / -1; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; padding: 0 10px; font-size: var(--t-xs); letter-spacing: .03em; white-space: nowrap; }
 .topbar .push { margin-left: auto; }
 .topbar button { border: 1px solid var(--line); background: var(--surface); padding: 3px 8px; }
+.export-progress { position: absolute; top: 31px; left: 0; height: 1px; background: var(--text); }
+.export-error { position: fixed; top: 38px; right: 8px; color: var(--danger); background: var(--surface); padding: 6px 8px; border: 1px solid var(--danger); }
 .events { border-right: 1px solid var(--line); min-height: 0; overflow: auto; }
 .events h2 { position: sticky; top: 0; margin: 0; padding: 9px 10px; border-bottom: 1px solid var(--line); background: var(--bg); font-size: var(--t-xs); font-weight: 500; letter-spacing: .12em; }
 .event { width: 100%; display: grid; grid-template-columns: 56px 1fr; gap: 7px; border: 0; border-bottom: 1px solid var(--line); background: transparent; padding: 7px 10px; text-align: left; font-size: var(--t-xs); }
@@ -20,7 +22,8 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 2
 .event time, .event small { color: var(--text-dim); }
 .event span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .viewer { min-width: 0; min-height: 0; display: grid; place-items: center; padding: 20px; background: #121418; }
-.video-stage { position: relative; max-width: 100%; max-height: 100%; width: 100%; }
+.video-stage { position: relative; max-width: 100%; max-height: 100%; width: 100%; overflow: hidden; }
+.video-transform { position: absolute; inset: 0; }
 .video-stage video { width: 100%; height: 100%; display: block; }
 .semantic-box { position: absolute; border: 2px solid var(--signal); pointer-events: none; animation: measure 120ms steps(4, end); }
 @keyframes measure { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
@@ -31,4 +34,11 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 2
 .trace-lane { position: relative; height: 42px; margin-top: 10px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .tick { position: absolute; width: 3px; height: 7px; margin-left: -1px; padding: 0; border: 0; background: var(--signal); cursor: pointer; }
 .tick:focus-visible { width: 4px; margin-left: -2px; outline-color: var(--signal); }
+.segment-row { margin-top: 7px; }
+.segment-lane { position: relative; height: 15px; }
+.segment { position: absolute; height: 11px; border: 1px solid var(--signal); background: transparent; padding: 0; }
+.segment[aria-pressed='true'] { background: color-mix(in srgb, var(--signal) 28%, transparent); }
+.segment-controls { display: flex; align-items: center; gap: 6px; height: 25px; font-size: var(--t-xs); color: var(--text-dim); }
+.segment-controls button, .segment-controls input { border: 1px solid var(--line); background: var(--bg); color: var(--text); padding: 2px 5px; }
+.segment-controls input { width: 68px; }
 @media (prefers-reduced-motion: reduce) { .semantic-box { animation: none; } }

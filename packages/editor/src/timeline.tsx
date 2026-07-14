@@ -1,5 +1,6 @@
 import type { RefObject } from 'react';
 import { useEditorStore } from './store';
+import { SegmentsPanel } from './segments-panel';
 
 export function seekForKey(key: string, currentMs: number, durationMs: number): number | null {
   if (key === 'ArrowLeft') return Math.max(0, currentMs - 250);
@@ -26,5 +27,6 @@ export function Timeline({ video }: { video: RefObject<HTMLVideoElement | null> 
         aria-label={`${event.type} at ${(mediaTime / 1_000).toFixed(1)} seconds`} onMouseEnter={() => hoverEvent(event.id)} onMouseLeave={() => hoverEvent(null)}
         onFocus={() => hoverEvent(event.id)} onBlur={() => hoverEvent(null)} onClick={() => { selectEvent(event.id, mediaTime); seek(mediaTime); }}/>; })}
     </div>
+    <SegmentsPanel/>
   </section>;
 }
