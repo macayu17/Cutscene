@@ -42,9 +42,16 @@ README size gate. It is not presented as the acceptance GIF.
 
 ## Comparison
 
-The local evidence artifact is `artifacts/side-by-side.mp4`: 1920 x 540 H.264,
+The current local evidence artifact is `artifacts/side-by-side-smooth.mp4`: 1920 x 540 H.264,
 6.2333 s, identical footage on both sides. The left crop follows a known
 off-center pointer coordinate; the right crop uses the recorded input bounds.
+
+The zoom transition uses a cubic 400 ms ease-in, holds through 900 ms after the
+click, then uses a cubic 400 ms ease-out. At 30 fps, each transition has 12
+rendered frames. `artifacts/screenshots/zoom-transition-contact-sheet.png`
+samples the exported element-locked transition at 100 ms intervals. An informed
+review confirmed that the two crops differ and identified the earlier return as
+abrupt; this regenerated artifact contains the corrected timing.
 
 Pending gate: a person who was not told what to look for must confirm that the
 difference is obvious within ten seconds. `STATUS.md` remains Phase 1 until that

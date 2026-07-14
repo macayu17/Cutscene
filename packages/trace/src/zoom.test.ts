@@ -8,7 +8,7 @@ const click = (t: number, x: number, scrollY = 0) => ({
 describe('deriveZoomSegments', () => {
   it('pads, times, and caps a click zoom', () => {
     const [segment] = deriveZoomSegments([click(2_000, 600)], { width: 1280, height: 800 });
-    expect(segment).toMatchObject({ startMs: 1_600, clickMs: 2_000, endMs: 2_900 });
+    expect(segment).toMatchObject({ startMs: 1_600, clickMs: 2_000, endMs: 3_300 });
     expect(segment?.scale).toBeLessThanOrEqual(2.5);
     expect(segment?.focus.width).toBeGreaterThanOrEqual(320);
   });

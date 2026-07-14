@@ -50,7 +50,7 @@ export function deriveZoomSegments(clicks: readonly ZoomClick[], viewport: Size)
     return [{
       startMs: Math.max(0, click.t - 400),
       clickMs: click.t,
-      endMs: click.t + 900,
+      endMs: click.t + 1_300,
       focus,
       scale: Math.min(2.5, viewport.width / focus.width),
     }];

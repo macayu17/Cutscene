@@ -21,7 +21,7 @@ export function addSegment(segments: readonly EditableSegment[], playheadMs: num
   const width = Math.max(320, viewport.width / 2);
   const height = width * viewport.height / viewport.width;
   return [...segments, { id: `zoom_${crypto.randomUUID()}`, eventId: null, startMs: Math.max(0, playheadMs - 400),
-    clickMs: playheadMs, endMs: playheadMs + 900, focus: { x: (viewport.width - width) / 2, y: (viewport.height - height) / 2, width, height },
+    clickMs: playheadMs, endMs: playheadMs + 1_300, focus: { x: (viewport.width - width) / 2, y: (viewport.height - height) / 2, width, height },
     scale: Math.min(2.5, viewport.width / width) }];
 }
 
