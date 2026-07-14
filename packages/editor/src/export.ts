@@ -3,6 +3,7 @@ import type { EditableSegment } from './segments';
 import { cameraTiming } from './camera';
 import { calloutLayout, calloutSize, calloutWindow, type EditableCallout } from './callouts';
 import { renderCalloutCard } from './callout-render';
+import { compileRedactions, type CompiledRedaction, type EditableRedaction, type RedactionBox } from './redactions';
 
 type ExportMeta = { capture: { width: number; height: number; fps: number }; viewport?: { width: number; height: number } };
 export type ExportFormat = 'gif' | 'mp4';
@@ -50,23 +51,41 @@ function overlayChain(overlays: readonly ExportOverlay[]): { filters: string[]; 
   return { filters, output: input };
 }
 
+function redactionChain(redactions: readonly CompiledRedaction[]): { filters: string[]; output: string } {
+  let input = '0:v';
+  const filters = redactions.map((redaction, index) => {
+    const base = `redact_base_${index}`;
+    const source = `redact_source_${index}`;
+    const patch = `redact_patch_${index}`;
+    const output = `redacted_${index}`;
+    const filter = `[${input}]split[${base}][${source}];[${source}]crop=${redaction.width}:${redaction.height}:${redaction.x}:${redaction.y},boxblur=10[${patch}];` +
+      `[${base}][${patch}]overlay=${redaction.x}:${redaction.y}:enable='between(t,${redaction.startSeconds},${redaction.endSeconds})'[${output}]`;
+    input = output;
+    return filter;
+  });
+  return { filters, output: input };
+}
+
 export function buildExportPlan(format: ExportFormat, segments: readonly EditableSegment[], meta: ExportMeta,
-  overlays: readonly ExportOverlay[] = []): ExportPlan {
+  overlays: readonly ExportOverlay[] = [], redactions: readonly CompiledRedaction[] = []): ExportPlan {
   const inputs = ['-i', 'input.webm', ...overlays.flatMap(({ filename }) => ['-i', filename])];
+  const source = redactionChain(redactions);
+  const sourceFilters = source.filters.length ? `${source.filters.join(';')};` : '';
   if (format === 'gif') {
     const zoom = zoomPanFilter(segments, meta, 800, 450, 15);
     const chain = overlayChain(overlays);
     const overlayFilters = chain.filters.length ? `;${chain.filters.join(';')}` : '';
     return { output: 'output.gif', mimeType: 'image/gif', args: [...inputs, '-filter_complex',
-      `[0:v]fps=15,${zoom}[base]${overlayFilters};[${chain.output}]split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle[out]`,
+      `${sourceFilters}[${source.output}]fps=15,${zoom}[base]${overlayFilters};[${chain.output}]split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle[out]`,
       '-map', '[out]', '-loop', '0', 'output.gif'] };
   }
   const zoom = zoomPanFilter(segments, meta, 1920, 1080, 60);
-  if (!overlays.length) return { output: 'output.mp4', mimeType: 'video/mp4', args: [...inputs, '-vf', `fps=60,${zoom},format=yuv420p`,
+  if (!overlays.length && !redactions.length) return { output: 'output.mp4', mimeType: 'video/mp4', args: [...inputs, '-vf', `fps=60,${zoom},format=yuv420p`,
     '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-movflags', '+faststart', 'output.mp4'] };
   const chain = overlayChain(overlays);
+  const overlayFilters = chain.filters.length ? `;${chain.filters.join(';')}` : '';
   return { output: 'output.mp4', mimeType: 'video/mp4', args: [...inputs, '-filter_complex',
-    `[0:v]fps=60,${zoom}[base];${chain.filters.join(';')};[${chain.output}]format=yuv420p[out]`,
+    `${sourceFilters}[${source.output}]fps=60,${zoom}[base]${overlayFilters};[${chain.output}]format=yuv420p[out]`,
     '-map', '[out]', '-map', '0:a?', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p',
     '-c:a', 'aac', '-movflags', '+faststart', 'output.mp4'] };
 }
@@ -86,6 +105,7 @@ async function ffmpeg() {
 
 export async function exportRecording(media: Blob, format: ExportFormat, segments: readonly EditableSegment[], meta: ExportMeta,
   callouts: readonly EditableCallout[], events: readonly TraceEvent[], clock: MediaClockFit,
+  redactions: readonly EditableRedaction[], redactionBoxes: readonly RedactionBox[],
   progress: (value: number) => void): Promise<Blob> {
   const engine = await ffmpeg();
   const listener = ({ progress: value }: { progress: number }) => progress(value);
@@ -104,7 +124,8 @@ export async function exportRecording(media: Blob, format: ExportFormat, segment
         x: Math.round(layout.card.x), y: Math.round(layout.card.y), startSeconds: window.startMs / 1_000,
         endSeconds: window.endMs / 1_000 } satisfies ExportOverlay }];
     });
-    const plan = buildExportPlan(format, segments, meta, prepared.map(({ overlay }) => overlay));
+    const plan = buildExportPlan(format, segments, meta, prepared.map(({ overlay }) => overlay),
+      compileRedactions(redactionBoxes, redactions, meta.capture));
     await engine.writeFile('input.webm', new Uint8Array(await media.arrayBuffer()));
     for (const item of prepared) await engine.writeFile(item.filename, await item.data);
     await engine.exec(plan.args);

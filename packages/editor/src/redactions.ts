@@ -1,8 +1,10 @@
-import type { BoundingBox, MediaClockFit, RecordingMeta, RedactionSampleEvent, TraceEvent, Viewport } from '@cutscene/trace';
+import { mapBoxToCapture, type BoundingBox, type MediaClockFit, type RecordingMeta, type RedactionSampleEvent,
+  type TraceEvent, type Viewport } from '@cutscene/trace';
 
 export type EditableRedaction = { selector: string; enabled: boolean };
 export type RedactionBox = { selector: string; instanceId: string; startMs: number; endMs: number;
   box: BoundingBox; viewport: Viewport };
+export type CompiledRedaction = { x: number; y: number; width: number; height: number; startSeconds: number; endSeconds: number };
 
 function samples(events: readonly TraceEvent[]): RedactionSampleEvent[] {
   return events.filter((event): event is RedactionSampleEvent => event.type === 'annotation.redaction');
@@ -48,4 +50,20 @@ export function redactionBoxesAt(boxes: readonly RedactionBox[], redactions: rea
   timeMs: number): RedactionBox[] {
   const enabled = new Set(redactions.filter(({ enabled: value }) => value).map(({ selector }) => selector));
   return boxes.filter((box) => enabled.has(box.selector) && timeMs >= box.startMs && timeMs <= box.endMs);
+}
+
+export function compileRedactions(boxes: readonly RedactionBox[], redactions: readonly EditableRedaction[],
+  capture: { width: number; height: number }): CompiledRedaction[] {
+  const enabled = new Set(redactions.filter(({ enabled: value }) => value).map(({ selector }) => selector));
+  return boxes.flatMap((sample) => {
+    if (!enabled.has(sample.selector)) return [];
+    const mapped = mapBoxToCapture(sample.box, sample.viewport, capture);
+    const x = Math.max(0, Math.floor(mapped.x));
+    const y = Math.max(0, Math.floor(mapped.y));
+    const right = Math.min(capture.width, Math.ceil(mapped.x + mapped.width));
+    const bottom = Math.min(capture.height, Math.ceil(mapped.y + mapped.height));
+    if (right <= x || bottom <= y) return [];
+    return [{ x, y, width: right - x, height: bottom - y, startSeconds: sample.startMs / 1_000,
+      endSeconds: sample.endMs / 1_000 }];
+  });
 }

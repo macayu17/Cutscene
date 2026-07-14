@@ -27,6 +27,7 @@ it('builds a 1080p H.264 yuv420p MP4', () => {
 });
 
 const overlay = { filename: 'callout_0.png', x: 120, y: 80, startSeconds: 1, endSeconds: 2 };
+const redaction = { x: 100, y: 200, width: 300, height: 40, startSeconds: 1, endSeconds: 2 };
 
 it('composites callouts before the GIF global palette', () => {
   const plan = buildExportPlan('gif', segments, meta, [overlay]);
@@ -41,4 +42,16 @@ it('maps filtered callout video and optional source audio for MP4', () => {
   const plan = buildExportPlan('mp4', segments, meta, [overlay]);
   expect(plan.args.join(' ')).toContain("overlay=120:80:enable='between(t,1,2)':eof_action=repeat");
   expect(plan.args).toEqual(expect.arrayContaining(['-map', '[out]', '-map', '0:a?']));
+});
+
+it.each(['gif', 'mp4'] as const)('blurs source pixels before zoom and keeps callouts after zoom for %s', (format) => {
+  const command = buildExportPlan(format, segments, meta, [overlay], [redaction]).args.join(' ');
+  expect(command).toContain("crop=300:40:100:200,boxblur=10[redact_patch_0]");
+  expect(command).toContain("overlay=100:200:enable='between(t,1,2)'[redacted_0]");
+  expect(command.indexOf('boxblur=')).toBeLessThan(command.indexOf('zoompan='));
+  expect(command.indexOf('zoompan=')).toBeLessThan(command.indexOf('[base][1:v]overlay='));
+  if (format === 'gif') {
+    expect(command.indexOf('[base][1:v]overlay=')).toBeLessThan(command.indexOf('palettegen='));
+    expect(command.match(/palettegen/g)).toHaveLength(1);
+  }
 });

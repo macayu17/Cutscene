@@ -57,6 +57,8 @@ test('captures a playable, complete, masked recording bundle', async () => {
         await page.locator('.toggle').nth(index).click();
       }
       if (index === 0) {
+        await page.locator('.todo-list li').first().evaluate((element) => { element.style.transform = 'translateY(24px)'; });
+        await page.waitForTimeout(100);
         await page.evaluate(() => history.pushState({}, '', '#captured-route'));
         await page.evaluate(() => { document.body.style.minHeight = '1600px'; scrollTo(0, 20); });
         await page.setViewportSize({ width: 1200, height: 760 });
@@ -100,6 +102,9 @@ test('captures a playable, complete, masked recording bundle', async () => {
     expect(redaction).not.toHaveProperty('target');
     expect(redaction).not.toHaveProperty('text');
     expect(redaction).not.toHaveProperty('value');
+    const redactionSamples = events.filter((event) => event.type === 'annotation.redaction' && event.visible === true);
+    expect(redactionSamples.length).toBeGreaterThan(1);
+    expect(new Set(redactionSamples.map((event) => (event.box as { y: number }).y)).size).toBeGreaterThan(1);
     expect((await readFile(mediaItem.filename)).length).toBeGreaterThan(0);
     const probe = JSON.parse((await execute('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'json', mediaItem.filename])).stdout) as { streams: Array<{ width: number; height: number }> };
     expect(meta.capture).toMatchObject(probe.streams[0] ?? {});

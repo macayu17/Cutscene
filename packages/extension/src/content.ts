@@ -134,8 +134,8 @@ history.replaceState = function(data: unknown, unused: string, url?: string | UR
 chrome.runtime.onMessage.addListener((message: unknown, _sender, respond) => {
   if (!message || typeof message !== 'object' || !('type' in message)) return false;
   if (message.type === 'session.start' && 'sessionEpoch' in message && typeof message.sessionEpoch === 'number') {
-    const selectors = 'redactSelectors' in message && Array.isArray(message.redactSelectors) &&
-      message.redactSelectors.every((value) => typeof value === 'string') ? message.redactSelectors : [];
+    const selectors = [...new Set('redactSelectors' in message && Array.isArray(message.redactSelectors) &&
+      message.redactSelectors.every((value) => typeof value === 'string') ? message.redactSelectors : [])];
     try { selectors.forEach((selector) => document.querySelectorAll(selector)); }
     catch (error: unknown) { respond({ ok: false, error: error instanceof Error ? error.message : String(error) } satisfies Result); return false; }
     sessionEpoch = message.sessionEpoch; step = 0;

@@ -29,6 +29,8 @@ right.
 - Automatic element-locked zooms with manual add, delete, retime, and retarget
   controls.
 - Element-anchored callouts rendered consistently in preview, GIF, and MP4.
+- Preconfigured CSS-selector blur tracks with enable/delete controls and the
+  same redaction in preview, GIF, and MP4.
 - README GIF export with one global palette, plus 1080p H.264 MP4 export.
 
 ## Run locally
@@ -54,8 +56,8 @@ Open the local URL printed by Vite.
 ## Record and edit
 
 1. Open a DOM-based page in Chrome.
-2. Open the Cutscene extension and start recording. Microphone capture is
-   optional.
+2. Open the Cutscene extension. Add any CSS selectors that must be visually
+   blurred, then start recording. Microphone capture is optional.
 3. Stop recording. Chrome downloads `media.webm`, `trace.jsonl`, and `meta.json`
    into one `cutscene-<recording-id>` folder.
 4. Choose that folder in the editor.

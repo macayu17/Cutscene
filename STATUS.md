@@ -9,7 +9,7 @@ An uninformed viewer identified the side-by-side difference within 10 seconds.
 
 Phase 3 progress:
   [x] element-anchored callouts in preview, GIF, and MP4
-  [ ] selector-based visual redaction
+  [x] selector-based visual redaction
   [ ] 9:16 intelligent crop export
   [ ] local brand presets
   [ ] cursor treatment
@@ -23,6 +23,24 @@ Callout evidence:
   screenshots: artifacts/screenshots/phase3-callout-preview.png,
                artifacts/screenshots/phase3-callout-export.png,
                artifacts/screenshots/phase3-callout-gif.png
+
+Redaction evidence:
+  target: https://todomvc.com/examples/react/dist/
+  selector: .todo-list li
+  captured geometry samples: 3
+  recorded y positions: 219.8, 199.8 CSS px
+  trace target/text/value fields in redaction samples: 0
+  preview viewport: 1440x900
+  enable/disable preview check: passed
+  GIF: 800x450, 15 fps, 2.99 s, 284,139 bytes
+  MP4: 1920x1080, 60 fps, 3.0167 s, 383,547 bytes
+  local artifacts: artifacts/phase3-redaction.gif,
+                   artifacts/phase3-redaction.mp4
+  screenshots: artifacts/screenshots/phase3-redaction-preview.png,
+               artifacts/screenshots/phase3-redaction-mp4-before.png,
+               artifacts/screenshots/phase3-redaction-mp4-after.png,
+               artifacts/screenshots/phase3-redaction-gif-before.png,
+               artifacts/screenshots/phase3-redaction-gif-after.png
 
 Phase 3 remains active. Its exit criterion requires repeat use on a different
 project and has not been met.
