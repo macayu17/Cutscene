@@ -50,9 +50,11 @@ function redactionChain(redactions: readonly CompiledRedaction[]): { filters: st
   return { filters, output: input };
 }
 
+export type ExportWindow = { startSeconds: number; endSeconds: number };
+
 export function buildExportPlan(format: ExportFormat, segments: readonly EditableSegment[], meta: ExportMeta,
   overlays: readonly ExportOverlay[] = [], redactions: readonly CompiledRedaction[] = [],
-  cards: BrandExportCards = { introSeconds: 0, outroSeconds: 0 }): ExportPlan {
+  cards: BrandExportCards = { introSeconds: 0, outroSeconds: 0 }, window?: ExportWindow): ExportPlan {
   const intro = cards.introFilename && cards.introSeconds > 0 ? cards.introFilename : undefined;
   const outro = cards.outroFilename && cards.outroSeconds > 0 ? cards.outroFilename : undefined;
   if (intro || outro) return buildBrandedExportPlan(format, segments, meta, overlays, redactions, {
@@ -66,8 +68,15 @@ export function buildExportPlan(format: ExportFormat, segments: readonly Editabl
     const zoom = zoomPanFilter(segments, meta, 800, 450, 15);
     const chain = overlayChain(overlays);
     const overlayFilters = chain.filters.length ? `;${chain.filters.join(';')}` : '';
+    // Trim after the camera and overlays so their absolute-time expressions stay
+    // correct, then reset PTS so the windowed GIF starts at zero. Both palettegen
+    // and paletteuse then see only the windowed frames.
+    const trim = window
+      ? `;[${chain.output}]trim=start=${window.startSeconds}:end=${window.endSeconds},setpts=PTS-STARTPTS[win]`
+      : '';
+    const paletteInput = window ? 'win' : chain.output;
     return { output: 'output.gif', mimeType: 'image/gif', args: [...inputs, '-filter_complex',
-      `${sourceFilters}[${source.output}]fps=15,${zoom}[base]${overlayFilters};[${chain.output}]split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle[out]`,
+      `${sourceFilters}[${source.output}]fps=15,${zoom}[base]${overlayFilters}${trim};[${paletteInput}]split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle[out]`,
       '-map', '[out]', '-loop', '0', 'output.gif'] };
   }
   if (format === 'vertical') {
@@ -151,7 +160,7 @@ export async function exportRecording(media: Blob, format: ExportFormat, segment
   callouts: readonly EditableCallout[], events: readonly TraceEvent[], clock: MediaClockFit,
   redactions: readonly EditableRedaction[], redactionBoxes: readonly RedactionBox[],
   brand: BrandPreset | null, cursorSettings: CursorSettings,
-  progress: (value: number) => void): Promise<Blob> {
+  progress: (value: number) => void, window?: ExportWindow): Promise<Blob> {
   const engine = await ffmpeg();
   const runFiles = new Set<string>();
   const listener = ({ progress: value }: { progress: number }) => progress(value);
@@ -188,7 +197,7 @@ export async function exportRecording(media: Blob, format: ExportFormat, segment
       compileRedactions(redactionBoxes, redactions, meta.capture), {
         ...(intro ? { introFilename: intro.filename } : {}), ...(outro ? { outroFilename: outro.filename } : {}),
         introSeconds: intro ? 1.5 : 0, outroSeconds: outro ? 1.5 : 0,
-      });
+      }, window);
     ['input.webm', plan.output, ...prepared.map(({ filename }) => filename),
       ...(watermark ? [watermark.filename] : []), ...(intro ? [intro.filename] : []), ...(outro ? [outro.filename] : []),
       ...cursorAssets.map(({ filename }) => filename)].forEach((filename) => runFiles.add(filename));

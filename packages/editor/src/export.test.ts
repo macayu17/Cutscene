@@ -30,6 +30,20 @@ it('builds one global-palette 800px README GIF', () => {
   expect(plan.args.join(' ').match(/palettegen/g)).toHaveLength(1);
 });
 
+it('trims a per-step GIF to its window after the camera and before one palette', () => {
+  const command = buildExportPlan('gif', segments, meta, [], [], { introSeconds: 0, outroSeconds: 0 },
+    { startSeconds: 0.35, endSeconds: 2.65 }).args.join(' ');
+  expect(command).toContain('trim=start=0.35:end=2.65,setpts=PTS-STARTPTS[win]');
+  // The window feeds the palette, and the camera is applied before the trim.
+  expect(command).toContain('[win]split[a][b]');
+  expect(command.indexOf('zoompan=')).toBeLessThan(command.indexOf('trim=start='));
+  expect(command.match(/palettegen/g)).toHaveLength(1);
+});
+
+it('omits the trim when no window is given', () => {
+  expect(buildExportPlan('gif', segments, meta).args.join(' ')).not.toContain('trim=start=');
+});
+
 it('builds a 1080p H.264 yuv420p MP4', () => {
   const plan = buildExportPlan('mp4', segments, meta);
   expect(plan.args.join(' ')).toContain('fps=60,zoompan=');

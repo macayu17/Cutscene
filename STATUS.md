@@ -13,8 +13,10 @@ Phase 4 builds artifact generation from the existing trace (PRD.md §10):
   [x] Playwright flow skeleton
   [x] step-by-step documentation
   [x] per-step screenshot set
-  [ ] README GIF variants (full flow + per step)
+  [x] README GIF variants (full flow already shipped + per-step GIFs)
   [x] transcript and captions (SRT/VTT, import + export; no ASR by owner scope)
+
+Phase 4 is feature-complete. All five §10 artifacts generate from the trace.
 
 Playwright flow skeleton evidence:
   source bundle: artifacts/phase3-cursor-bundle
@@ -56,6 +58,17 @@ Transcript and captions evidence:
   local artifacts: artifacts/phase4-captions-sample/import.vtt,
                    artifacts/phase4-captions-sample/export.srt,
                    artifacts/phase4-captions-sample/export.vtt
+
+README GIF variants evidence:
+  full-flow GIF: existing 'gif' export (unchanged; byte-for-byte with no window)
+  per-step source: phase1-acceptance-v2 bundle (rec_9837ddbe), 15 clicks
+  zoom segments after scroll/resize suppression: 12
+  per-step GIFs produced: 12, each GIF89a 800x450
+  each trimmed to its segment window (distinct sizes 1.46-2.80 MB)
+  one global palette preserved per GIF (trim before palettegen/paletteuse)
+  browser export console errors: 0
+  archive extracts with native Windows Expand-Archive: yes
+  sample artifact: artifacts/phase4-step-gifs-sample/step-09.gif
 
 Phase 1 passed on 2026-07-14. See docs/phase-1-evidence.md.
 An uninformed viewer identified the side-by-side difference within 10 seconds.

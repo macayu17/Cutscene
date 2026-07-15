@@ -7,6 +7,7 @@ import { exportRecording, type ExportFormat } from './export';
 import { selectedBrandPreset } from './brand';
 import { generatePlaywrightSkeleton, serializeSrt, serializeVtt } from '@cutscene/trace';
 import { docsArchive, renderStepShots, screenshotsArchive } from './docs-export';
+import { exportStepGifs } from './gif-export';
 
 export default function App() {
   const video = useRef<HTMLVideoElement>(null);
@@ -90,8 +91,18 @@ export default function App() {
       setExport(null);
     } catch (cause: unknown) { setExport(null, cause instanceof Error ? cause.message : String(cause)); }
   };
+  const runStepGifs = async () => {
+    if (!media) return;
+    setExport(0);
+    try {
+      const { archive } = await exportStepGifs(media, segments, bundle.meta, bundle.events, bundle.clock,
+        redactions, redactionBoxes, cursorSettings, (value) => setExport(value));
+      download(archive, `${bundle.meta.recordingId}-step-gifs.zip`);
+      setExport(null);
+    } catch (cause: unknown) { setExport(null, cause instanceof Error ? cause.message : String(cause)); }
+  };
   return <main className="instrument">
-    <header className="topbar"><span>{bundle.meta.recordingId}</span><span>·</span><span>{new URL(bundle.meta.url).host}</span><span>·</span><span>{bundle.meta.capture.width}×{bundle.meta.capture.height}</span><span>·</span><span>{(bundle.meta.media.durationMs / 1_000).toFixed(1)}s</span><span className="push">{input('Load another recording')}</span><button disabled={exportProgress !== null} onClick={() => void runExport('gif')}>Export GIF</button><button disabled={exportProgress !== null} onClick={() => void runExport('mp4')}>Export MP4</button><button disabled={exportProgress !== null} onClick={() => void runExport('vertical')}>Export 9:16 MP4</button><button disabled={exportProgress !== null} onClick={exportSkeleton}>Export Playwright skeleton</button><button disabled={exportProgress !== null} onClick={() => void runArtifacts('docs')}>Export docs</button><button disabled={exportProgress !== null} onClick={() => void runArtifacts('screenshots')}>Export screenshots</button><label className="file-label">Import captions<input type="file" accept=".srt,.vtt,.txt" onChange={(event) => { const file = event.currentTarget.files?.[0]; if (file) void file.text().then(loadCaptions); }}/></label><button disabled={captions.length === 0} onClick={() => exportCaptions('srt')}>Export SRT</button><button disabled={captions.length === 0} onClick={() => exportCaptions('vtt')}>Export VTT</button>{exportProgress !== null ? <span className="export-progress" style={{ width: `${exportProgress * 100}%` }}/> : null}</header>
+    <header className="topbar"><span>{bundle.meta.recordingId}</span><span>·</span><span>{new URL(bundle.meta.url).host}</span><span>·</span><span>{bundle.meta.capture.width}×{bundle.meta.capture.height}</span><span>·</span><span>{(bundle.meta.media.durationMs / 1_000).toFixed(1)}s</span><span className="push">{input('Load another recording')}</span><button disabled={exportProgress !== null} onClick={() => void runExport('gif')}>Export GIF</button><button disabled={exportProgress !== null} onClick={() => void runExport('mp4')}>Export MP4</button><button disabled={exportProgress !== null} onClick={() => void runExport('vertical')}>Export 9:16 MP4</button><button disabled={exportProgress !== null || segments.length === 0} onClick={() => void runStepGifs()}>Export step GIFs</button><button disabled={exportProgress !== null} onClick={exportSkeleton}>Export Playwright skeleton</button><button disabled={exportProgress !== null} onClick={() => void runArtifacts('docs')}>Export docs</button><button disabled={exportProgress !== null} onClick={() => void runArtifacts('screenshots')}>Export screenshots</button><label className="file-label">Import captions<input type="file" accept=".srt,.vtt,.txt" onChange={(event) => { const file = event.currentTarget.files?.[0]; if (file) void file.text().then(loadCaptions); }}/></label><button disabled={captions.length === 0} onClick={() => exportCaptions('srt')}>Export SRT</button><button disabled={captions.length === 0} onClick={() => exportCaptions('vtt')}>Export VTT</button>{exportProgress !== null ? <span className="export-progress" style={{ width: `${exportProgress * 100}%` }}/> : null}</header>
     <aside className="events"><h2>EVENTS</h2>{hasMeaningfulTraceEvents(bundle.events) ? bundle.events.filter(isHumanEvent).map((event) => { const time = Math.max(0, bundle.clock.toMediaTime(event.t)); return <button className="event" key={event.id} aria-current={selected?.id === event.id} onClick={() => { selectEvent(event.id, time); if (video.current) video.current.currentTime = time / 1_000; }}><time>{(time / 1_000).toFixed(1)}s</time><span>{event.type}<br/><small>{event.target?.accessibleName || event.route}</small></span></button>; }) : <p className="no-events">No trace events captured. The page may render to a canvas, which cannot be traced.</p>}</aside>
     <section className="viewer" aria-label="Video preview"><VideoView video={video}/></section>
     <Timeline video={video}/>
