@@ -88,6 +88,3 @@ The repository has three active packages:
 - `packages/trace` — schema, privacy, locators, clock mapping, coordinates, and
   zoom generation.
 - `packages/editor` — local React editor and FFmpeg export pipeline.
-
-`packages/spike` is retained only as Phase 0 evidence and is not active product
-code.
