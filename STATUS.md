@@ -12,7 +12,7 @@ Phase 3 progress:
   [x] selector-based visual redaction
   [x] 9:16 intelligent crop export
   [x] local brand presets
-  [ ] cursor treatment
+  [x] cursor treatment
 
 Callout evidence:
   preview viewport: 1440x900
@@ -91,6 +91,53 @@ Local brand preset evidence:
                artifacts/screenshots/phase3-brand-outro.png,
                artifacts/screenshots/phase3-brand-9x16-source.png,
                artifacts/screenshots/phase3-brand-motion-sheet.png
+
+Cursor treatment evidence:
+  target: https://todomvc.com/examples/react/dist/
+  recording duration: 7.559300 s
+  source media: VP9, 1920x1080, last packet PTS 6.564000 s, 292,898 bytes
+  hover samples: 6
+  minimum positive hover delta: 70.699951 ms
+  maximum observed hover rate: 14.144281 Hz
+  click expected / actual: (527, 225) / (527, 225) CSS px
+  click Euclidean error: 0.000 CSS px
+  hover target/text/value fields: 0
+  clock fit: slope 0.999995622, intercept -8051.677517 ms
+  click / last pointer media time: 942.983052 ms / 942.983052 ms
+  last hover media time: 939.382970 ms
+  browser URL: http://127.0.0.1:4175/
+  browser viewport: 1440x1000
+  brand: unbranded / none
+  cursor: enabled, 70% smoothing, 32px, ripple, 800ms idle hide
+  preview cursor box: 32.000x38.391 CSS px
+  exported painted arrow footprint: 27x41 px
+  16:9 expected tip / visible apex: (807.45, 303.75) / (806, 300) px
+  16:9 conservative visible-apex error: 4.02 px
+  16:9 nominal tip anchor inside decoded painted footprint: yes
+  9:16 expected tip / visible apex: (262.64, 530.45) / (262, 528) px
+  9:16 conservative visible-apex error: 2.54 px
+  9:16 nominal tip anchor inside decoded painted footprint: yes
+  ripple: first frame 0.950000 s, last frame 1.333333 s,
+          absent at 1.350000 s; 24 frames / 400 ms at 60 fps
+  idle: last visible frame 1.733333 s, first hidden frame 1.750000 s
+        (expected 1.742983 s, first-hidden error +7.017 ms)
+  GIF: 800x450, 15 fps, 6.54 s, 533,413 bytes
+  MP4: 1920x1080, 60 fps, H.264, yuv420p, 6.5667 s, 887,662 bytes
+  9:16 MP4: 1080x1920, 60 fps, H.264, yuv420p, 6.5667 s,
+             392,412 bytes
+  local artifacts: artifacts/phase3-cursor-bundle/,
+                   artifacts/phase3-cursor.gif,
+                   artifacts/phase3-cursor.mp4,
+                   artifacts/phase3-cursor-9x16.mp4
+  screenshots: artifacts/screenshots/phase3-cursor-preview.png,
+               artifacts/screenshots/phase3-cursor-movement.png,
+               artifacts/screenshots/phase3-cursor-click-before.png,
+               artifacts/screenshots/phase3-cursor-click.png,
+               artifacts/screenshots/phase3-cursor-ripple-last.png,
+               artifacts/screenshots/phase3-cursor-ripple-after.png,
+               artifacts/screenshots/phase3-cursor-idle-before.png,
+               artifacts/screenshots/phase3-cursor-idle-after.png,
+               artifacts/screenshots/phase3-cursor-9x16-click.png
 
 Phase 3 remains active. Its exit criterion requires repeat use on a different
 project and has not been met.
