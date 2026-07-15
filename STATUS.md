@@ -10,11 +10,24 @@ No external PRs were opened. The missing demand-validation evidence is an
 accepted product risk, not a successful Phase 2 result. See PRD.md §6.
 
 Phase 4 builds artifact generation from the existing trace (PRD.md §10):
-  [ ] Playwright flow skeleton
+  [x] Playwright flow skeleton
   [ ] step-by-step documentation
   [ ] per-step screenshot set
   [ ] README GIF variants (full flow + per step)
   [ ] transcript and captions (SRT/VTT)
+
+Playwright flow skeleton evidence:
+  source bundle: artifacts/phase3-cursor-bundle
+  recording: rec_558fc4a1-6486-4240-b9bb-bae6cc1a42f7
+  target: https://todomvc.com/examples/react/dist/
+  actionable events: 4 (1 click, 3 input)
+  emitted await steps: 5 (1 goto + 4 actions)
+  locator tier used per step: testId, testId, testId, testId
+  masked input values emitted as recorded placeholder: 3
+  fabricated selectors: 0
+  suggested-assertion comments in this flow: 0 (no route change; single route)
+  output transpiles as TypeScript (ts.transpileModule, 0 syntactic errors)
+  sample output: artifacts/phase4-skeleton-sample.spec.ts
 
 Phase 1 passed on 2026-07-14. See docs/phase-1-evidence.md.
 An uninformed viewer identified the side-by-side difference within 10 seconds.
