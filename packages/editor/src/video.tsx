@@ -5,7 +5,7 @@ import { cameraAt, cameraMatrix } from './camera';
 import { pageEventAt } from './bundle';
 import { activeCallout, calloutLayout, calloutSize } from './callouts';
 import { redactionBoxesAt } from './redactions';
-import { brandFontFamily, watermarkLayout } from './brand';
+import { brandFontFamily, selectedBrandPreset, watermarkLayout } from './brand';
 
 function SemanticBox() {
   const bundle = useEditorStore((state) => state.bundle);
@@ -60,7 +60,7 @@ export function VideoView({ video }: { video: RefObject<HTMLVideoElement | null>
   const mediaUrl = useEditorStore((state) => state.mediaUrl);
   const segments = useEditorStore((state) => state.segments);
   const setPlayhead = useEditorStore((state) => state.setPlayhead);
-  const brand = useEditorStore((state) => state.brandPresets.find(({ id }) => id === state.selectedBrandId) ?? null);
+  const brand = useEditorStore(selectedBrandPreset);
   const transform = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const element = video.current;

@@ -149,6 +149,33 @@ it('renders a centered, contrasting brand card as PNG bytes', async () => {
   expect(context.fillText).toHaveBeenCalledWith('Launch', 400, 225, 720);
 });
 
+it('chooses the higher-contrast card text colour for amber and dark backgrounds', async () => {
+  const amber = fakeCanvas();
+  vi.stubGlobal('document', { createElement: () => amber.canvas });
+  await renderBrandCard('Amber', {
+    id: 'brand', name: 'Brand', color: '#F2A63B', font: 'mono', intro: '', outro: '', watermark: '',
+  }, { width: 800, height: 450 });
+  expect(amber.context.fillStyle).toBe('#16181C');
+
+  const dark = fakeCanvas();
+  vi.stubGlobal('document', { createElement: () => dark.canvas });
+  await renderBrandCard('Dark', {
+    id: 'brand', name: 'Brand', color: '#16181C', font: 'mono', intro: '', outro: '', watermark: '',
+  }, { width: 800, height: 450 });
+  expect(dark.context.fillStyle).toBe('#FFFFFF');
+});
+
+it('centers long card text on at most three lines and ellipsizes overflow', async () => {
+  const { canvas, context } = fakeCanvas();
+  vi.stubGlobal('document', { createElement: () => canvas });
+  await renderBrandCard('This release introduces real-time analytics dashboards with detailed export controls for every workspace', {
+    id: 'brand', name: 'Brand', color: '#FFFFFF', font: 'sans', intro: '', outro: '', watermark: '',
+  }, { width: 800, height: 450 });
+  expect(context.fillText).toHaveBeenCalledTimes(3);
+  expect(context.fillText.mock.calls.at(-1)?.[0]).toMatch(/…$/);
+  expect(context.fillText.mock.calls.map((call) => call[2])).toEqual([168.75, 225, 281.25]);
+});
+
 it('renders a transparent, right-aligned watermark in preset colour', async () => {
   const { canvas, context } = fakeCanvas();
   vi.stubGlobal('document', { createElement: () => canvas });
