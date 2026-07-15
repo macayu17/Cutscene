@@ -25,6 +25,25 @@ describe('createTraceDeliveryQueue', () => {
     await expect(queue.drain()).resolves.toEqual({ ok: false, error: 'Trace port closed.' });
   });
 
+  it('reports a missing acknowledgement without rejecting or hanging', async () => {
+    const queue = createTraceDeliveryQueue(vi.fn().mockResolvedValue(undefined));
+    queue.send(event);
+    await expect(queue.drain()).resolves.toEqual({ ok: false, error: 'Trace acknowledgement is invalid.' });
+    await expect(queue.drain()).resolves.toEqual({ ok: false, error: 'Trace acknowledgement is invalid.' });
+  });
+
+  it('reports a malformed acknowledgement', async () => {
+    const queue = createTraceDeliveryQueue(vi.fn().mockResolvedValue({ ok: 'yes' }));
+    queue.send(event);
+    await expect(queue.drain()).resolves.toEqual({ ok: false, error: 'Trace acknowledgement is invalid.' });
+  });
+
+  it('reports a synchronous delivery failure without throwing from send', async () => {
+    const queue = createTraceDeliveryQueue(vi.fn(() => { throw new Error('Trace send failed.'); }));
+    expect(() => queue.send(event)).not.toThrow();
+    await expect(queue.drain()).resolves.toEqual({ ok: false, error: 'Trace send failed.' });
+  });
+
   it('preserves a negative trace acknowledgement', async () => {
     const queue = createTraceDeliveryQueue(vi.fn().mockResolvedValue({ ok: false, error: 'Trace was not recorded.' }));
     queue.send(event);

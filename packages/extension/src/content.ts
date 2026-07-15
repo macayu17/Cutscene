@@ -14,7 +14,7 @@ let scheduledResize = false;
 let redactionFrame = 0;
 let captureReady = false;
 let lastPointerAt = -Infinity;
-const deliverTrace = (event: TraceEvent) => chrome.runtime.sendMessage({ type: 'trace.event', event }) as Promise<Result>;
+const deliverTrace = (event: TraceEvent) => chrome.runtime.sendMessage({ type: 'trace.event', event });
 let traceDelivery = createTraceDeliveryQueue(deliverTrace);
 let redactionSelectors: string[] = [];
 let redactionIds = new WeakMap<Element, string>();
