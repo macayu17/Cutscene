@@ -55,3 +55,10 @@ it('suppresses a zoom whose active window contains a scroll event', () => {
   expect(automaticSegments(events, clock,
     { width: 1_280, height: 800, dpr: 1 })).toHaveLength(0);
 });
+
+it('does not use automatic zoom geometry across a viewport resize', () => {
+  expect(automaticSegments([traceEvent('viewport.resize', 1_700), traceEvent('interaction.click', 2_000)], clock,
+    { width: 1_280, height: 800, dpr: 1 })).toHaveLength(0);
+  expect(automaticSegments([traceEvent('interaction.click', 2_000), traceEvent('viewport.resize', 2_300)], clock,
+    { width: 1_280, height: 800, dpr: 1 })[0]?.endMs).toBe(2_299);
+});

@@ -35,9 +35,10 @@ export function calloutWindow(callout: EditableCallout, segments: readonly Edita
   const source = events.find(({ id }) => id === callout.sourceEventId);
   if (!segment || !source) return null;
   const startMs = Math.max(segment.startMs, segment.clickMs - 50);
-  const firstScrollMs = events.filter((event) => event.type === 'interaction.scroll' && event.t > source.t)
+  const firstInvalidationMs = events.filter((event) =>
+    (event.type === 'interaction.scroll' || event.type === 'viewport.resize') && event.t > source.t)
     .reduce((first, event) => Math.min(first, clock.toMediaTime(event.t)), Number.POSITIVE_INFINITY);
-  const endMs = Math.min(cameraTiming(segment).exitStartMs, firstScrollMs - 1);
+  const endMs = Math.min(cameraTiming(segment).exitStartMs, firstInvalidationMs - 1);
   return endMs >= startMs ? { startMs, endMs } : null;
 }
 

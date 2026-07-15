@@ -33,6 +33,7 @@ export type EditorState = {
   selectedBrandId: string | null;
   cursorSettings: CursorSettings;
   load: (bundle: BundleData, mediaUrl: string, media?: File) => void;
+  releaseMedia: () => void;
   selectEvent: (id: string, mediaTimeMs: number) => void;
   hoverEvent: (id: string | null) => void;
   setPlayhead: (value: number) => void;
@@ -55,17 +56,25 @@ export type EditorState = {
   updateCursorSettings: (patch: Partial<CursorSettings>) => void;
 };
 
-const creator = (set: StoreApi<EditorState>['setState']): EditorState => ({
+const creator = (set: StoreApi<EditorState>['setState'], get: StoreApi<EditorState>['getState']): EditorState => ({
   ...readBrandState(),
   bundle: null, mediaUrl: null, media: null, segments: [], callouts: [], redactions: [], redactionBoxes: [], selectedSegmentId: null,
   selectedEventId: null, hoveredEventId: null, playheadMs: 0, exportProgress: null, exportError: null,
   selectionStartMs: null, selectionEndMs: null,
   cursorSettings: DEFAULT_CURSOR_SETTINGS,
-  load: (bundle, mediaUrl, media) => set({ bundle, mediaUrl, ...(media ? { media } : {}),
-    segments: automaticSegments(bundle.events, bundle.clock, bundle.meta.viewport), callouts: [],
-    redactions: deriveRedactions(bundle.meta, bundle.events),
-    redactionBoxes: deriveRedactionIntervals(bundle.events, bundle.clock, bundle.meta.media.durationMs), playheadMs: 0,
-    selectedEventId: null, hoveredEventId: null, selectedSegmentId: null }),
+  load: (bundle, mediaUrl, media) => {
+    const previous = get().mediaUrl;
+    set({ bundle, mediaUrl, ...(media ? { media } : {}), segments: automaticSegments(bundle.events, bundle.clock, bundle.meta.viewport),
+      callouts: [], redactions: deriveRedactions(bundle.meta, bundle.events),
+      redactionBoxes: deriveRedactionIntervals(bundle.events, bundle.clock, bundle.meta.media.durationMs), playheadMs: 0,
+      selectedEventId: null, hoveredEventId: null, selectedSegmentId: null });
+    if (previous && previous !== mediaUrl) URL.revokeObjectURL(previous);
+  },
+  releaseMedia: () => {
+    const mediaUrl = get().mediaUrl;
+    if (mediaUrl) URL.revokeObjectURL(mediaUrl);
+    set({ mediaUrl: null, media: null });
+  },
   selectEvent: (selectedEventId, playheadMs) => set({ selectedEventId, playheadMs }),
   hoverEvent: (hoveredEventId) => set({ hoveredEventId }),
   setPlayhead: (playheadMs) => set({ playheadMs }),

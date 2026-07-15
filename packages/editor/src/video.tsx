@@ -1,8 +1,8 @@
-import { mapBoxToCapture, scrollMatches } from '@cutscene/trace';
+import { mapBoxToCapture } from '@cutscene/trace';
 import { useEffect, useMemo, useRef, type RefObject } from 'react';
 import { eventById, useEditorStore } from './store';
 import { cameraAt, cameraMatrix } from './camera';
-import { pageEventAt } from './bundle';
+import { geometryMatches, pageEventAt } from './bundle';
 import { activeCallout, calloutLayout, calloutSize } from './callouts';
 import { redactionBoxesAt } from './redactions';
 import { brandFontFamily, selectedBrandPreset, watermarkLayout } from './brand';
@@ -17,7 +17,7 @@ function SemanticBox() {
   const event = eventById(bundle.events, hoveredEventId ?? selectedEventId);
   const traceTime = (playheadMs - bundle.clock.intercept) / bundle.clock.slope;
   const current = pageEventAt(bundle.events, traceTime);
-  const show = event?.target && current && scrollMatches(event.scroll, current.scroll);
+  const show = event?.target && current && geometryMatches(event, current);
   const box = show && event.target ? mapBoxToCapture(event.target.boundingBox, event.viewport, bundle.meta.capture) : null;
   return box ? <div className="semantic-box" style={{ left: `${box.x / bundle.meta.capture.width * 100}%`,
     top: `${box.y / bundle.meta.capture.height * 100}%`, width: `${box.width / bundle.meta.capture.width * 100}%`,

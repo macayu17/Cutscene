@@ -13,11 +13,17 @@ export function seekForKey(key: string, currentMs: number, durationMs: number): 
 }
 
 export function tickRow(index: number): number { return index % 4; }
-export function isTimelineShortcutTarget(target: EventTarget | null, currentTarget: EventTarget): boolean { return target === currentTarget; }
+export function isTimelineShortcutTarget(target: EventTarget | null, currentTarget: EventTarget): boolean {
+  const control = target as { tagName?: string; type?: string } | null;
+  return target === currentTarget || control?.tagName === 'INPUT' && control.type === 'range';
+}
 export function isHumanEvent(event: { type: string }): boolean {
   return event.type !== 'interaction.hover' && (event.type.startsWith('interaction.') || event.type === 'navigation');
 }
 export function isTraceEvent(event: { type: string }): boolean { return event.type !== 'interaction.hover'; }
+export function hasMeaningfulTraceEvents(events: readonly { type: string }[]): boolean {
+  return events.some((event) => event.type.startsWith('interaction.') && event.type !== 'interaction.hover');
+}
 
 export function Timeline({ video }: { video: RefObject<HTMLVideoElement | null> }) {
   const bundle = useEditorStore((state) => state.bundle);
@@ -36,7 +42,7 @@ export function Timeline({ video }: { video: RefObject<HTMLVideoElement | null> 
     else if (event.key === '[') { event.preventDefault(); setBound('start'); }
     else if (event.key === ']') { event.preventDefault(); setBound('end'); }
   }}>
-    <div className="time-row"><span>{(playheadMs / 1_000).toFixed(1)}s</span><input aria-label="Playhead" type="range" min="0" max={duration} value={playheadMs} onChange={(event) => seek(Number(event.currentTarget.value))}/><span>{(duration / 1_000).toFixed(1)}s</span></div>
+    <div className="time-row"><span>{(playheadMs / 1_000).toFixed(1)}s</span><input aria-label="Playhead" type="range" min="0" max={duration} step="250" value={playheadMs} onChange={(event) => seek(Number(event.currentTarget.value))}/><span>{(duration / 1_000).toFixed(1)}s</span></div>
     <div className="trace-lane" aria-label="Trace events">
       {bundle.events.filter(isTraceEvent).map((event, index) => { const mediaTime = Math.max(0, bundle.clock.toMediaTime(event.t)); return <button key={event.id} className={`tick tick-${event.type.split('.').at(-1)}`} style={{ left: `${Math.min(100, mediaTime / duration * 100)}%`, top: `${4 + tickRow(index) * 9}px` }}
         aria-label={`${event.type} at ${(mediaTime / 1_000).toFixed(1)} seconds`} onMouseEnter={() => hoverEvent(event.id)} onMouseLeave={() => hoverEvent(null)}

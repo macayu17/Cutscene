@@ -12,6 +12,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focu
 .empty code { margin-bottom: 10px; color: var(--text-dim); font: var(--t-xs)/1.4 'IBM Plex Mono', monospace; }
 .file-label { border: 1px solid var(--line); color: var(--text); padding: 7px 10px; font-family: 'IBM Plex Mono', monospace; cursor: pointer; }
 .file-label input { position: absolute; opacity: 0; pointer-events: none; }
+.file-label:has(input:focus-visible) { outline: 2px solid var(--text); outline-offset: 2px; }
 .error { color: var(--danger); max-width: 560px; }
 .instrument { height: 100%; display: grid; grid-template: 32px minmax(0, 1fr) 286px / 240px minmax(0, 1fr); }
 .topbar { grid-column: 1 / -1; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; padding: 0 10px; font-size: var(--t-xs); letter-spacing: .03em; white-space: nowrap; }
@@ -22,6 +23,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focu
 .export-error { position: fixed; top: 38px; right: 8px; color: var(--danger); background: var(--surface); padding: 6px 8px; border: 1px solid var(--danger); }
 .events { border-right: 1px solid var(--line); min-height: 0; overflow: auto; }
 .events h2 { position: sticky; top: 0; margin: 0; padding: 9px 10px; border-bottom: 1px solid var(--line); background: var(--bg); font-size: var(--t-xs); font-weight: 500; letter-spacing: .12em; }
+.no-events { margin: 0; padding: 10px; color: var(--text-dim); font: var(--t-sm)/1.6 'IBM Plex Sans', sans-serif; }
 .event { width: 100%; display: grid; grid-template-columns: 56px 1fr; gap: 7px; border: 0; border-bottom: 1px solid var(--line); background: transparent; padding: 7px 10px; text-align: left; font-size: var(--t-xs); }
 .event:hover, .event[aria-current='true'] { background: var(--surface); }
 .event time, .event small { color: var(--text-dim); }

@@ -56,6 +56,13 @@ describe('callout edits', () => {
     expect(activeCallout(callout ? [callout] : [], [segment], [event, scroll], clock, 2_499)).toEqual(callout);
     expect(activeCallout(callout ? [callout] : [], [segment], [event, scroll], clock, 2_500)).toBeNull();
   });
+
+  it('stops before a viewport resize makes the recorded box stale', () => {
+    const callout = addCallout([], event, segment)[0];
+    const resize: TraceEvent = { v: 1, id: 'resize_1', t: 2_500, type: 'viewport.resize', stepId: 'step_2',
+      route: event.route, viewport: { width: 1_200, height: 760, dpr: 1 }, scroll: event.scroll };
+    expect(callout && calloutWindow(callout, [segment], [event, resize], clock)).toEqual({ startMs: 1_950, endMs: 2_499 });
+  });
 });
 
 describe('placeCallout', () => {

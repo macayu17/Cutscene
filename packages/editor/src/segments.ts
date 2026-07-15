@@ -17,8 +17,13 @@ export function automaticSegments(events: readonly TraceEvent[], clock: MediaClo
     viewport: event.viewport,
   }));
   const scrollTimes = events.filter((event) => event.type === 'interaction.scroll').map((event) => clock.toMediaTime(event.t));
-  return deriveZoomSegments(clicks, viewport, scrollTimes).map((segment, index) => ({ ...segment, id: `zoom_${index + 1}`,
-    eventId: clicks.find((click) => click.t === segment.clickMs)?.id ?? null }));
+  const resizeTimes = events.filter((event) => event.type === 'viewport.resize').map((event) => clock.toMediaTime(event.t));
+  return deriveZoomSegments(clicks, viewport, scrollTimes).flatMap((segment) => {
+    if (resizeTimes.some((time) => time >= segment.startMs && time <= segment.clickMs)) return [];
+    const resize = resizeTimes.filter((time) => time > segment.clickMs).reduce((first, time) => Math.min(first, time), Infinity);
+    return [{ ...segment, endMs: Math.min(segment.endMs, resize - 1),
+      eventId: clicks.find((click) => click.t === segment.clickMs)?.id ?? null }];
+  }).map((segment, index) => ({ ...segment, id: `zoom_${index + 1}` }));
 }
 
 export function addSegment(segments: readonly EditableSegment[], playheadMs: number, viewport: Pick<Viewport, 'width' | 'height'>): EditableSegment[] {

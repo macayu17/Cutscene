@@ -1,6 +1,12 @@
-import { fitMediaClock, parseRecordingMeta, parseTraceEvent, type MediaClockFit, type RecordingMeta, type Result, type TraceEvent } from '@cutscene/trace';
+import { fitMediaClock, parseRecordingMeta, parseTraceEvent, scrollMatches, type MediaClockFit, type RecordingMeta, type Result, type TraceEvent } from '@cutscene/trace';
 
 export type BundleData = { meta: RecordingMeta; events: TraceEvent[]; clock: MediaClockFit };
+
+export function geometryMatches(recorded: Pick<TraceEvent, 'viewport' | 'scroll'>,
+  current: Pick<TraceEvent, 'viewport' | 'scroll'>): boolean {
+  return scrollMatches(recorded.scroll, current.scroll) && recorded.viewport.width === current.viewport.width &&
+    recorded.viewport.height === current.viewport.height && recorded.viewport.dpr === current.viewport.dpr;
+}
 
 export function pageEventAt(events: readonly TraceEvent[], traceTimeMs: number): TraceEvent | null {
   for (let index = events.length - 1; index >= 0; index -= 1) {
@@ -24,6 +30,7 @@ export function parseBundle(metaText: string, traceText: string): Result<BundleD
     if (!event.ok) return { ok: false, error: `trace line ${index + 1}: ${event.error}` };
     events.push(event.value);
   }
+  events.sort((a, b) => a.t - b.t);
   const clock = fitMediaClock(events.filter((event) => event.type === 'system.clockSync').map((event) => ({ t: event.t, mediaTimeMs: event.mediaTimeMs })));
   return clock.ok ? { ok: true, value: { meta: meta.value, events, clock: clock.value } } : clock;
 }

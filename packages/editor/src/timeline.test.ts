@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { createEditorStore } from './store';
-import { isHumanEvent, isTimelineShortcutTarget, isTraceEvent, seekForKey, tickRow } from './timeline';
+import { hasMeaningfulTraceEvents, isHumanEvent, isTimelineShortcutTarget, isTraceEvent, seekForKey, tickRow } from './timeline';
 
 it('selects, seeks, and sets bounds without a second playback clock', () => {
   const store = createEditorStore();
@@ -21,10 +21,19 @@ it('maps timeline keys to bounded seeks', () => {
   expect(seekForKey('x', 500, 2_000)).toBeNull();
 });
 
-it('handles timeline shortcuts only when the timeline itself has focus', () => {
+it('handles timeline shortcuts on the timeline and playhead range only', () => {
   const timeline = new EventTarget();
   expect(isTimelineShortcutTarget(timeline, timeline)).toBe(true);
-  expect(isTimelineShortcutTarget(new EventTarget(), timeline)).toBe(false);
+  expect(isTimelineShortcutTarget({ tagName: 'INPUT', type: 'range' } as unknown as EventTarget, timeline)).toBe(true);
+  expect(isTimelineShortcutTarget({ tagName: 'INPUT', type: 'text' } as unknown as EventTarget, timeline)).toBe(false);
+  expect(isTimelineShortcutTarget({ tagName: 'INPUT', type: 'number' } as unknown as EventTarget, timeline)).toBe(false);
+  expect(isTimelineShortcutTarget({ tagName: 'SELECT' } as unknown as EventTarget, timeline)).toBe(false);
+});
+
+it('detects a playable trace with no meaningful interactions', () => {
+  expect(hasMeaningfulTraceEvents([{ type: 'system.recordingStart' }, { type: 'navigation' }])).toBe(false);
+  expect(hasMeaningfulTraceEvents([{ type: 'interaction.hover' }])).toBe(false);
+  expect(hasMeaningfulTraceEvents([{ type: 'interaction.click' }])).toBe(true);
 });
 
 it('keeps pointer samples out of human event lanes', () => {
