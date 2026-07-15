@@ -13,7 +13,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focu
 .file-label { border: 1px solid var(--line); color: var(--text); padding: 7px 10px; font-family: 'IBM Plex Mono', monospace; cursor: pointer; }
 .file-label input { position: absolute; opacity: 0; pointer-events: none; }
 .error { color: var(--danger); max-width: 560px; }
-.instrument { height: 100%; display: grid; grid-template: 32px minmax(0, 1fr) 224px / 240px minmax(0, 1fr); }
+.instrument { height: 100%; display: grid; grid-template: 32px minmax(0, 1fr) 256px / 240px minmax(0, 1fr); }
 .topbar { grid-column: 1 / -1; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; padding: 0 10px; font-size: var(--t-xs); letter-spacing: .03em; white-space: nowrap; }
 .topbar .push { margin-left: auto; }
 .topbar .file-label { padding: 3px 8px; font-size: var(--t-xs); }

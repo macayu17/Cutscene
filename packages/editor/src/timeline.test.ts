@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { createEditorStore } from './store';
-import { seekForKey, tickRow } from './timeline';
+import { isTimelineShortcutTarget, seekForKey, tickRow } from './timeline';
 
 it('selects, seeks, and sets bounds without a second playback clock', () => {
   const store = createEditorStore();
@@ -19,4 +19,10 @@ it('maps timeline keys to bounded seeks', () => {
   expect(seekForKey('ArrowLeft', 100, 2_000)).toBe(0);
   expect(seekForKey('ArrowRight', 1_900, 2_000)).toBe(2_000);
   expect(seekForKey('x', 500, 2_000)).toBeNull();
+});
+
+it('handles timeline shortcuts only when the timeline itself has focus', () => {
+  const timeline = new EventTarget();
+  expect(isTimelineShortcutTarget(timeline, timeline)).toBe(true);
+  expect(isTimelineShortcutTarget(new EventTarget(), timeline)).toBe(false);
 });

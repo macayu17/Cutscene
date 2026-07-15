@@ -12,6 +12,7 @@ export function seekForKey(key: string, currentMs: number, durationMs: number): 
 }
 
 export function tickRow(index: number): number { return index % 4; }
+export function isTimelineShortcutTarget(target: EventTarget | null, currentTarget: EventTarget): boolean { return target === currentTarget; }
 
 export function Timeline({ video }: { video: RefObject<HTMLVideoElement | null> }) {
   const bundle = useEditorStore((state) => state.bundle);
@@ -24,6 +25,7 @@ export function Timeline({ video }: { video: RefObject<HTMLVideoElement | null> 
   const duration = bundle.meta.media.durationMs;
   const seek = (value: number) => { if (video.current) video.current.currentTime = value / 1_000; setPlayhead(value); };
   return <section className="timeline" aria-label="Recording timeline" tabIndex={0} onKeyDown={(event) => {
+    if (!isTimelineShortcutTarget(event.target, event.currentTarget)) return;
     const value = seekForKey(event.key, playheadMs, duration);
     if (value !== null) { event.preventDefault(); seek(value); }
     else if (event.key === '[') { event.preventDefault(); setBound('start'); }
