@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cameraAt, cameraMatrix, cameraTiming } from './camera';
+import { cameraAt, cameraMatrix, cameraTiming, portraitCropAt } from './camera';
 import type { EditableSegment } from './segments';
 
 const viewport = { width: 1_280, height: 800 };
@@ -45,5 +45,39 @@ describe('cameraAt', () => {
     const camera = cameraAt(2_000, [edge], viewport);
     expect(camera.centerX).toBeCloseTo(viewport.width / (2 * camera.scale));
     expect(camera.centerY).toBeCloseTo(viewport.height / (2 * camera.scale));
+  });
+});
+
+describe('portraitCropAt', () => {
+  const capture = { width: 1_920, height: 1_080 };
+
+  it('uses the largest centered exact 9:16 crop at rest', () => {
+    expect(portraitCropAt(0, [segment], capture)).toEqual({ x: 663, y: 12, width: 594, height: 1_056 });
+  });
+
+  it('follows the existing cubic camera timing', () => {
+    expect(portraitCropAt(1_675, [segment], capture)).toEqual({ x: 825, y: 0, width: 594, height: 1_056 });
+  });
+
+  it('centers the active element at peak strength without using segment scale', () => {
+    const expected = { x: 987, y: 0, width: 594, height: 1_056 };
+    expect(portraitCropAt(2_000, [segment], capture)).toEqual(expected);
+    expect(portraitCropAt(2_000, [{ ...segment, scale: 99 }], capture)).toEqual(expected);
+  });
+
+  it('clamps the crop to both capture edges', () => {
+    const edge = { ...segment, focus: { x: 0, y: 700, width: 100, height: 100 } };
+    expect(portraitCropAt(2_000, [edge], capture)).toEqual({ x: 0, y: 24, width: 594, height: 1_056 });
+  });
+
+  it('is deterministic when seeking in either direction', () => {
+    const forward = portraitCropAt(1_800, [segment], capture);
+    portraitCropAt(3_400, [segment], capture);
+    expect(portraitCropAt(1_800, [segment], capture)).toEqual(forward);
+  });
+
+  it('rejects captures too small for an even 9:16 crop', () => {
+    expect(() => portraitCropAt(0, [], { width: 17, height: 31 }))
+      .toThrow('Capture is too small for 9:16 export.');
   });
 });
