@@ -2,6 +2,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import {
   BRAND_STORAGE_KEY,
   addBrandPreset,
+  brandFontFamily,
   deleteBrandPreset,
   emptyBrandState,
   parseBrandState,
@@ -9,10 +10,19 @@ import {
   selectedBrandPreset,
   serializeBrandState,
   updateBrandPreset,
+  watermarkLayout,
 } from './brand';
 import { createEditorStore } from './store';
 
 afterEach(() => vi.unstubAllGlobals());
+
+it('maps brand fonts and watermark bounds deterministically', () => {
+  expect(brandFontFamily('mono')).toBe('"IBM Plex Mono", monospace');
+  expect(brandFontFamily('sans')).toBe('"IBM Plex Sans", sans-serif');
+  expect(brandFontFamily('serif')).toBe('Georgia, serif');
+  expect(watermarkLayout({ width: 1920, height: 1080 })).toEqual({ x: 1420, y: 972, width: 460, height: 68 });
+  expect(watermarkLayout({ width: 1080, height: 1920 })).toEqual({ x: 790, y: 1788, width: 250, height: 92 });
+});
 
 it('adds, selects, updates, and deletes presets consistently', () => {
   const first = addBrandPreset(emptyBrandState(), 'brand_1');

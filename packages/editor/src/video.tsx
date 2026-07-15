@@ -5,6 +5,7 @@ import { cameraAt, cameraMatrix } from './camera';
 import { pageEventAt } from './bundle';
 import { activeCallout, calloutLayout, calloutSize } from './callouts';
 import { redactionBoxesAt } from './redactions';
+import { brandFontFamily } from './brand';
 
 function SemanticBox() {
   const bundle = useEditorStore((state) => state.bundle);
@@ -59,6 +60,7 @@ export function VideoView({ video }: { video: RefObject<HTMLVideoElement | null>
   const mediaUrl = useEditorStore((state) => state.mediaUrl);
   const segments = useEditorStore((state) => state.segments);
   const setPlayhead = useEditorStore((state) => state.setPlayhead);
+  const brand = useEditorStore((state) => state.brandPresets.find(({ id }) => id === state.selectedBrandId) ?? null);
   const transform = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const element = video.current;
@@ -109,5 +111,6 @@ export function VideoView({ video }: { video: RefObject<HTMLVideoElement | null>
       <SemanticBox/>
     </div>
     <CalloutOverlay/>
+    {brand?.watermark ? <div className="brand-watermark" style={{ color: brand.color, fontFamily: brandFontFamily(brand.font) }}>{brand.watermark}</div> : null}
   </div>;
 }

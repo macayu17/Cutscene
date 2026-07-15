@@ -21,6 +21,19 @@ const COLOR = /^#[0-9A-Fa-f]{6}$/;
 const STATE_KEYS = ['brandPresets', 'selectedBrandId'];
 const PRESET_KEYS = ['color', 'font', 'id', 'intro', 'name', 'outro', 'watermark'];
 
+export function brandFontFamily(font: BrandFont): string {
+  if (font === 'mono') return '"IBM Plex Mono", monospace';
+  if (font === 'sans') return '"IBM Plex Sans", sans-serif';
+  return 'Georgia, serif';
+}
+
+export function watermarkLayout(frame: { width: number; height: number }) {
+  const inset = Math.round(Math.max(frame.width, frame.height) * .02 / 10) * 10;
+  const width = Math.floor(frame.width * .24 / 10) * 10;
+  const height = Math.round(Math.min(92, Math.max(68, frame.height * .048)));
+  return { x: frame.width - inset - width, y: frame.height - inset - height, width, height };
+}
+
 export function emptyBrandState(): BrandState {
   return { brandPresets: [], selectedBrandId: null };
 }
