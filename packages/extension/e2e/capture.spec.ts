@@ -68,7 +68,26 @@ test('captures a playable, complete, masked recording bundle', async () => {
     await control.locator('#start').click();
     await expect(control.locator('#status')).toContainText('recording', { timeout: 15_000 });
 
+    await page.reload();
+    await expect(page.locator('.new-todo')).toBeVisible();
+    await expect.poll(() => worker.evaluate(async (id) => {
+      if (id === undefined) return false;
+      try { return (await chrome.tabs.sendMessage(id, { type: 'clock.sample' }) as { ok?: boolean }).ok === true; }
+      catch { return false; }
+    }, tabId)).toBe(true);
+    for (let index = 0; clickMode === 'toggle' && index < requestedClicks; index += 1) {
+      await page.locator('.new-todo').fill(`Post-navigation target ${index + 1}`);
+      await page.locator('.new-todo').press('Enter');
+    }
+
     const startedAt = Date.now();
+    await page.evaluate(() => {
+      const wrapper = document.createElement('div');
+      wrapper.dataset.sensitive = '';
+      wrapper.innerHTML = '<input id="nested-sensitive" aria-label="raw-nested-label">';
+      document.body.append(wrapper);
+    });
+    await page.locator('#nested-sensitive').fill('raw-nested-secret');
     await page.locator('.new-todo').fill('raw-secret-value');
     await page.locator('.new-todo').fill('');
     await page.bringToFront();
@@ -114,12 +133,12 @@ test('captures a playable, complete, masked recording bundle', async () => {
     await control.locator('#stop').click();
     await page.bringToFront();
     for (let index = 0; index < 30; index += 1) {
-      await page.mouse.move(600 + index, 340 + index);
+      await page.mouse.move(1_000 + index, 340 + index);
       await page.waitForTimeout(20);
     }
     await expect(control.locator('#status')).toContainText('saved', { timeout: 30_000 });
     await expect.poll(async () => (await control.evaluate(() => chrome.downloads.search({ orderBy: ['-startTime'], limit: 3 })))
-      .filter((item) => item.state === 'complete').length).toBe(3);
+      .filter((item) => item.state === 'complete').length, { timeout: 30_000 }).toBe(3);
     const items = await control.evaluate(() => chrome.downloads.search({ orderBy: ['-startTime'], limit: 3 }));
     for (const item of items) await copyFile(item.filename, path.join(output, path.basename(item.filename)));
 
@@ -129,10 +148,15 @@ test('captures a playable, complete, masked recording bundle', async () => {
     if (!traceItem || !metaItem || !mediaItem) throw new Error('Bundle files missing.');
     const traceText = await readFile(traceItem.filename, 'utf8');
     const events = traceText.trim().split(/\r?\n/).map((line) => JSON.parse(line) as Record<string, unknown>);
+    for (let index = 1; index < events.length; index += 1) {
+      expect(Number(events[index - 1]?.t)).toBeLessThanOrEqual(Number(events[index]?.t));
+    }
     const types = new Set(events.map((event) => event.type));
     for (const type of ['system.recordingStart', 'system.recordingStop', 'system.clockSync', 'navigation',
       'interaction.click', 'interaction.input', 'interaction.scroll', 'viewport.resize', 'annotation.redaction']) expect(types.has(type)).toBe(true);
     expect(traceText).not.toContain('raw-secret-value');
+    expect(traceText).not.toContain('raw-nested-secret');
+    expect(traceText).not.toContain('raw-nested-label');
     expect(events.filter((event) => event.type === 'interaction.click')).toHaveLength(requestedClicks);
     const hoverSamples = events.filter((event) => event.type === 'interaction.hover');
     expect(hoverSamples.length).toBeGreaterThanOrEqual(5);
@@ -144,16 +168,25 @@ test('captures a playable, complete, masked recording bundle', async () => {
       expect(sample).not.toHaveProperty('text');
       expect(sample).not.toHaveProperty('value');
     }
-    expect(hoverSamples.some((sample) => point(sample.pointer, 'Hover pointer').x >= 600)).toBe(false);
+    expect(hoverSamples.some((sample) => point(sample.pointer, 'Hover pointer').x >= 900)).toBe(false);
     for (let index = 1; index < hoverSamples.length; index += 1) {
       expect(Number(hoverSamples[index]?.t) - Number(hoverSamples[index - 1]?.t))
         .toBeGreaterThanOrEqual(POINTER_SAMPLE_INTERVAL_MS - 1);
     }
     const navigation = events.find((event) => event.type === 'navigation');
+    expect(events.filter((event) => event.type === 'navigation').length).toBeGreaterThanOrEqual(2);
     const firstSync = events.find((event) => event.type === 'system.clockSync');
     expect(Math.abs(Number(navigation?.t) - Number(firstSync?.t))).toBeLessThan(100);
+    const syncs = events.filter((event) => event.type === 'system.clockSync');
+    expect(syncs.length).toBeGreaterThanOrEqual(2);
+    for (let index = 1; index < syncs.length; index += 1) {
+      expect(Number(syncs[index]?.t)).toBeGreaterThan(Number(syncs[index - 1]?.t));
+      expect(Number(syncs[index]?.mediaTimeMs)).toBeGreaterThan(Number(syncs[index - 1]?.mediaTimeMs));
+    }
     const click = events.find((event) => event.type === 'interaction.click');
-    expect(click).toMatchObject({ v: 1, stepId: expect.any(String), scroll: expect.any(Object) });
+    expect(click).toMatchObject({ v: 1, stepId: 'step_0001', scroll: expect.any(Object) });
+    expect(hoverSamples.filter((sample) => Number(sample.t) < Number(click?.t))
+      .every((sample) => sample.stepId === 'step_0000')).toBe(true);
     if (!click || !record(click.target) || !Array.isArray(click.target.locators)) throw new Error('Click target is invalid.');
     expect(click.target.locators.length).toBeGreaterThan(0);
     const scriptedClick = clickPoints[0];

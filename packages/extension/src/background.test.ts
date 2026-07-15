@@ -33,3 +33,26 @@ describe('recording stop', () => {
     expect(tabsSend.mock.calls.map(([, message]) => message.type)).toEqual(['session.quiesce', 'session.stop']);
   });
 });
+
+describe('content rejoin', () => {
+  beforeEach(() => { vi.resetModules(); vi.unstubAllGlobals(); });
+
+  it('reattaches a replacement content script with the original epoch and selectors', async () => {
+    let listener: Listener | undefined;
+    const tabsSend = vi.fn(async (_tabId: number, message: { type: string }) =>
+      message.type === 'session.start' ? { ok: true, value: {} } : { ok: true, value: undefined });
+    vi.stubGlobal('chrome', {
+      runtime: { getURL: vi.fn(), sendMessage: vi.fn(), onMessage: { addListener: vi.fn((value: Listener) => { listener = value; }) } },
+      tabs: { sendMessage: tabsSend },
+      storage: { session: { get: vi.fn(async () => ({ activeRecording: { tabId: 7, sessionEpoch: 123,
+        redactSelectors: ['.secret'], captureReady: true } })), set: vi.fn(), remove: vi.fn() } },
+    });
+    await import('./background');
+    if (!listener) throw new Error('Background listener was not registered.');
+    const responses: unknown[] = [];
+    expect(listener({ type: 'session.contentReady' }, { tab: { id: 7 } }, (response) => responses.push(response))).toBe(true);
+    await vi.waitFor(() => expect(responses).toEqual([{ ok: true, value: undefined }]));
+    expect(tabsSend).toHaveBeenNthCalledWith(1, 7, { type: 'session.start', sessionEpoch: 123, redactSelectors: ['.secret'] });
+    expect(tabsSend).toHaveBeenNthCalledWith(2, 7, { type: 'session.captureReady', navigation: true });
+  });
+});

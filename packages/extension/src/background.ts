@@ -1,6 +1,29 @@
 import type { RecorderStatus, Result } from './messages';
 
 const offscreenPath = 'offscreen.html';
+const activeRecordingKey = 'activeRecording';
+type ActiveRecording = { tabId: number; sessionEpoch: number; redactSelectors: string[]; captureReady: boolean };
+
+async function activeRecording(): Promise<ActiveRecording | null> {
+  const stored = await chrome.storage.session.get(activeRecordingKey);
+  const value = stored[activeRecordingKey];
+  return value && typeof value === 'object' ? value as ActiveRecording : null;
+}
+
+async function saveActiveRecording(value: ActiveRecording): Promise<void> {
+  await chrome.storage.session.set({ [activeRecordingKey]: value });
+}
+
+async function clearActiveRecording(): Promise<void> { await chrome.storage.session.remove(activeRecordingKey); }
+
+async function reattach(tabId: number): Promise<Result> {
+  const active = await activeRecording();
+  if (!active || !active.captureReady || active.tabId !== tabId) return { ok: true, value: undefined };
+  const started = await chrome.tabs.sendMessage(tabId, { type: 'session.start', sessionEpoch: active.sessionEpoch,
+    redactSelectors: active.redactSelectors }) as Result;
+  if (!started.ok) return started;
+  return chrome.tabs.sendMessage(tabId, { type: 'session.captureReady', navigation: true }) as Promise<Result>;
+}
 
 async function ensureOffscreen(): Promise<void> {
   const url = chrome.runtime.getURL(offscreenPath);
@@ -20,7 +43,8 @@ async function start(tabId: number, includeMic: boolean, redactSelectors: readon
     const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tabId });
     const result = await chrome.runtime.sendMessage({ type: 'offscreen.start', streamId, tabId, sessionEpoch, includeMic,
       context: context.value }) as Result<RecorderStatus>;
-    if (!result.ok) { await chrome.tabs.sendMessage(tabId, { type: 'session.stop' }); sessionStarted = false; }
+    if (!result.ok) { await chrome.runtime.sendMessage({ type: 'offscreen.cancel' }).catch(() => undefined);
+      await chrome.tabs.sendMessage(tabId, { type: 'session.stop' }); sessionStarted = false; }
     else {
       offscreenStarted = true;
       const ready = await chrome.tabs.sendMessage(tabId, { type: 'session.captureReady' }) as Result;
@@ -29,6 +53,7 @@ async function start(tabId: number, includeMic: boolean, redactSelectors: readon
         await chrome.tabs.sendMessage(tabId, { type: 'session.stop' }).catch(() => undefined); sessionStarted = false;
         return ready;
       }
+      await saveActiveRecording({ tabId, sessionEpoch, redactSelectors: [...redactSelectors], captureReady: true });
     }
     return result;
   } catch (error: unknown) {
@@ -43,6 +68,7 @@ async function stop(): Promise<Result<RecorderStatus>> {
     const status = await chrome.runtime.sendMessage({ type: 'offscreen.status' }) as Result<RecorderStatus>;
     if (!status.ok || status.value.tabId === null) return status;
     const tabId = status.value.tabId;
+    await clearActiveRecording().catch(() => undefined);
     let quiesced: Result;
     try { quiesced = await chrome.tabs.sendMessage(tabId, { type: 'session.quiesce' }) as Result; }
     catch (error: unknown) { quiesced = { ok: false, error: error instanceof Error ? error.message : String(error) }; }
@@ -67,9 +93,18 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, respond) => {
   }
   if (message.type === 'recording.stop') { void stop().then(respond); return true; }
   if (message.type === 'recording.status') { void ensureOffscreen().then(() => chrome.runtime.sendMessage({ type: 'offscreen.status' })).then(respond); return true; }
+  if (message.type === 'session.contentReady') {
+    const sender = _sender as chrome.runtime.MessageSender;
+    if (sender.tab?.id === undefined) { respond({ ok: true, value: undefined } satisfies Result); return false; }
+    void reattach(sender.tab.id).then(respond).catch((error: unknown) => respond({ ok: false,
+      error: error instanceof Error ? error.message : String(error) } satisfies Result));
+    return true;
+  }
   if (message.type === 'clock.sample' && 'tabId' in message && typeof message.tabId === 'number' && 'sessionEpoch' in message && typeof message.sessionEpoch === 'number') {
     const workerClockMs = Date.now() - message.sessionEpoch;
-    void chrome.tabs.sendMessage(message.tabId, { type: 'clock.sample' }).then((sample: Result<number>) => respond(sample.ok ? { ok: true, value: { contentClockMs: sample.value, workerClockMs } } : sample));
+    void chrome.tabs.sendMessage(message.tabId, { type: 'clock.sample' }).then((sample: Result<number>) =>
+      respond(sample.ok ? { ok: true, value: { contentClockMs: sample.value, workerClockMs } } : sample))
+      .catch((error: unknown) => respond({ ok: false, error: error instanceof Error ? error.message : String(error) } satisfies Result));
     return true;
   }
   if (message.type === 'downloads.start' && 'recordingId' in message && typeof message.recordingId === 'string' &&

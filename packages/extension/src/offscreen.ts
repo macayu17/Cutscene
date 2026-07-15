@@ -1,6 +1,7 @@
 import type { RecordingMeta, TraceEvent, Viewport, ScrollPosition } from '@cutscene/trace';
 import type { RecorderStatus, Result } from './messages';
 import { saveBundle } from './storage';
+import { orderTraceEvents, rollbackCapture } from './recording-lifecycle';
 
 type PageContext = { viewport: Viewport; scroll: ScrollPosition; route: string; url: string; origin: string; contentClockMs: number;
   visualRedactionSelectors: string[] };
@@ -52,14 +53,17 @@ async function sync(): Promise<void> {
 
 async function start(message: { streamId: string; tabId: number; sessionEpoch: number; includeMic: boolean; context: PageContext }): Promise<Result<RecorderStatus>> {
   if (state) return { ok: false, error: 'A recording is already active.' };
+  let tab: MediaStream | null = null;
+  let mic: MediaStream | null = null;
+  let recorder: MediaRecorder | null = null;
   try {
     const video = { mandatory: { chromeMediaSource: 'tab', chromeMediaSourceId: message.streamId } } as MediaTrackConstraints & { mandatory: { chromeMediaSource: 'tab'; chromeMediaSourceId: string } };
-    const tab = await navigator.mediaDevices.getUserMedia({ video, audio: false });
-    const mic = message.includeMic ? await navigator.mediaDevices.getUserMedia({ audio: true }) : null;
+    tab = await navigator.mediaDevices.getUserMedia({ video, audio: false });
+    mic = message.includeMic ? await navigator.mediaDevices.getUserMedia({ audio: true }) : null;
     const stream = new MediaStream([...tab.getVideoTracks(), ...(mic?.getAudioTracks() ?? [])]);
     const dimensions = await captureDimensions(stream);
     const mimeType = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp9', 'video/webm'].find(MediaRecorder.isTypeSupported.bind(MediaRecorder));
-    const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
     const chunks: Blob[] = [];
     recorder.addEventListener('dataavailable', (event) => { if (event.data.size) chunks.push(event.data); });
     const current: State = { recorder, stream, mic, chunks, events: [], tabId: message.tabId, sessionEpoch: message.sessionEpoch,
@@ -72,7 +76,10 @@ async function start(message: { streamId: string; tabId: number; sessionEpoch: n
       systemEvent('navigation', current, current.context.contentClockMs));
     current.timer = window.setInterval(() => void sync(), 2_000);
     return { ok: true, value: status() };
-  } catch (error: unknown) { return { ok: false, error: error instanceof Error ? error.message : String(error) }; }
+  } catch (error: unknown) {
+    rollbackCapture(recorder, [tab, mic].filter((stream): stream is MediaStream => stream !== null), () => { state = null; });
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
 }
 
 async function stop(): Promise<Result<RecorderStatus>> {
@@ -86,7 +93,8 @@ async function stop(): Promise<Result<RecorderStatus>> {
     await new Promise<void>((resolve) => { current.recorder.addEventListener('stop', () => resolve(), { once: true }); current.recorder.stop(); });
     current.stream.getTracks().forEach((track) => track.stop()); current.mic?.getTracks().forEach((track) => track.stop());
     const media = new Blob(current.chunks, { type: current.recorder.mimeType });
-    const trace = new Blob([`${current.events.map((event) => JSON.stringify(event)).join('\n')}\n`], { type: 'application/x-ndjson' });
+    const orderedEvents = orderTraceEvents(current.events);
+    const trace = new Blob([`${orderedEvents.map((event) => JSON.stringify(event)).join('\n')}\n`], { type: 'application/x-ndjson' });
     const meta: RecordingMeta = { schemaVersion: 1, recordingId: current.recordingId, createdAt: new Date(current.sessionEpoch).toISOString(),
       sessionEpoch: current.sessionEpoch, url: current.context.url, origin: current.context.origin, viewport: current.context.viewport,
       capture: current.capture,
@@ -125,7 +133,9 @@ async function cancel(): Promise<Result> {
 chrome.runtime.onMessage.addListener((message: unknown, _sender, respond) => {
   if (!message || typeof message !== 'object' || !('type' in message)) return false;
   if (message.type === 'trace.event' && 'event' in message) {
-    if (state) { state.events.push(message.event as TraceEvent); respond({ ok: true, value: undefined } satisfies Result); }
+    if (state) { const event = message.event as TraceEvent; state.events.push(event);
+      state.context = { ...state.context, route: event.route, viewport: event.viewport, scroll: event.scroll };
+      respond({ ok: true, value: undefined } satisfies Result); }
     else respond({ ok: false, error: 'Recording is not active.' } satisfies Result);
     return false;
   }

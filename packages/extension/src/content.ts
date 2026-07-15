@@ -3,6 +3,7 @@ import { rankLocators, sanitizeTarget, type BoundingBox, type PointerPosition, t
 import type { Result } from './messages';
 import { shouldSamplePointer } from './pointer';
 import { createTraceDeliveryQueue } from './trace-delivery';
+import { hasSensitiveContext, nextStep } from './capture-state';
 
 type PageContext = { viewport: ReturnType<typeof viewport>; scroll: ReturnType<typeof scroll>; route: string; url: string; origin: string;
   contentClockMs: number; visualRedactionSelectors: string[] };
@@ -71,18 +72,21 @@ function target(element: Element): TargetDescriptor | null {
       accessibleName, ...(label ? { label } : {}), ...(accessibleName ? { text: accessibleName } : {}), css: cssPath(element) }),
     ...(elementValue !== undefined ? { value: elementValue } : {}),
     ...(inputType !== undefined ? { inputType } : {}),
-    sensitive: element.matches('[data-sensitive], [data-private]'),
+    sensitive: hasSensitiveContext(element),
     selector: cssPath(element),
   };
   return sanitizeTarget(observation);
 }
 
-function emit(type: Exclude<TraceEventType, 'system.clockSync' | 'annotation.redaction'>, targetDescriptor?: TargetDescriptor,
+function emit(type: Exclude<TraceEventType, 'system.clockSync' | 'annotation.redaction' | 'annotation.callout'>,
+  targetDescriptor?: TargetDescriptor,
   pointer?: PointerPosition): void {
   if (sessionEpoch === null || !captureReady) return;
+  const eventStep = nextStep(step, type);
+  step = eventStep.current;
   const envelope = {
     v: 1 as const, id: `evt_${crypto.randomUUID()}`, t: now(), type,
-    stepId: `step_${String(++step).padStart(4, '0')}`, route: route(), viewport: viewport(), scroll: scroll(),
+    stepId: eventStep.id, route: route(), viewport: viewport(), scroll: scroll(),
   };
   let event: TraceEvent;
   if (type === 'interaction.hover') {
@@ -99,7 +103,7 @@ function emit(type: Exclude<TraceEventType, 'system.clockSync' | 'annotation.red
 function emitRedaction(selector: string, instanceId: string, box?: BoundingBox, time = now()): void {
   if (sessionEpoch === null || !captureReady) return;
   const event: RedactionSampleEvent = { v: 1, id: `evt_${crypto.randomUUID()}`, t: time, type: 'annotation.redaction',
-    stepId: `step_${String(++step).padStart(4, '0')}`, route: route(), viewport: viewport(), scroll: scroll(),
+    stepId: nextStep(step, 'annotation.redaction').id, route: route(), viewport: viewport(), scroll: scroll(),
     selector, instanceId, visible: box !== undefined, ...(box ? { box } : {}) };
   traceDelivery.send(event);
 }
@@ -185,8 +189,10 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, respond) => {
   } else if (message.type === 'session.captureReady') {
     if (sessionEpoch === null) respond({ ok: false, error: 'Recording session is unavailable.' } satisfies Result);
     else { captureReady = true; previousRedactions.clear();
-      // The recorder is already running; anchor this current geometry at zero so its first frame cannot leak.
-      sampleRedactions(true);
+      const navigation = 'navigation' in message && message.navigation === true;
+      if (navigation) emit('navigation');
+      // The recorder is already running; anchor initial geometry at zero so its first frame cannot leak.
+      sampleRedactions(!navigation);
       respond({ ok: true, value: undefined } satisfies Result); }
   } else if (message.type === 'session.quiesce') {
     disableCapture();
@@ -194,7 +200,11 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, respond) => {
     return true;
   } else if (message.type === 'session.stop') { sessionEpoch = null; disableCapture();
     respond({ ok: true, value: undefined } satisfies Result); }
-  else if (message.type === 'clock.sample') respond({ ok: true, value: now() } satisfies Result<number>);
+  else if (message.type === 'clock.sample') respond(sessionEpoch === null
+    ? { ok: false, error: 'Recording session is unavailable.' } satisfies Result
+    : { ok: true, value: now() } satisfies Result<number>);
   else return false;
   return false;
 });
+
+void chrome.runtime.sendMessage({ type: 'session.contentReady' }).catch(() => undefined);
