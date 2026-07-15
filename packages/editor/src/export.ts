@@ -1,11 +1,14 @@
-import { mapBoxToCapture, type MediaClockFit, type TraceEvent } from '@cutscene/trace';
+import { type MediaClockFit, type TraceEvent } from '@cutscene/trace';
 import type { EditableSegment } from './segments';
-import { cameraTiming, portraitCropAt } from './camera';
+import { portraitCropAt } from './camera';
 import { calloutLayout, calloutSize, calloutWindow, type EditableCallout } from './callouts';
 import { renderCalloutCard } from './callout-render';
 import { compileRedactions, type CompiledRedaction, type EditableRedaction, type RedactionBox } from './redactions';
 import { watermarkLayout, type BrandPreset } from './brand';
 import { renderBrandCard, renderBrandWatermark } from './brand-render';
+import { buildCursorOverlays, escapeFilter, portraitFilter, zoomPanFilter } from './cursor-export';
+import { deriveCursorSamples, prepareCursorTrack, type CursorSettings } from './cursor';
+import { renderCursorAssets } from './cursor-render';
 
 export type ExportMeta = {
   capture: { width: number; height: number; fps: number };
@@ -14,60 +17,18 @@ export type ExportMeta = {
 };
 export type ExportFormat = 'gif' | 'mp4' | 'vertical';
 export type ExportPlan = { args: string[]; output: 'output.gif' | 'output.mp4'; mimeType: 'image/gif' | 'video/mp4' };
-export type ExportOverlay = { filename: string; x: number; y: number; startSeconds: number; endSeconds: number };
+export type ExportOverlay = { filename: string; x: number | string; y: number | string; startSeconds: number; endSeconds: number;
+  enable?: string };
 export type BrandExportCards = { introFilename?: string; outroFilename?: string; introSeconds: number; outroSeconds: number };
-
-function escape(expression: string): string { return expression.replaceAll(',', '\\,'); }
-
-function strength(segment: EditableSegment, time: string): string {
-  const timing = cameraTiming(segment);
-  const start = timing.startMs / 1_000;
-  const peak = timing.peakMs / 1_000;
-  const exitStart = timing.exitStartMs / 1_000;
-  const end = timing.endMs / 1_000;
-  const up = `(${time}-${start})/${peak - start}`;
-  const down = `(${end}-${time})/${end - exitStart}`;
-  const smooth = (value: string) => `(${value})*(${value})*(3-2*(${value}))`;
-  return `if(between(${time},${start},${peak}),${smooth(up)},if(between(${time},${exitStart},${end}),${smooth(down)},if(between(${time},${peak},${exitStart}),1,0)))`;
-}
-
-function zoomPanFilter(segments: readonly EditableSegment[], meta: ExportMeta, width: number, height: number, fps: number): string {
-  const factors = segments.map((segment) => strength(segment, 'in_time'));
-  const choose = (values: string[], fallback: string) => values.reduceRight((next, value, index) => `if(gt(${factors[index]},0),${value},${next})`, fallback);
-  const zooms = segments.map((segment, index) => `1+(${factors[index]})*${segment.scale - 1}`);
-  const centers = segments.map((segment) => {
-    const focus = mapBoxToCapture(segment.focus, segment.viewport, meta.capture);
-    return { x: focus.x + focus.width / 2, y: focus.y + focus.height / 2 };
-  });
-  const zoom = choose(zooms, '1');
-  const centerX = choose(centers.map(({ x }, index) => `iw/2+(${factors[index]})*(${x}-iw/2)`), 'iw/2');
-  const centerY = choose(centers.map(({ y }, index) => `ih/2+(${factors[index]})*(${y}-ih/2)`), 'ih/2');
-  const x = `max(iw/(2*zoom),min(iw-iw/(2*zoom),${centerX}))-iw/(2*zoom)`;
-  const y = `max(ih/(2*zoom),min(ih-ih/(2*zoom),${centerY}))-ih/(2*zoom)`;
-  return `zoompan=z='${escape(zoom)}':x='${escape(x)}':y='${escape(y)}':d=1:s=${width}x${height}:fps=${fps}`;
-}
-
-function portraitFilter(segments: readonly EditableSegment[], meta: ExportMeta): string {
-  const crop = portraitCropAt(0, [], meta.capture);
-  const factors = segments.map((segment) => strength(segment, 't'));
-  const choose = (values: string[], fallback: string) => values.reduceRight((next, value, index) =>
-    `if(gt(${factors[index]},0),${value},${next})`, fallback);
-  const centers = segments.map((segment) => {
-    const focus = mapBoxToCapture(segment.focus, segment.viewport, meta.capture);
-    return { x: focus.x + focus.width / 2, y: focus.y + focus.height / 2 };
-  });
-  const centerX = choose(centers.map(({ x }, index) => `iw/2+(${factors[index]})*(${x}-iw/2)`), 'iw/2');
-  const centerY = choose(centers.map(({ y }, index) => `ih/2+(${factors[index]})*(${y}-ih/2)`), 'ih/2');
-  const x = `max(0,min(iw-${crop.width},${centerX}-${crop.width / 2}))`;
-  const y = `max(0,min(ih-${crop.height},${centerY}-${crop.height / 2}))`;
-  return `crop=${crop.width}:${crop.height}:x='${escape(x)}':y='${escape(y)}',scale=1080:1920:flags=lanczos,setsar=1`;
-}
 
 function overlayChain(overlays: readonly ExportOverlay[]): { filters: string[]; output: string } {
   let input = 'base';
   const filters = overlays.map((overlay, index) => {
     const output = `overlay_${index}`;
-    const filter = `[${input}][${index + 1}:v]overlay=${overlay.x}:${overlay.y}:enable='between(t,${overlay.startSeconds},${overlay.endSeconds})':eof_action=repeat[${output}]`;
+    const x = typeof overlay.x === 'number' ? overlay.x : `'${escapeFilter(overlay.x)}'`;
+    const y = typeof overlay.y === 'number' ? overlay.y : `'${escapeFilter(overlay.y)}'`;
+    const enable = overlay.enable ? escapeFilter(overlay.enable) : `between(t,${overlay.startSeconds},${overlay.endSeconds})`;
+    const filter = `[${input}][${index + 1}:v]overlay=${x}:${y}:enable='${enable}':eof_action=repeat[${output}]`;
     input = output;
     return filter;
   });
@@ -189,7 +150,7 @@ async function ffmpeg() {
 export async function exportRecording(media: Blob, format: ExportFormat, segments: readonly EditableSegment[], meta: ExportMeta,
   callouts: readonly EditableCallout[], events: readonly TraceEvent[], clock: MediaClockFit,
   redactions: readonly EditableRedaction[], redactionBoxes: readonly RedactionBox[],
-  brand: BrandPreset | null,
+  brand: BrandPreset | null, cursorSettings: CursorSettings,
   progress: (value: number) => void): Promise<Blob> {
   const engine = await ffmpeg();
   const listener = ({ progress: value }: { progress: number }) => progress(value);
@@ -197,6 +158,9 @@ export async function exportRecording(media: Blob, format: ExportFormat, segment
   try {
     const outputSize = format === 'gif' ? { width: 800, height: 450 } :
       format === 'vertical' ? { width: 1_080, height: 1_920 } : { width: 1_920, height: 1_080 };
+    const cursorTrack = cursorSettings.enabled
+      ? prepareCursorTrack(deriveCursorSamples(events, clock, meta.capture), cursorSettings) : null;
+    const cursorAssets = cursorTrack?.samples.length ? await renderCursorAssets(cursorSettings.size) : [];
     const cardSize = calloutSize(outputSize);
     const prepared = callouts.flatMap((callout, index) => {
       const event = events.find(({ id }) => id === callout.sourceEventId);
@@ -217,7 +181,8 @@ export async function exportRecording(media: Blob, format: ExportFormat, segment
         endSeconds: meta.media.durationMs / 1_000 } satisfies ExportOverlay } : null;
     const intro = brand?.intro.trim() ? { filename: 'intro.png', data: await renderBrandCard(brand.intro, brand, outputSize) } : null;
     const outro = brand?.outro.trim() ? { filename: 'outro.png', data: await renderBrandCard(brand.outro, brand, outputSize) } : null;
-    const overlays = [...prepared.map(({ overlay }) => overlay), ...(watermark ? [watermark.overlay] : [])];
+    const overlays = [...prepared.map(({ overlay }) => overlay), ...(watermark ? [watermark.overlay] : []),
+      ...(cursorTrack ? buildCursorOverlays(format, cursorTrack, cursorSettings.size, segments, meta) : [])];
     const plan = buildExportPlan(format, segments, meta, overlays,
       compileRedactions(redactionBoxes, redactions, meta.capture), {
         ...(intro ? { introFilename: intro.filename } : {}), ...(outro ? { outroFilename: outro.filename } : {}),
@@ -228,6 +193,7 @@ export async function exportRecording(media: Blob, format: ExportFormat, segment
     if (watermark) await engine.writeFile(watermark.filename, watermark.data);
     if (intro) await engine.writeFile(intro.filename, intro.data);
     if (outro) await engine.writeFile(outro.filename, outro.data);
+    for (const asset of cursorAssets) await engine.writeFile(asset.filename, asset.data);
     await engine.exec(plan.args);
     const data = await engine.readFile(plan.output);
     if (!(data instanceof Uint8Array)) throw new Error('Export produced invalid binary output.');

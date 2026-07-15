@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { buildExportPlan } from './export';
+import { buildExportPlan, type ExportOverlay } from './export';
 import { renderBrandCard, renderBrandWatermark } from './brand-render';
 
 afterEach(() => vi.unstubAllGlobals());
@@ -27,6 +27,16 @@ it('builds a 1080p H.264 yuv420p MP4', () => {
   expect(plan.args.join(' ')).toContain('s=1920x1080:fps=60');
   expect(plan.args).toEqual(expect.arrayContaining(['libx264', 'yuv420p', 'ultrafast']));
   expect(plan.args.join(' ')).toContain('max(iw/(2*zoom)');
+});
+
+it('keeps the old no-pointer MP4 fast path exactly', () => {
+  expect(buildExportPlan('mp4', [], meta)).toEqual({
+    output: 'output.mp4', mimeType: 'video/mp4', args: [
+      '-i', 'input.webm', '-vf',
+      "fps=60,zoompan=z='1':x='max(iw/(2*zoom)\\,min(iw-iw/(2*zoom)\\,iw/2))-iw/(2*zoom)':y='max(ih/(2*zoom)\\,min(ih-ih/(2*zoom)\\,ih/2))-ih/(2*zoom)':d=1:s=1920x1080:fps=60,format=yuv420p",
+      '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-movflags', '+faststart', 'output.mp4',
+    ],
+  });
 });
 
 const overlay = { filename: 'callout_0.png', x: 120, y: 80, startSeconds: 1, endSeconds: 2 };
@@ -73,6 +83,26 @@ it('builds an undistorted 1080x1920 crop and pan after redaction and before call
 });
 
 const cards = { introFilename: 'intro.png', outroFilename: 'outro.png', introSeconds: 1.5, outroSeconds: 1.5 };
+
+it('orders cursor overlays after UI overlays, before brand concat, and before one GIF palette', () => {
+  const cursor: ExportOverlay[] = [
+    { filename: 'cursor-arrow.png', x: '100+min(max(t,0),1)', y: "200+min(max(t,0),1)'", startSeconds: 0, endSeconds: 5,
+      enable: 'between(t,0,1)' },
+    { filename: 'cursor-ripple-0.png', x: '90', y: '190', startSeconds: .2, endSeconds: .3,
+      enable: 'gte(t,0.2)*lt(t,0.3)' },
+  ];
+  const command = buildExportPlan('gif', segments, meta, [overlay, ...cursor], [], cards).args.join(' ');
+  expect(command).toContain('-i callout_0.png -i cursor-arrow.png -i cursor-ripple-0.png -loop 1 -t 1.5 -i intro.png');
+  expect(command).toContain('[base][1:v]overlay=120:80');
+  expect(command).toContain("[overlay_0][2:v]overlay='100+min(max(t\\,0)\\,1)'");
+  expect(command).toContain(":'200+min(max(t\\,0)\\,1)\\''");
+  expect(command).toContain("enable='between(t\\,0\\,1)'");
+  expect(command).toContain("[overlay_1][3:v]overlay='90':'190':enable='gte(t\\,0.2)*lt(t\\,0.3)'");
+  expect(command).toContain('[intro][overlay_2][outro]concat=n=3:v=1:a=0[branded]');
+  expect(command.indexOf('cursor-ripple-0')).toBeLessThan(command.indexOf('concat=n=3'));
+  expect(command.indexOf('concat=n=3')).toBeLessThan(command.indexOf('palettegen='));
+  expect(command.match(/palettegen/g)).toHaveLength(1);
+});
 
 it('concatenates branded GIF cards after overlays and before one global palette', () => {
   const plan = buildExportPlan('gif', segments, meta, [overlay], [redaction], cards);
