@@ -12,6 +12,7 @@ import { BRAND_STORAGE_KEY, addBrandPreset as addBrandPresetEdit, deleteBrandPre
   emptyBrandState, parseBrandState, selectBrandPreset as selectBrandPresetEdit, serializeBrandState,
   updateBrandPreset as updateBrandPresetEdit, type BrandPreset, type BrandState } from './brand';
 import { DEFAULT_CURSOR_SETTINGS, updateCursorSettings as updateCursorSettingsEdit, type CursorSettings } from './cursor';
+import { parseCaptions, type CaptionCue } from '@cutscene/trace';
 
 export type EditorState = {
   bundle: BundleData | null;
@@ -32,6 +33,9 @@ export type EditorState = {
   brandPresets: BrandPreset[];
   selectedBrandId: string | null;
   cursorSettings: CursorSettings;
+  captions: CaptionCue[];
+  captionError: string | null;
+  loadCaptions: (text: string) => void;
   load: (bundle: BundleData, mediaUrl: string, media?: File) => void;
   releaseMedia: () => void;
   selectEvent: (id: string, mediaTimeMs: number) => void;
@@ -62,11 +66,17 @@ const creator = (set: StoreApi<EditorState>['setState'], get: StoreApi<EditorSta
   selectedEventId: null, hoveredEventId: null, playheadMs: 0, exportProgress: null, exportError: null,
   selectionStartMs: null, selectionEndMs: null,
   cursorSettings: DEFAULT_CURSOR_SETTINGS,
+  captions: [], captionError: null,
+  loadCaptions: (text) => set(() => {
+    const parsed = parseCaptions(text);
+    return parsed.ok ? { captions: parsed.value, captionError: null } : { captions: [], captionError: parsed.error };
+  }),
   load: (bundle, mediaUrl, media) => {
     const previous = get().mediaUrl;
     set({ bundle, mediaUrl, ...(media ? { media } : {}), segments: automaticSegments(bundle.events, bundle.clock, bundle.meta.viewport),
       callouts: [], redactions: deriveRedactions(bundle.meta, bundle.events),
       redactionBoxes: deriveRedactionIntervals(bundle.events, bundle.clock, bundle.meta.media.durationMs), playheadMs: 0,
+      captions: [], captionError: null,
       selectedEventId: null, hoveredEventId: null, selectedSegmentId: null });
     if (previous && previous !== mediaUrl) URL.revokeObjectURL(previous);
   },

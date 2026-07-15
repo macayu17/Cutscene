@@ -6,3 +6,4 @@ export * from './coordinates';
 export * from './zoom';
 export * from './skeleton';
 export * from './docs';
+export * from './captions';

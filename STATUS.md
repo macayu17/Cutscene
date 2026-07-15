@@ -14,7 +14,7 @@ Phase 4 builds artifact generation from the existing trace (PRD.md §10):
   [x] step-by-step documentation
   [x] per-step screenshot set
   [ ] README GIF variants (full flow + per step)
-  [ ] transcript and captions (SRT/VTT)
+  [x] transcript and captions (SRT/VTT, import + export; no ASR by owner scope)
 
 Playwright flow skeleton evidence:
   source bundle: artifacts/phase3-cursor-bundle
@@ -45,6 +45,17 @@ Step documentation and screenshot set evidence:
   ZIP writer interop round-trip (Expand-Archive): passed
   local artifacts: artifacts/phase4-docs-sample/docs.md,
                    artifacts/phase4-docs-sample/screenshots/step-0{2,3,4,5}.png
+
+Transcript and captions evidence:
+  scope: import + SRT/VTT export, no ASR engine (owner decision 2026-07-15;
+         whisper.wasm rejected as out-of-scope, see PRD.md §14 Phase 8)
+  import: messy VTT (no hours field, CRLF, NOTE block, cue text)
+  export SRT: comma delimiter, 1-based indices, hours filled to 00
+  export VTT: WEBVTT header, dot delimiter, NOTE and identifiers dropped
+  browser round-trip errors: 0
+  local artifacts: artifacts/phase4-captions-sample/import.vtt,
+                   artifacts/phase4-captions-sample/export.srt,
+                   artifacts/phase4-captions-sample/export.vtt
 
 Phase 1 passed on 2026-07-14. See docs/phase-1-evidence.md.
 An uninformed viewer identified the side-by-side difference within 10 seconds.
