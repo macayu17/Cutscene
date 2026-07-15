@@ -1,0 +1,45 @@
+import { expect, it } from 'vitest';
+import { createId, isBundleFile, isValidId, validateBundleFile } from './store.ts';
+
+const meta = {
+  schemaVersion: 1, recordingId: 'rec_1', createdAt: '2026-07-16T09:00:00.000Z', sessionEpoch: 1,
+  url: 'https://app.example.com/x', origin: 'https://app.example.com',
+  viewport: { width: 1440, height: 900, dpr: 2 }, capture: { width: 2880, height: 1800, fps: 30 },
+  media: { mimeType: 'video/webm', hasAudio: false, durationMs: 1000 },
+  privacy: { maskInputValues: true, captureNetwork: false, maskedSelectors: [] },
+  app: { commit: null, version: null, environment: null },
+};
+const buf = (value: unknown) => Buffer.from(typeof value === 'string' ? value : JSON.stringify(value));
+
+it('accepts only real UUID ids and rejects traversal', () => {
+  expect(isValidId(createId())).toBe(true);
+  expect(isValidId('../etc')).toBe(false);
+  expect(isValidId('9837ddbe-884a-4dcc-a3ae-ffa17137382c')).toBe(true);
+  expect(isValidId('9837ddbe/884a')).toBe(false);
+});
+
+it('allowlists exactly the three bundle files', () => {
+  expect(isBundleFile('media.webm')).toBe(true);
+  expect(isBundleFile('meta.json')).toBe(true);
+  expect(isBundleFile('trace.jsonl')).toBe(true);
+  expect(isBundleFile('../../secret')).toBe(false);
+  expect(isBundleFile('index.html')).toBe(false);
+});
+
+it('rejects meta that is not JSON or not schemaVersion 1', () => {
+  expect(validateBundleFile('meta.json', buf(meta)).ok).toBe(true);
+  expect(validateBundleFile('meta.json', buf('{not json')).ok).toBe(false);
+  expect(validateBundleFile('meta.json', buf({ ...meta, schemaVersion: 2 })).ok).toBe(false);
+});
+
+it('rejects a non-JSON trace line and reports which one', () => {
+  const good = `${JSON.stringify({ v: 1, type: 'navigation' })}\n`;
+  expect(validateBundleFile('trace.jsonl', buf(good)).ok).toBe(true);
+  const bad = validateBundleFile('trace.jsonl', buf(`${good}{oops`));
+  expect(bad.ok).toBe(false);
+  expect(bad.ok === false && bad.error).toContain('line 2');
+});
+
+it('treats media bytes as opaque', () => {
+  expect(validateBundleFile('media.webm', Buffer.from([0x1a, 0x45, 0xdf, 0xa3])).ok).toBe(true);
+});

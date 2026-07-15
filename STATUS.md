@@ -1,4 +1,27 @@
-Phase: 4
+Phase: 5
+
+Phase 4's exit gate (a user generating an artifact unprompted) was waived by
+explicit owner override on 2026-07-16, the same demand-validation risk already
+accepted for Phases 2 and 3. No external user evidence exists. This is an
+accepted product risk, not a met Phase 4 exit criterion. See PRD.md §10.
+
+Phase 5 is scoped down to its exit criterion only (PRD.md §11): share a link to
+a demo with someone who is not a user. Only that share-link wedge is being built.
+Deferred as unbuilt-until-demanded (YAGNI): GitHub OAuth, bring-your-own storage
+(S3/R2/MinIO), private/expiring/password links, project/version model, analytics.
+Zero backend dependencies: Node built-in http + fs, filesystem store, no DB.
+  [x] upload a recording bundle to a self-hosted server
+  [x] public share link that plays the demo for a non-user
+
+Share-link wedge evidence:
+  server: packages/server, node built-in http + fs, no DB, zero runtime deps
+  run: PORT=4181 CUTSCENE_DATA=<dir> node src/index.ts (Node 22 strips TS types)
+  POST /api/recordings -> 201 { id: 54fc5035-1910-4305-8ca5-b438771b56c6 }
+  PUT media.webm / trace.jsonl / meta.json -> 200, 200, 200
+  GET /r/:id -> 200 text/html with <video src=/api/recordings/:id/media.webm>
+  GET media.webm -> 200 video/webm, 5,127,598 bytes (served intact)
+  unknown id -> 404, path traversal id -> 400, non-JSON meta upload -> 400
+  a public link plays the demo for anyone, signed in or not: yes
 
 Phase 3's repeat-use exit gate was waived by explicit owner override on
 2026-07-15, the same demand-validation risk already accepted for Phase 2.

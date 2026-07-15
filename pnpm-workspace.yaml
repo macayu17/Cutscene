@@ -2,6 +2,7 @@ packages:
   - packages/trace
   - packages/extension
   - packages/editor
+  - packages/server
 
 allowBuilds:
   esbuild: true
