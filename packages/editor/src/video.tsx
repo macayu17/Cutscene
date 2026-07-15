@@ -6,7 +6,7 @@ import { pageEventAt } from './bundle';
 import { activeCallout, calloutLayout, calloutSize } from './callouts';
 import { redactionBoxesAt } from './redactions';
 import { brandFontFamily, selectedBrandPreset, watermarkLayout } from './brand';
-import { cursorAt, deriveCursorSamples, mapCursorToOutput, rippleAt, smoothCursorSamples } from './cursor';
+import { cursorAt, deriveCursorSamples, mapCursorToOutput, prepareCursorTrack, rippleAt } from './cursor';
 
 function SemanticBox() {
   const bundle = useEditorStore((state) => state.bundle);
@@ -66,9 +66,9 @@ export function VideoView({ video }: { video: RefObject<HTMLVideoElement | null>
   const transform = useRef<HTMLDivElement>(null);
   const cursor = useRef<SVGSVGElement>(null);
   const ripple = useRef<HTMLDivElement>(null);
-  const cursorSamples = useMemo(() => bundle ? smoothCursorSamples(
-    deriveCursorSamples(bundle.events, bundle.clock, bundle.meta.capture), cursorSettings.smoothing) : [],
-  [bundle, cursorSettings.smoothing]);
+  const cursorTrack = useMemo(() => prepareCursorTrack(bundle
+    ? deriveCursorSamples(bundle.events, bundle.clock, bundle.meta.capture) : [], cursorSettings),
+  [bundle, cursorSettings.enabled, cursorSettings.idleMs, cursorSettings.ripple, cursorSettings.smoothing]);
   useEffect(() => {
     const element = video.current;
     const surface = transform.current;
@@ -80,30 +80,35 @@ export function VideoView({ video }: { video: RefObject<HTMLVideoElement | null>
       const camera = cameraAt(timeMs, segments, bundle.meta.viewport, bundle.meta.capture);
       const matrix = cameraMatrix(camera, bundle.meta.capture, { width: surface.clientWidth, height: surface.clientHeight });
       surface.style.transform = `matrix(${matrix.scale}, 0, 0, ${matrix.scale}, ${matrix.translateX}, ${matrix.translateY})`;
-      const cursorFrame = cursorAt(cursorSamples, timeMs, cursorSettings);
-      const point = cursorFrame ? mapCursorToOutput(cursorFrame, camera, bundle.meta.capture,
-        { width: surface.clientWidth, height: surface.clientHeight }) : null;
-      const rippleFrame = rippleAt(cursorSamples, timeMs, cursorSettings);
-      const ripplePoint = rippleFrame ? mapCursorToOutput(rippleFrame, camera, bundle.meta.capture,
-        { width: surface.clientWidth, height: surface.clientHeight }) : null;
-      if (cursor.current) {
-        cursor.current.style.display = !point || !cursorFrame?.visible ? 'none' : '';
-        if (point) {
-          cursor.current.style.left = `${point.x}px`;
-          cursor.current.style.top = `${point.y}px`;
-          cursor.current.style.width = `${cursorSettings.size}px`;
-          cursor.current.style.height = `${cursorSettings.size * 1.2}px`;
+      if (!cursorTrack.enabled || cursorTrack.samples.length === 0) {
+        if (cursor.current) cursor.current.style.display = 'none';
+        if (ripple.current) ripple.current.hidden = true;
+      } else {
+        const cursorFrame = cursorAt(cursorTrack, timeMs);
+        const point = cursorFrame ? mapCursorToOutput(cursorFrame, camera, bundle.meta.capture,
+          { width: surface.clientWidth, height: surface.clientHeight }) : null;
+        const rippleFrame = rippleAt(cursorTrack, timeMs);
+        const ripplePoint = rippleFrame ? mapCursorToOutput(rippleFrame, camera, bundle.meta.capture,
+          { width: surface.clientWidth, height: surface.clientHeight }) : null;
+        if (cursor.current) {
+          cursor.current.style.display = !point || !cursorFrame?.visible ? 'none' : '';
+          if (point) {
+            cursor.current.style.left = `${point.x}px`;
+            cursor.current.style.top = `${point.y}px`;
+            cursor.current.style.width = `${cursorSettings.size}px`;
+            cursor.current.style.height = `${cursorSettings.size * 1.2}px`;
+          }
         }
-      }
-      if (ripple.current) {
-        ripple.current.hidden = !ripplePoint;
-        if (ripplePoint && rippleFrame) {
-          ripple.current.style.left = `${ripplePoint.x}px`;
-          ripple.current.style.top = `${ripplePoint.y}px`;
-          ripple.current.style.width = `${cursorSettings.size}px`;
-          ripple.current.style.height = `${cursorSettings.size}px`;
-          ripple.current.style.opacity = `${1 - rippleFrame.progress}`;
-          ripple.current.style.transform = `translate(-50%, -50%) scale(${1 + rippleFrame.progress})`;
+        if (ripple.current) {
+          ripple.current.hidden = !ripplePoint;
+          if (ripplePoint && rippleFrame) {
+            ripple.current.style.left = `${ripplePoint.x}px`;
+            ripple.current.style.top = `${ripplePoint.y}px`;
+            ripple.current.style.width = `${cursorSettings.size}px`;
+            ripple.current.style.height = `${cursorSettings.size}px`;
+            ripple.current.style.opacity = `${1 - rippleFrame.progress}`;
+            ripple.current.style.transform = `translate(-50%, -50%) scale(${1 + rippleFrame.progress})`;
+          }
         }
       }
       if (publish || Math.abs(timeMs - publishedAt) >= 50) { setPlayhead(timeMs); publishedAt = timeMs; }
@@ -135,7 +140,7 @@ export function VideoView({ video }: { video: RefObject<HTMLVideoElement | null>
       element.removeEventListener('ended', stop);
       element.removeEventListener('seeked', stop);
     };
-  }, [bundle, cursorSamples, cursorSettings, mediaUrl, segments, setPlayhead, video]);
+  }, [bundle, cursorSettings.size, cursorTrack, mediaUrl, segments, setPlayhead, video]);
   if (!bundle || !mediaUrl) return null;
   const watermark = watermarkLayout(bundle.meta.capture);
   return <div className="video-stage" style={{ aspectRatio: `${bundle.meta.capture.width}/${bundle.meta.capture.height}` }}>

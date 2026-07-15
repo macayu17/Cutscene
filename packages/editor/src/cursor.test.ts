@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { MediaClockFit, TraceEvent } from '@cutscene/trace';
 import { createEditorStore } from './store';
 import { DEFAULT_CURSOR_SETTINGS, cursorAt, cursorVisibleRanges, deriveCursorSamples,
-  mapCursorToOutput, rippleAt, smoothCursorSamples } from './cursor';
+  mapCursorToOutput, prepareCursorTrack, rippleAt, smoothCursorSamples, type CursorSample } from './cursor';
 import { cameraAt } from './camera';
 import type { EditableSegment } from './segments';
 
@@ -13,6 +13,7 @@ const event = (id: string, t: number, type: 'interaction.hover' | 'interaction.c
   v: 1, id, t, type, stepId: id, route: '/', viewport, scroll: { x: 0, y: 0 },
   ...(x === undefined || y === undefined ? {} : { pointer: { x, y } }),
 } as TraceEvent);
+const track = (samples: readonly CursorSample[], settings = DEFAULT_CURSOR_SETTINGS) => prepareCursorTrack(samples, settings);
 
 describe('cursor model', () => {
   it('uses the specified defaults', () => {
@@ -63,7 +64,7 @@ describe('cursor model', () => {
       { timeMs: 200, x: 450, y: 250, click: true },
       { timeMs: 400, x: 550, y: 350, click: false },
     ];
-    expect(cursorAt(path, 150, { ...DEFAULT_CURSOR_SETTINGS, smoothing: 1 })).toMatchObject({ x: 375, y: 225, visible: true });
+    expect(cursorAt(track(path, { ...DEFAULT_CURSOR_SETTINGS, smoothing: 0 }), 150)).toMatchObject({ x: 375, y: 225, visible: true });
   });
 
   it('anchors the full ripple to the exact click while later pointer motion continues', () => {
@@ -72,13 +73,13 @@ describe('cursor model', () => {
       { timeMs: 200, x: 450, y: 250, click: true },
       { timeMs: 300, x: 900, y: 700, click: false },
     ];
-    expect(rippleAt(path, 350, { ...DEFAULT_CURSOR_SETTINGS, idleMs: 20 }))
+    expect(rippleAt(track(path, { ...DEFAULT_CURSOR_SETTINGS, idleMs: 20 }), 350))
       .toEqual({ x: 450, y: 250, progress: .375 });
-    expect(rippleAt(path, 600, { ...DEFAULT_CURSOR_SETTINGS, idleMs: 0 }))
+    expect(rippleAt(track(path, { ...DEFAULT_CURSOR_SETTINGS, idleMs: 0 }), 600))
       .toEqual({ x: 450, y: 250, progress: 1 });
-    expect(rippleAt(path, 601, DEFAULT_CURSOR_SETTINGS)).toBeNull();
-    expect(rippleAt(path, 300, { ...DEFAULT_CURSOR_SETTINGS, enabled: false })).toBeNull();
-    expect(rippleAt(path, 300, { ...DEFAULT_CURSOR_SETTINGS, ripple: false })).toBeNull();
+    expect(rippleAt(track(path), 601)).toBeNull();
+    expect(rippleAt(track(path, { ...DEFAULT_CURSOR_SETTINGS, enabled: false }), 300)).toBeNull();
+    expect(rippleAt(track(path, { ...DEFAULT_CURSOR_SETTINGS, ripple: false }), 300)).toBeNull();
   });
 
   it('merges idle windows and hides before, between, and after them', () => {
@@ -88,9 +89,23 @@ describe('cursor model', () => {
       { timeMs: 1_500, x: 30, y: 30, click: false },
     ];
     expect(cursorVisibleRanges(path, 500)).toEqual([{ startMs: 100, endMs: 1_000 }, { startMs: 1_500, endMs: 2_000 }]);
-    expect(cursorAt(path, 50, { ...DEFAULT_CURSOR_SETTINGS, idleMs: 500 })?.visible).toBe(false);
-    expect(cursorAt(path, 1_200, { ...DEFAULT_CURSOR_SETTINGS, idleMs: 500 })?.visible).toBe(false);
-    expect(cursorAt(path, 2_001, { ...DEFAULT_CURSOR_SETTINGS, idleMs: 500 })?.visible).toBe(false);
+    const prepared = track(path, { ...DEFAULT_CURSOR_SETTINGS, idleMs: 500 });
+    expect(cursorAt(prepared, 50)?.visible).toBe(false);
+    expect(cursorAt(prepared, 1_200)?.visible).toBe(false);
+    expect(cursorAt(prepared, 2_001)?.visible).toBe(false);
+  });
+
+  it('looks up long prepared paths with logarithmic indexed access', () => {
+    const samples = Array.from({ length: 65_536 }, (_, index) =>
+      ({ timeMs: index * 10, x: index, y: index, click: index % 1_000 === 0 }));
+    const prepared = track(samples, { ...DEFAULT_CURSOR_SETTINGS, smoothing: 0 });
+    let reads = 0;
+    const proxied = new Proxy(prepared.samples, { get(target, property, receiver) {
+      if (typeof property === 'string' && /^\d+$/.test(property)) reads += 1;
+      return Reflect.get(target, property, receiver);
+    } });
+    expect(cursorAt({ ...prepared, samples: proxied }, 327_685)).toMatchObject({ x: 32_768.5, y: 32_768.5, visible: true });
+    expect(reads).toBeLessThan(50);
   });
 
   it('maps the pointer tip with the existing camera at rest and peak zoom', () => {
