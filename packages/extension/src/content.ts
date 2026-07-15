@@ -13,6 +13,7 @@ let scheduledResize = false;
 let redactionFrame = 0;
 let captureReady = false;
 let lastPointerAt = -Infinity;
+const pendingTraceMessages = new Set<Promise<void>>();
 let redactionSelectors: string[] = [];
 let redactionIds = new WeakMap<Element, string>();
 type RedactionState = { selector: string; instanceId: string; box: BoundingBox; viewport: ReturnType<typeof viewport> };
@@ -74,6 +75,12 @@ function target(element: Element): TargetDescriptor | null {
   return sanitizeTarget(observation);
 }
 
+function sendTrace(event: TraceEvent): void {
+  const delivery = chrome.runtime.sendMessage({ type: 'trace.event', event }).then(() => undefined, () => undefined);
+  pendingTraceMessages.add(delivery);
+  void delivery.then(() => pendingTraceMessages.delete(delivery));
+}
+
 function emit(type: Exclude<TraceEventType, 'system.clockSync' | 'annotation.redaction'>, targetDescriptor?: TargetDescriptor,
   pointer?: PointerPosition): void {
   if (sessionEpoch === null || !captureReady) return;
@@ -90,7 +97,7 @@ function emit(type: Exclude<TraceEventType, 'system.clockSync' | 'annotation.red
   } else {
     event = { ...envelope, type, ...(targetDescriptor ? { target: targetDescriptor } : {}) };
   }
-  void chrome.runtime.sendMessage({ type: 'trace.event', event });
+  sendTrace(event);
 }
 
 function emitRedaction(selector: string, instanceId: string, box?: BoundingBox, time = now()): void {
@@ -98,7 +105,7 @@ function emitRedaction(selector: string, instanceId: string, box?: BoundingBox, 
   const event: RedactionSampleEvent = { v: 1, id: `evt_${crypto.randomUUID()}`, t: time, type: 'annotation.redaction',
     stepId: `step_${String(++step).padStart(4, '0')}`, route: route(), viewport: viewport(), scroll: scroll(),
     selector, instanceId, visible: box !== undefined, ...(box ? { box } : {}) };
-  void chrome.runtime.sendMessage({ type: 'trace.event', event });
+  sendTrace(event);
 }
 
 function changed(left: BoundingBox, right: BoundingBox): boolean {
@@ -136,6 +143,11 @@ function sampleRedactions(anchorAtStart = false): void {
 
 function actionable(value: EventTarget | null): Element | null {
   return value instanceof Element ? value.closest('button,a,input,select,textarea,[role],[data-testid]') ?? value : null;
+}
+
+function disableCapture(): void {
+  captureReady = false; lastPointerAt = -Infinity; cancelAnimationFrame(redactionFrame); redactionSelectors = [];
+  previousRedactions.clear();
 }
 
 document.addEventListener('click', (event) => { const element = actionable(event.target); if (element) { const safe = target(element);
@@ -179,9 +191,12 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, respond) => {
       // The recorder is already running; anchor this current geometry at zero so its first frame cannot leak.
       sampleRedactions(true);
       respond({ ok: true, value: undefined } satisfies Result); }
-  } else if (message.type === 'session.stop') { sessionEpoch = null; captureReady = false; lastPointerAt = -Infinity;
-    cancelAnimationFrame(redactionFrame); redactionSelectors = [];
-    previousRedactions.clear(); respond({ ok: true, value: undefined } satisfies Result); }
+  } else if (message.type === 'session.quiesce') {
+    disableCapture();
+    void Promise.all([...pendingTraceMessages]).then(() => respond({ ok: true, value: undefined } satisfies Result));
+    return true;
+  } else if (message.type === 'session.stop') { sessionEpoch = null; disableCapture();
+    respond({ ok: true, value: undefined } satisfies Result); }
   else if (message.type === 'clock.sample') respond({ ok: true, value: now() } satisfies Result<number>);
   else return false;
   return false;

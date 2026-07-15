@@ -124,7 +124,11 @@ async function cancel(): Promise<Result> {
 
 chrome.runtime.onMessage.addListener((message: unknown, _sender, respond) => {
   if (!message || typeof message !== 'object' || !('type' in message)) return false;
-  if (message.type === 'trace.event' && 'event' in message) { if (state) state.events.push(message.event as TraceEvent); return false; }
+  if (message.type === 'trace.event' && 'event' in message) {
+    if (state) state.events.push(message.event as TraceEvent);
+    respond({ ok: true, value: undefined } satisfies Result);
+    return false;
+  }
   if (message.type === 'offscreen.start' && 'streamId' in message && typeof message.streamId === 'string' &&
       'tabId' in message && typeof message.tabId === 'number' && 'sessionEpoch' in message && typeof message.sessionEpoch === 'number' && 'context' in message) {
     void start({ streamId: message.streamId, tabId: message.tabId, sessionEpoch: message.sessionEpoch,

@@ -11,6 +11,24 @@ const requestedClicks = Number(process.env.CUTSCENE_CLICK_COUNT ?? 1);
 const requestedOutput = process.env.CUTSCENE_ARTIFACT_DIR;
 const clickMode = process.env.CUTSCENE_CLICK_MODE ?? 'toggle';
 
+function record(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function point(value: unknown, label: string): { x: number; y: number } {
+  if (!record(value) || typeof value.x !== 'number' || !Number.isFinite(value.x) ||
+      typeof value.y !== 'number' || !Number.isFinite(value.y)) throw new Error(`${label} is invalid.`);
+  return { x: value.x, y: value.y };
+}
+
+function box(value: unknown, label: string): { x: number; y: number; width: number; height: number } {
+  if (!record(value) || typeof value.x !== 'number' || !Number.isFinite(value.x) ||
+      typeof value.y !== 'number' || !Number.isFinite(value.y) ||
+      typeof value.width !== 'number' || !Number.isFinite(value.width) ||
+      typeof value.height !== 'number' || !Number.isFinite(value.height)) throw new Error(`${label} is invalid.`);
+  return { x: value.x, y: value.y, width: value.width, height: value.height };
+}
+
 test('captures a playable, complete, masked recording bundle', async () => {
   const output = requestedOutput ? path.resolve(requestedOutput) : path.resolve('test-results', 'capture');
   const downloads = path.join(output, 'downloads');
@@ -94,6 +112,11 @@ test('captures a playable, complete, masked recording bundle', async () => {
 
     await control.bringToFront();
     await control.locator('#stop').click();
+    await page.bringToFront();
+    for (let index = 0; index < 30; index += 1) {
+      await page.mouse.move(600 + index, 340 + index);
+      await page.waitForTimeout(20);
+    }
     await expect(control.locator('#status')).toContainText('saved', { timeout: 30_000 });
     await expect.poll(async () => (await control.evaluate(() => chrome.downloads.search({ orderBy: ['-startTime'], limit: 3 })))
       .filter((item) => item.state === 'complete').length).toBe(3);
@@ -114,7 +137,7 @@ test('captures a playable, complete, masked recording bundle', async () => {
     const hoverSamples = events.filter((event) => event.type === 'interaction.hover');
     expect(hoverSamples.length).toBeGreaterThanOrEqual(5);
     for (const sample of hoverSamples) {
-      const pointer = sample.pointer as { x: number; y: number };
+      const pointer = point(sample.pointer, 'Hover pointer');
       expect(Number.isFinite(pointer.x)).toBe(true);
       expect(Number.isFinite(pointer.y)).toBe(true);
       expect(sample).not.toHaveProperty('target');
@@ -130,16 +153,19 @@ test('captures a playable, complete, masked recording bundle', async () => {
     expect(Math.abs(Number(navigation?.t) - Number(firstSync?.t))).toBeLessThan(100);
     const click = events.find((event) => event.type === 'interaction.click');
     expect(click).toMatchObject({ v: 1, stepId: expect.any(String), scroll: expect.any(Object) });
-    expect((click?.target as { locators?: unknown[] }).locators?.length).toBeGreaterThan(0);
+    if (!click || !record(click.target) || !Array.isArray(click.target.locators)) throw new Error('Click target is invalid.');
+    expect(click.target.locators.length).toBeGreaterThan(0);
     const scriptedClick = clickPoints[0];
     if (!scriptedClick) throw new Error('Scripted click point missing.');
-    expect(click?.pointer).toEqual(scriptedClick);
-    const clickPointer = click?.pointer as { x: number; y: number };
-    const clickBox = (click?.target as { boundingBox: { x: number; y: number; width: number; height: number } }).boundingBox;
+    const clickPointer = point(click.pointer, 'Click pointer');
+    expect(clickPointer).toEqual(scriptedClick);
+    const clickBox = box(click.target.boundingBox, 'Click target box');
     expect(clickPointer.x).toBeGreaterThanOrEqual(clickBox.x);
     expect(clickPointer.x).toBeLessThanOrEqual(clickBox.x + clickBox.width);
     expect(clickPointer.y).toBeGreaterThanOrEqual(clickBox.y);
     expect(clickPointer.y).toBeLessThanOrEqual(clickBox.y + clickBox.height);
+    expect(events.at(-2)?.type).toBe('system.clockSync');
+    expect(events.at(-1)?.type).toBe('system.recordingStop');
     const meta = JSON.parse(await readFile(metaItem.filename, 'utf8')) as Record<string, unknown>;
     expect(meta).toMatchObject({ schemaVersion: 1, privacy: { visualRedactionSelectors: ['.new-todo, .todo-list li'] },
       app: { commit: null, version: null, environment: null } });

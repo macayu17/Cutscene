@@ -1,4 +1,5 @@
 import type { RecorderStatus, Result } from './messages';
+import { finishRecording } from './lifecycle';
 
 const offscreenPath = 'offscreen.html';
 
@@ -42,9 +43,12 @@ async function stop(): Promise<Result<RecorderStatus>> {
   try {
     const status = await chrome.runtime.sendMessage({ type: 'offscreen.status' }) as Result<RecorderStatus>;
     if (!status.ok || status.value.tabId === null) return status;
-    const result = await chrome.runtime.sendMessage({ type: 'offscreen.stop' }) as Result<RecorderStatus>;
-    await chrome.tabs.sendMessage(status.value.tabId, { type: 'session.stop' }).catch(() => undefined);
-    return result;
+    const tabId = status.value.tabId;
+    return await finishRecording(
+      async () => { await chrome.tabs.sendMessage(tabId, { type: 'session.quiesce' }).catch(() => undefined); },
+      async () => await chrome.runtime.sendMessage({ type: 'offscreen.stop' }) as Result<RecorderStatus>,
+      async () => { await chrome.tabs.sendMessage(tabId, { type: 'session.stop' }).catch(() => undefined); },
+    );
   } catch (error: unknown) { return { ok: false, error: error instanceof Error ? error.message : String(error) }; }
 }
 
