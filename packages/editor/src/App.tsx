@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { readBundleFiles } from './bundle';
 import { eventById, useEditorStore } from './store';
-import { Timeline } from './timeline';
+import { isHumanEvent, Timeline } from './timeline';
 import { VideoView } from './video';
 import { exportRecording, type ExportFormat } from './export';
 import { selectedBrandPreset } from './brand';
@@ -53,7 +53,7 @@ export default function App() {
   };
   return <main className="instrument">
     <header className="topbar"><span>{bundle.meta.recordingId}</span><span>·</span><span>{new URL(bundle.meta.url).host}</span><span>·</span><span>{bundle.meta.capture.width}×{bundle.meta.capture.height}</span><span>·</span><span>{(bundle.meta.media.durationMs / 1_000).toFixed(1)}s</span><span className="push">{input('Load another recording')}</span><button disabled={exportProgress !== null} onClick={() => void runExport('gif')}>Export GIF</button><button disabled={exportProgress !== null} onClick={() => void runExport('mp4')}>Export MP4</button><button disabled={exportProgress !== null} onClick={() => void runExport('vertical')}>Export 9:16 MP4</button>{exportProgress !== null ? <span className="export-progress" style={{ width: `${exportProgress * 100}%` }}/> : null}</header>
-    <aside className="events"><h2>EVENTS</h2>{bundle.events.filter((event) => event.type.startsWith('interaction.') || event.type === 'navigation').map((event) => { const time = Math.max(0, bundle.clock.toMediaTime(event.t)); return <button className="event" key={event.id} aria-current={selected?.id === event.id} onClick={() => { selectEvent(event.id, time); if (video.current) video.current.currentTime = time / 1_000; }}><time>{(time / 1_000).toFixed(1)}s</time><span>{event.type}<br/><small>{event.target?.accessibleName || event.route}</small></span></button>; })}</aside>
+    <aside className="events"><h2>EVENTS</h2>{bundle.events.filter(isHumanEvent).map((event) => { const time = Math.max(0, bundle.clock.toMediaTime(event.t)); return <button className="event" key={event.id} aria-current={selected?.id === event.id} onClick={() => { selectEvent(event.id, time); if (video.current) video.current.currentTime = time / 1_000; }}><time>{(time / 1_000).toFixed(1)}s</time><span>{event.type}<br/><small>{event.target?.accessibleName || event.route}</small></span></button>; })}</aside>
     <section className="viewer" aria-label="Video preview"><VideoView video={video}/></section>
     <Timeline video={video}/>
     {exportError ? <output className="export-error">{exportError}</output> : null}

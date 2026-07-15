@@ -1,11 +1,12 @@
 import { mapBoxToCapture, scrollMatches } from '@cutscene/trace';
-import { useEffect, useRef, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, type RefObject } from 'react';
 import { eventById, useEditorStore } from './store';
 import { cameraAt, cameraMatrix } from './camera';
 import { pageEventAt } from './bundle';
 import { activeCallout, calloutLayout, calloutSize } from './callouts';
 import { redactionBoxesAt } from './redactions';
 import { brandFontFamily, selectedBrandPreset, watermarkLayout } from './brand';
+import { cursorAt, deriveCursorSamples, mapCursorToOutput, smoothCursorSamples } from './cursor';
 
 function SemanticBox() {
   const bundle = useEditorStore((state) => state.bundle);
@@ -60,8 +61,14 @@ export function VideoView({ video }: { video: RefObject<HTMLVideoElement | null>
   const mediaUrl = useEditorStore((state) => state.mediaUrl);
   const segments = useEditorStore((state) => state.segments);
   const setPlayhead = useEditorStore((state) => state.setPlayhead);
+  const cursorSettings = useEditorStore((state) => state.cursorSettings);
   const brand = useEditorStore(selectedBrandPreset);
   const transform = useRef<HTMLDivElement>(null);
+  const cursor = useRef<SVGSVGElement>(null);
+  const ripple = useRef<HTMLDivElement>(null);
+  const cursorSamples = useMemo(() => bundle ? smoothCursorSamples(
+    deriveCursorSamples(bundle.events, bundle.clock, bundle.meta.capture), cursorSettings.smoothing) : [],
+  [bundle, cursorSettings.smoothing]);
   useEffect(() => {
     const element = video.current;
     const surface = transform.current;
@@ -73,6 +80,30 @@ export function VideoView({ video }: { video: RefObject<HTMLVideoElement | null>
       const camera = cameraAt(timeMs, segments, bundle.meta.viewport, bundle.meta.capture);
       const matrix = cameraMatrix(camera, bundle.meta.capture, { width: surface.clientWidth, height: surface.clientHeight });
       surface.style.transform = `matrix(${matrix.scale}, 0, 0, ${matrix.scale}, ${matrix.translateX}, ${matrix.translateY})`;
+      const cursorFrame = cursorAt(cursorSamples, timeMs, cursorSettings);
+      const point = cursorFrame ? mapCursorToOutput(cursorFrame, camera, bundle.meta.capture,
+        { width: surface.clientWidth, height: surface.clientHeight }) : null;
+      if (cursor.current) {
+        cursor.current.style.display = !point || !cursorFrame?.visible ? 'none' : '';
+        if (point) {
+          cursor.current.style.left = `${point.x}px`;
+          cursor.current.style.top = `${point.y}px`;
+          cursor.current.style.width = `${cursorSettings.size}px`;
+          cursor.current.style.height = `${cursorSettings.size * 1.2}px`;
+        }
+      }
+      if (ripple.current) {
+        const progress = cursorFrame?.visible ? cursorFrame.rippleProgress : null;
+        ripple.current.hidden = !point || progress === null;
+        if (point && progress !== null) {
+          ripple.current.style.left = `${point.x}px`;
+          ripple.current.style.top = `${point.y}px`;
+          ripple.current.style.width = `${cursorSettings.size}px`;
+          ripple.current.style.height = `${cursorSettings.size}px`;
+          ripple.current.style.opacity = `${1 - progress}`;
+          ripple.current.style.transform = `translate(-50%, -50%) scale(${1 + progress})`;
+        }
+      }
       if (publish || Math.abs(timeMs - publishedAt) >= 50) { setPlayhead(timeMs); publishedAt = timeMs; }
     };
     const tick = () => {
@@ -102,7 +133,7 @@ export function VideoView({ video }: { video: RefObject<HTMLVideoElement | null>
       element.removeEventListener('ended', stop);
       element.removeEventListener('seeked', stop);
     };
-  }, [bundle, mediaUrl, segments, setPlayhead, video]);
+  }, [bundle, cursorSamples, cursorSettings, mediaUrl, segments, setPlayhead, video]);
   if (!bundle || !mediaUrl) return null;
   const watermark = watermarkLayout(bundle.meta.capture);
   return <div className="video-stage" style={{ aspectRatio: `${bundle.meta.capture.width}/${bundle.meta.capture.height}` }}>
@@ -112,6 +143,10 @@ export function VideoView({ video }: { video: RefObject<HTMLVideoElement | null>
       <SemanticBox/>
     </div>
     <CalloutOverlay/>
+    <div ref={ripple} className="cursor-ripple" hidden/>
+    <svg ref={cursor} className="preview-cursor" viewBox="0 0 24 30" aria-hidden="true" style={{ display: 'none' }}>
+      <path d="M0 0L0 25L6.8 18.6L11.4 28L16.2 25.6L11.6 16.3L21 15.2Z"/>
+    </svg>
     {brand?.watermark ? <div className="brand-watermark" style={{ color: brand.color, fontFamily: brandFontFamily(brand.font),
       left: `${watermark.x / bundle.meta.capture.width * 100}%`, top: `${watermark.y / bundle.meta.capture.height * 100}%`,
       width: `${watermark.width / bundle.meta.capture.width * 100}%`, height: `${watermark.height / bundle.meta.capture.height * 100}%` }}>{brand.watermark}</div> : null}

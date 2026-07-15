@@ -13,7 +13,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focu
 .file-label { border: 1px solid var(--line); color: var(--text); padding: 7px 10px; font-family: 'IBM Plex Mono', monospace; cursor: pointer; }
 .file-label input { position: absolute; opacity: 0; pointer-events: none; }
 .error { color: var(--danger); max-width: 560px; }
-.instrument { height: 100%; display: grid; grid-template: 32px minmax(0, 1fr) 256px / 240px minmax(0, 1fr); }
+.instrument { height: 100%; display: grid; grid-template: 32px minmax(0, 1fr) 286px / 240px minmax(0, 1fr); }
 .topbar { grid-column: 1 / -1; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; padding: 0 10px; font-size: var(--t-xs); letter-spacing: .03em; white-space: nowrap; }
 .topbar .push { margin-left: auto; }
 .topbar .file-label { padding: 3px 8px; font-size: var(--t-xs); }
@@ -34,6 +34,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focu
 .redaction-overlay { position: absolute; background: rgb(30 33 38 / 18%); backdrop-filter: blur(12px); pointer-events: none; }
 .callout-overlay { position: absolute; display: flex; align-items: center; padding: 8px 10px; border-left: 3px solid var(--signal); background: var(--surface); color: var(--text); font-size: var(--t-sm); overflow: hidden; pointer-events: none; }
 .brand-watermark { position: absolute; display: flex; align-items: center; justify-content: flex-end; font-size: var(--t-sm); overflow: hidden; text-align: right; pointer-events: none; }
+.preview-cursor { position: absolute; overflow: visible; fill: var(--text); stroke: var(--bg); stroke-width: 2px; stroke-linejoin: round; pointer-events: none; }
+.cursor-ripple { position: absolute; border: 2px solid var(--signal); border-radius: 50%; pointer-events: none; }
 @keyframes measure { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
 .timeline { grid-column: 1 / -1; border-top: 1px solid var(--line); background: var(--surface); padding: 10px; }
 .time-row { display: grid; grid-template-columns: 54px 1fr 54px; align-items: center; gap: 8px; color: var(--text-dim); font-size: var(--t-xs); }
@@ -62,4 +64,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focu
 .brand-controls button:disabled { color: var(--text-dim); }
 .brand-controls input { width: 112px; }
 .brand-controls input[type='color'] { width: 28px; height: 22px; padding: 2px; }
+.cursor-controls { display: flex; align-items: center; gap: 7px; min-height: 30px; color: var(--text-dim); font-size: var(--t-xs); overflow-x: auto; white-space: nowrap; }
+.cursor-controls strong { font-weight: 400; }
+.cursor-controls label { display: flex; align-items: center; gap: 4px; }
+.cursor-controls input { accent-color: var(--text-dim); }
+.cursor-controls input[type='range'] { width: 76px; }
+.cursor-controls input[type='number'] { width: 66px; border: 1px solid var(--line); background: var(--bg); color: var(--text); padding: 2px 4px; }
+.cursor-controls output { color: var(--text); }
 @media (prefers-reduced-motion: reduce) { .semantic-box { animation: none; } }

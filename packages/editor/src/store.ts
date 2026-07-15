@@ -11,6 +11,7 @@ import { deleteRedaction as deleteRedactionEdit, deriveRedactionIntervals, deriv
 import { BRAND_STORAGE_KEY, addBrandPreset as addBrandPresetEdit, deleteBrandPreset as deleteBrandPresetEdit,
   emptyBrandState, parseBrandState, selectBrandPreset as selectBrandPresetEdit, serializeBrandState,
   updateBrandPreset as updateBrandPresetEdit, type BrandPreset, type BrandState } from './brand';
+import { DEFAULT_CURSOR_SETTINGS, updateCursorSettings as updateCursorSettingsEdit, type CursorSettings } from './cursor';
 
 export type EditorState = {
   bundle: BundleData | null;
@@ -30,6 +31,7 @@ export type EditorState = {
   exportError: string | null;
   brandPresets: BrandPreset[];
   selectedBrandId: string | null;
+  cursorSettings: CursorSettings;
   load: (bundle: BundleData, mediaUrl: string, media?: File) => void;
   selectEvent: (id: string, mediaTimeMs: number) => void;
   hoverEvent: (id: string | null) => void;
@@ -50,6 +52,7 @@ export type EditorState = {
   updateBrandPreset: (id: string, patch: Partial<Omit<BrandPreset, 'id'>>) => void;
   selectBrandPreset: (id: string | null) => void;
   deleteBrandPreset: (id: string) => void;
+  updateCursorSettings: (patch: Partial<CursorSettings>) => void;
 };
 
 const creator = (set: StoreApi<EditorState>['setState']): EditorState => ({
@@ -57,6 +60,7 @@ const creator = (set: StoreApi<EditorState>['setState']): EditorState => ({
   bundle: null, mediaUrl: null, media: null, segments: [], callouts: [], redactions: [], redactionBoxes: [], selectedSegmentId: null,
   selectedEventId: null, hoveredEventId: null, playheadMs: 0, exportProgress: null, exportError: null,
   selectionStartMs: null, selectionEndMs: null,
+  cursorSettings: DEFAULT_CURSOR_SETTINGS,
   load: (bundle, mediaUrl, media) => set({ bundle, mediaUrl, ...(media ? { media } : {}),
     segments: automaticSegments(bundle.events, bundle.clock, bundle.meta.viewport), callouts: [],
     redactions: deriveRedactions(bundle.meta, bundle.events),
@@ -93,6 +97,7 @@ const creator = (set: StoreApi<EditorState>['setState']): EditorState => ({
   updateBrandPreset: (id, patch) => set((state) => persistBrandState(updateBrandPresetEdit(state, id, patch))),
   selectBrandPreset: (id) => set((state) => persistBrandState(selectBrandPresetEdit(state, id))),
   deleteBrandPreset: (id) => set((state) => persistBrandState(deleteBrandPresetEdit(state, id))),
+  updateCursorSettings: (patch) => set((state) => ({ cursorSettings: updateCursorSettingsEdit(state.cursorSettings, patch) })),
 });
 
 export function createEditorStore(): StoreApi<EditorState> { return createStore(creator); }

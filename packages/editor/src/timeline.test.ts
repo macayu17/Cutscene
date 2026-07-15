@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { createEditorStore } from './store';
-import { isTimelineShortcutTarget, seekForKey, tickRow } from './timeline';
+import { isHumanEvent, isTimelineShortcutTarget, isTraceEvent, seekForKey, tickRow } from './timeline';
 
 it('selects, seeks, and sets bounds without a second playback clock', () => {
   const store = createEditorStore();
@@ -25,4 +25,12 @@ it('handles timeline shortcuts only when the timeline itself has focus', () => {
   const timeline = new EventTarget();
   expect(isTimelineShortcutTarget(timeline, timeline)).toBe(true);
   expect(isTimelineShortcutTarget(new EventTarget(), timeline)).toBe(false);
+});
+
+it('keeps pointer samples out of human event lanes', () => {
+  expect(isHumanEvent({ type: 'interaction.click' })).toBe(true);
+  expect(isHumanEvent({ type: 'navigation' })).toBe(true);
+  expect(isHumanEvent({ type: 'interaction.hover' })).toBe(false);
+  expect(isTraceEvent({ type: 'system.clockSync' })).toBe(true);
+  expect(isTraceEvent({ type: 'interaction.hover' })).toBe(false);
 });

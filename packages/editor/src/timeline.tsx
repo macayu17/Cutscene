@@ -4,6 +4,7 @@ import { SegmentsPanel } from './segments-panel';
 import { CalloutsPanel } from './callouts-panel';
 import { RedactionsPanel } from './redactions-panel';
 import { BrandPanel } from './brand-panel';
+import { CursorPanel } from './cursor-panel';
 
 export function seekForKey(key: string, currentMs: number, durationMs: number): number | null {
   if (key === 'ArrowLeft') return Math.max(0, currentMs - 250);
@@ -13,6 +14,10 @@ export function seekForKey(key: string, currentMs: number, durationMs: number): 
 
 export function tickRow(index: number): number { return index % 4; }
 export function isTimelineShortcutTarget(target: EventTarget | null, currentTarget: EventTarget): boolean { return target === currentTarget; }
+export function isHumanEvent(event: { type: string }): boolean {
+  return event.type !== 'interaction.hover' && (event.type.startsWith('interaction.') || event.type === 'navigation');
+}
+export function isTraceEvent(event: { type: string }): boolean { return event.type !== 'interaction.hover'; }
 
 export function Timeline({ video }: { video: RefObject<HTMLVideoElement | null> }) {
   const bundle = useEditorStore((state) => state.bundle);
@@ -33,7 +38,7 @@ export function Timeline({ video }: { video: RefObject<HTMLVideoElement | null> 
   }}>
     <div className="time-row"><span>{(playheadMs / 1_000).toFixed(1)}s</span><input aria-label="Playhead" type="range" min="0" max={duration} value={playheadMs} onChange={(event) => seek(Number(event.currentTarget.value))}/><span>{(duration / 1_000).toFixed(1)}s</span></div>
     <div className="trace-lane" aria-label="Trace events">
-      {bundle.events.map((event, index) => { const mediaTime = Math.max(0, bundle.clock.toMediaTime(event.t)); return <button key={event.id} className={`tick tick-${event.type.split('.').at(-1)}`} style={{ left: `${Math.min(100, mediaTime / duration * 100)}%`, top: `${4 + tickRow(index) * 9}px` }}
+      {bundle.events.filter(isTraceEvent).map((event, index) => { const mediaTime = Math.max(0, bundle.clock.toMediaTime(event.t)); return <button key={event.id} className={`tick tick-${event.type.split('.').at(-1)}`} style={{ left: `${Math.min(100, mediaTime / duration * 100)}%`, top: `${4 + tickRow(index) * 9}px` }}
         aria-label={`${event.type} at ${(mediaTime / 1_000).toFixed(1)} seconds`} onMouseEnter={() => hoverEvent(event.id)} onMouseLeave={() => hoverEvent(null)}
         onFocus={() => hoverEvent(event.id)} onBlur={() => hoverEvent(null)} onClick={() => { selectEvent(event.id, mediaTime); seek(mediaTime); }}/>; })}
     </div>
@@ -41,5 +46,6 @@ export function Timeline({ video }: { video: RefObject<HTMLVideoElement | null> 
     <CalloutsPanel/>
     <RedactionsPanel/>
     <BrandPanel/>
+    <CursorPanel/>
   </section>;
 }
