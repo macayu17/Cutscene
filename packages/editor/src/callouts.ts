@@ -1,5 +1,5 @@
 import { mapBoxToCapture, type Locator, type MediaClockFit, type TraceEvent } from '@cutscene/trace';
-import { cameraAt, cameraMatrix, cameraTiming } from './camera';
+import { cameraAt, cameraMatrix, cameraTiming, type CropRect } from './camera';
 import type { EditableSegment } from './segments';
 
 export type EditableCallout = {
@@ -69,9 +69,16 @@ export function placeCallout(target: Rect, frame: Size, card: Size): Rect {
 }
 
 export function calloutLayout(event: TraceEvent, segment: EditableSegment, capture: Size, output: Size,
-  cardSize: Size): { target: Rect; card: Rect } | null {
+  cardSize: Size, crop?: CropRect): { target: Rect; card: Rect } | null {
   if (!event.target || segment.eventId !== event.id) return null;
   const captureBox = mapBoxToCapture(event.target.boundingBox, event.viewport, capture);
+  if (crop) {
+    const target = { x: (captureBox.x - crop.x) / crop.width * output.width,
+      y: (captureBox.y - crop.y) / crop.height * output.height,
+      width: captureBox.width / crop.width * output.width,
+      height: captureBox.height / crop.height * output.height };
+    return { target, card: placeCallout(target, output, cardSize) };
+  }
   const matrix = cameraMatrix(cameraAt(segment.clickMs, [segment], event.viewport, capture), capture, output);
   const target = { x: matrix.scale * captureBox.x / capture.width * output.width + matrix.translateX,
     y: matrix.scale * captureBox.y / capture.height * output.height + matrix.translateY,

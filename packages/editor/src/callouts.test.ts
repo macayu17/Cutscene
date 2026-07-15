@@ -90,4 +90,18 @@ describe('placeCallout', () => {
       expect((layout?.card.y ?? 0) / frames[index]!.height).toBeCloseTo(0.23283333333333334);
     });
   });
+
+  it('places a portrait callout around the target mapped through its crop', () => {
+    const frame = { width: 1_080, height: 1_920 };
+    const layout = calloutLayout(event, segment, { width: 1_920, height: 1_080 }, frame, calloutSize(frame),
+      { x: 300, y: 0, width: 607.5, height: 1_080 });
+
+    expect(layout?.target).toEqual({ x: expect.closeTo(597.3333), y: 720, width: 240, height: 96 });
+    expect(layout?.card).toEqual({ x: expect.closeTo(582.3333), y: 423.04, width: 270, height: 256 });
+    expect(layout?.card.x).toBeGreaterThanOrEqual(0);
+    expect((layout?.card.x ?? 0) + (layout?.card.width ?? 0)).toBeLessThanOrEqual(frame.width);
+    expect(layout?.card.y).toBeGreaterThanOrEqual(0);
+    expect((layout?.card.y ?? 0) + (layout?.card.height ?? 0)).toBeLessThanOrEqual(frame.height);
+    expect((layout?.card.y ?? 0) + (layout?.card.height ?? 0)).toBeLessThanOrEqual(layout?.target.y ?? 0);
+  });
 });
