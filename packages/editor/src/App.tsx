@@ -48,6 +48,13 @@ export default function App() {
     {error ? <output className="error">{error}</output> : null}
   </main>;
   const selected = eventById(bundle.events, selectedEventId);
+  const download = (blob: Blob, name: string) => {
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob); link.download = name; link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 60_000);
+  };
+  const zip = (data: Uint8Array, name: string) => download(new Blob([data as BlobPart], { type: 'application/zip' }), name);
+  const text = (value: string, name: string) => download(new Blob([value], { type: 'text/plain' }), name);
   const runExport = async (format: ExportFormat) => {
     if (!media) return;
     setExport(0);
@@ -55,31 +62,15 @@ export default function App() {
       const output = await exportRecording(media, format, segments, bundle.meta, callouts, bundle.events, bundle.clock,
         redactions, redactionBoxes, brand, cursorSettings,
         (value) => setExport(value));
-      const link = document.createElement('a'); link.href = URL.createObjectURL(output);
-      link.download = `${bundle.meta.recordingId}${format === 'vertical' ? '-9x16' : ''}.${format === 'gif' ? 'gif' : 'mp4'}`; link.click();
-      setTimeout(() => URL.revokeObjectURL(link.href), 60_000); setExport(null);
+      download(output, `${bundle.meta.recordingId}${format === 'vertical' ? '-9x16' : ''}.${format === 'gif' ? 'gif' : 'mp4'}`);
+      setExport(null);
     } catch (cause: unknown) { setExport(null, cause instanceof Error ? cause.message : String(cause)); }
   };
-  const exportSkeleton = () => {
-    const source = generatePlaywrightSkeleton({ meta: bundle.meta, events: bundle.events });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(new Blob([source], { type: 'text/plain' }));
-    link.download = `${bundle.meta.recordingId}.spec.ts`; link.click();
-    setTimeout(() => URL.revokeObjectURL(link.href), 60_000);
-  };
-  const download = (data: Uint8Array, name: string) => {
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(new Blob([data as BlobPart], { type: 'application/zip' }));
-    link.download = name; link.click();
-    setTimeout(() => URL.revokeObjectURL(link.href), 60_000);
-  };
+  const exportSkeleton = () =>
+    text(generatePlaywrightSkeleton({ meta: bundle.meta, events: bundle.events }), `${bundle.meta.recordingId}.spec.ts`);
   const exportCaptions = (format: 'srt' | 'vtt') => {
     if (captions.length === 0) return;
-    const text = format === 'srt' ? serializeSrt(captions) : serializeVtt(captions);
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
-    link.download = `${bundle.meta.recordingId}.${format}`; link.click();
-    setTimeout(() => URL.revokeObjectURL(link.href), 60_000);
+    text(format === 'srt' ? serializeSrt(captions) : serializeVtt(captions), `${bundle.meta.recordingId}.${format}`);
   };
   const runArtifacts = async (kind: 'docs' | 'screenshots') => {
     if (!video.current) return;
@@ -87,7 +78,7 @@ export default function App() {
     try {
       const rendered = await renderStepShots(video.current, bundle.events, bundle.meta, (t) => bundle.clock.toMediaTime(t));
       const archive = kind === 'docs' ? docsArchive(rendered, bundle.meta) : screenshotsArchive(rendered);
-      download(archive, `${bundle.meta.recordingId}-${kind}.zip`);
+      zip(archive, `${bundle.meta.recordingId}-${kind}.zip`);
       setExport(null);
     } catch (cause: unknown) { setExport(null, cause instanceof Error ? cause.message : String(cause)); }
   };
@@ -97,7 +88,7 @@ export default function App() {
     try {
       const { archive } = await exportStepGifs(media, segments, bundle.meta, bundle.events, bundle.clock,
         redactions, redactionBoxes, cursorSettings, (value) => setExport(value));
-      download(archive, `${bundle.meta.recordingId}-step-gifs.zip`);
+      zip(archive, `${bundle.meta.recordingId}-step-gifs.zip`);
       setExport(null);
     } catch (cause: unknown) { setExport(null, cause instanceof Error ? cause.message : String(cause)); }
   };
