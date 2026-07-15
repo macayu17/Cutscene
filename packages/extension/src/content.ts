@@ -2,6 +2,7 @@ import { rankLocators, sanitizeTarget, type BoundingBox, type PointerPosition, t
   type TargetDescriptor, type TraceEvent, type TraceEventType } from '@cutscene/trace';
 import type { Result } from './messages';
 import { shouldSamplePointer } from './pointer';
+import { createTraceDeliveryQueue } from './trace-delivery';
 
 type PageContext = { viewport: ReturnType<typeof viewport>; scroll: ReturnType<typeof scroll>; route: string; url: string; origin: string;
   contentClockMs: number; visualRedactionSelectors: string[] };
@@ -13,7 +14,8 @@ let scheduledResize = false;
 let redactionFrame = 0;
 let captureReady = false;
 let lastPointerAt = -Infinity;
-const pendingTraceMessages = new Set<Promise<void>>();
+const deliverTrace = (event: TraceEvent) => chrome.runtime.sendMessage({ type: 'trace.event', event }) as Promise<Result>;
+let traceDelivery = createTraceDeliveryQueue(deliverTrace);
 let redactionSelectors: string[] = [];
 let redactionIds = new WeakMap<Element, string>();
 type RedactionState = { selector: string; instanceId: string; box: BoundingBox; viewport: ReturnType<typeof viewport> };
@@ -75,12 +77,6 @@ function target(element: Element): TargetDescriptor | null {
   return sanitizeTarget(observation);
 }
 
-function sendTrace(event: TraceEvent): void {
-  const delivery = chrome.runtime.sendMessage({ type: 'trace.event', event }).then(() => undefined, () => undefined);
-  pendingTraceMessages.add(delivery);
-  void delivery.then(() => pendingTraceMessages.delete(delivery));
-}
-
 function emit(type: Exclude<TraceEventType, 'system.clockSync' | 'annotation.redaction'>, targetDescriptor?: TargetDescriptor,
   pointer?: PointerPosition): void {
   if (sessionEpoch === null || !captureReady) return;
@@ -97,7 +93,7 @@ function emit(type: Exclude<TraceEventType, 'system.clockSync' | 'annotation.red
   } else {
     event = { ...envelope, type, ...(targetDescriptor ? { target: targetDescriptor } : {}) };
   }
-  sendTrace(event);
+  traceDelivery.send(event);
 }
 
 function emitRedaction(selector: string, instanceId: string, box?: BoundingBox, time = now()): void {
@@ -105,7 +101,7 @@ function emitRedaction(selector: string, instanceId: string, box?: BoundingBox, 
   const event: RedactionSampleEvent = { v: 1, id: `evt_${crypto.randomUUID()}`, t: time, type: 'annotation.redaction',
     stepId: `step_${String(++step).padStart(4, '0')}`, route: route(), viewport: viewport(), scroll: scroll(),
     selector, instanceId, visible: box !== undefined, ...(box ? { box } : {}) };
-  sendTrace(event);
+  traceDelivery.send(event);
 }
 
 function changed(left: BoundingBox, right: BoundingBox): boolean {
@@ -181,6 +177,7 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, respond) => {
     try { selectors.forEach((selector) => document.querySelectorAll(selector)); }
     catch (error: unknown) { respond({ ok: false, error: error instanceof Error ? error.message : String(error) } satisfies Result); return false; }
     sessionEpoch = message.sessionEpoch; step = 0; captureReady = false; lastPointerAt = -Infinity;
+    traceDelivery = createTraceDeliveryQueue(deliverTrace);
     redactionSelectors = [...selectors]; redactionIds = new WeakMap(); previousRedactions = new Map();
     cancelAnimationFrame(redactionFrame);
     respond({ ok: true, value: { viewport: viewport(), scroll: scroll(), route: route(), url: location.href,
@@ -193,7 +190,7 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, respond) => {
       respond({ ok: true, value: undefined } satisfies Result); }
   } else if (message.type === 'session.quiesce') {
     disableCapture();
-    void Promise.all([...pendingTraceMessages]).then(() => respond({ ok: true, value: undefined } satisfies Result));
+    void traceDelivery.drain().then(respond);
     return true;
   } else if (message.type === 'session.stop') { sessionEpoch = null; disableCapture();
     respond({ ok: true, value: undefined } satisfies Result); }

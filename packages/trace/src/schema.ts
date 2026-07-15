@@ -65,7 +65,7 @@ export type RedactionSampleEvent = EventEnvelope & {
 };
 
 export type TraceEvent = ClockSyncEvent | RedactionSampleEvent |
-  (EventEnvelope & { type: 'interaction.hover'; pointer: PointerPosition }) |
+  (Omit<EventEnvelope, 'target'> & { type: 'interaction.hover'; pointer: PointerPosition }) |
   (EventEnvelope & { type: 'interaction.click'; pointer?: PointerPosition }) |
   (EventEnvelope & { type: Exclude<TraceEventType,
     'system.clockSync' | 'annotation.redaction' | 'interaction.hover' | 'interaction.click'> });
@@ -138,6 +138,7 @@ export function parseTraceEvent(input: unknown): Result<TraceEvent> {
       (input.type === 'interaction.click' && input.pointer !== undefined && !isPointer(input.pointer))) {
     return { ok: false, error: 'pointer sample is invalid' };
   }
+  if (input.type === 'interaction.hover' && 'target' in input) return { ok: false, error: 'hover sample is invalid' };
   if (input.type === 'system.clockSync' &&
       (!hasNumber(input, 'contentClockMs') || !hasNumber(input, 'workerClockMs') || !hasNumber(input, 'mediaTimeMs'))) {
     return { ok: false, error: 'clock sync readings are invalid' };

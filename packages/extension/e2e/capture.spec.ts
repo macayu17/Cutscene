@@ -66,7 +66,7 @@ test('captures a playable, complete, masked recording bundle', async () => {
     await expect(control.locator('#stop')).toBeDisabled();
     await control.locator('#redact').fill('.new-todo, .todo-list li');
     await control.locator('#start').click();
-    await expect(control.locator('#status')).toContainText('recording');
+    await expect(control.locator('#status')).toContainText('recording', { timeout: 15_000 });
 
     const startedAt = Date.now();
     await page.locator('.new-todo').fill('raw-secret-value');

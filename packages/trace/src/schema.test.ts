@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { parseRecordingMeta, parseTraceEvent } from './schema';
+import { describe, expect, expectTypeOf, it } from 'vitest';
+import { parseRecordingMeta, parseTraceEvent, type TraceEvent } from './schema';
 
 const envelope = {
   v: 1,
@@ -47,6 +47,13 @@ describe('parseTraceEvent', () => {
       ok: false,
       error: 'pointer sample is invalid',
     });
+  });
+
+  it('rejects target data on hover samples', () => {
+    type HoverEvent = Extract<TraceEvent, { type: 'interaction.hover' }>;
+    expectTypeOf<HoverEvent>().not.toHaveProperty('target');
+    expect(parseTraceEvent({ ...envelope, type: 'interaction.hover', pointer: { x: 12, y: 34 }, target: {} }))
+      .toEqual({ ok: false, error: 'hover sample is invalid' });
   });
 
   it('keeps click pointer data optional and validates it when present', () => {

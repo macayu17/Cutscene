@@ -125,8 +125,8 @@ async function cancel(): Promise<Result> {
 chrome.runtime.onMessage.addListener((message: unknown, _sender, respond) => {
   if (!message || typeof message !== 'object' || !('type' in message)) return false;
   if (message.type === 'trace.event' && 'event' in message) {
-    if (state) state.events.push(message.event as TraceEvent);
-    respond({ ok: true, value: undefined } satisfies Result);
+    if (state) { state.events.push(message.event as TraceEvent); respond({ ok: true, value: undefined } satisfies Result); }
+    else respond({ ok: false, error: 'Recording is not active.' } satisfies Result);
     return false;
   }
   if (message.type === 'offscreen.start' && 'streamId' in message && typeof message.streamId === 'string' &&
