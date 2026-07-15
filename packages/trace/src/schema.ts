@@ -65,7 +65,7 @@ export type RedactionSampleEvent = EventEnvelope & {
 };
 
 export type TraceEvent = ClockSyncEvent | RedactionSampleEvent |
-  (Omit<EventEnvelope, 'target'> & { type: 'interaction.hover'; pointer: PointerPosition }) |
+  (Omit<EventEnvelope, 'target'> & { type: 'interaction.hover'; pointer: PointerPosition; target?: never }) |
   (EventEnvelope & { type: 'interaction.click'; pointer?: PointerPosition }) |
   (EventEnvelope & { type: Exclude<TraceEventType,
     'system.clockSync' | 'annotation.redaction' | 'interaction.hover' | 'interaction.click'> });

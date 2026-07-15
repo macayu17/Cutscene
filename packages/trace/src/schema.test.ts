@@ -51,7 +51,7 @@ describe('parseTraceEvent', () => {
 
   it('rejects target data on hover samples', () => {
     type HoverEvent = Extract<TraceEvent, { type: 'interaction.hover' }>;
-    expectTypeOf<HoverEvent>().not.toHaveProperty('target');
+    expectTypeOf<HoverEvent['target']>().toEqualTypeOf<undefined>();
     expect(parseTraceEvent({ ...envelope, type: 'interaction.hover', pointer: { x: 12, y: 34 }, target: {} }))
       .toEqual({ ok: false, error: 'hover sample is invalid' });
   });
