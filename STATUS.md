@@ -11,7 +11,7 @@ Phase 3 progress:
   [x] element-anchored callouts in preview, GIF, and MP4
   [x] selector-based visual redaction
   [x] 9:16 intelligent crop export
-  [ ] local brand presets
+  [x] local brand presets
   [ ] cursor treatment
 
 Callout evidence:
@@ -63,6 +63,34 @@ Vertical export evidence:
                artifacts/screenshots/phase3-vertical-peak.png,
                artifacts/screenshots/phase3-vertical-return.png,
                artifacts/screenshots/phase3-vertical-motion-sheet.png
+
+Local brand preset evidence:
+  browser URL: http://127.0.0.1:4175/
+  browser viewport: 1440x900
+  persisted presets after reload: Launch, Docs
+  selected preset after reload: retained
+  browser console/page errors: 0
+  intro duration: 1.5 s
+  outro duration: 1.5 s
+  16:9 watermark bounds: x=1420, y=972, width=460, height=68 output px
+  9:16 watermark bounds: x=790, y=1788, width=250, height=92 output px
+  GIF: 800x450, 16.67 fps, 5.74 s, 463,198 bytes
+  MP4: 1920x1080, 60 fps, 5.7167 s, 833,407 bytes
+  9:16 MP4: 1080x1920, 60 fps, 5.7167 s, 430,129 bytes
+  audio proof MP4: 1920x1080, 60 fps, AAC, 5.7167 s, 854,758 bytes
+  audio intro silence: 1.500021 s
+  audio outro silence: 1.501167 s
+  local artifacts: artifacts/phase3-brand.gif,
+                   artifacts/phase3-brand.mp4,
+                   artifacts/phase3-brand-9x16.mp4,
+                   artifacts/phase3-brand-audio.mp4
+  screenshots: artifacts/screenshots/phase3-brand-preview.png,
+               artifacts/screenshots/phase3-brand-reloaded.png,
+               artifacts/screenshots/phase3-brand-intro.png,
+               artifacts/screenshots/phase3-brand-source.png,
+               artifacts/screenshots/phase3-brand-outro.png,
+               artifacts/screenshots/phase3-brand-9x16-source.png,
+               artifacts/screenshots/phase3-brand-motion-sheet.png
 
 Phase 3 remains active. Its exit criterion requires repeat use on a different
 project and has not been met.
