@@ -5,7 +5,8 @@ type Size = { width: number; height: number };
 
 export type CursorSettings = { enabled: boolean; smoothing: number; size: number; ripple: boolean; idleMs: number };
 export type CursorSample = { timeMs: number; x: number; y: number; click: boolean };
-export type CursorFrame = { x: number; y: number; visible: boolean; rippleProgress: number | null };
+export type CursorFrame = { x: number; y: number; visible: boolean };
+export type CursorRipple = { x: number; y: number; progress: number };
 export type CursorVisibleRange = { startMs: number; endMs: number };
 
 export const DEFAULT_CURSOR_SETTINGS: CursorSettings = { enabled: true, smoothing: .7, size: 24, ripple: true, idleMs: 1_200 };
@@ -55,16 +56,23 @@ export function cursorAt(samples: readonly CursorSample[], timeMs: number, setti
   }
   const span = next ? next.timeMs - current.timeMs : 0;
   const progress = span > 0 ? clamp((timeMs - current.timeMs) / span, 0, 1) : 0;
-  const click = [...samples].reverse().find((sample) => sample.click && sample.timeMs <= timeMs);
-  const rippleProgress = settings.ripple && click && timeMs - click.timeMs <= CURSOR_RIPPLE_MS
-    ? (timeMs - click.timeMs) / CURSOR_RIPPLE_MS : null;
   return {
     x: current.x + ((next?.x ?? current.x) - current.x) * progress,
     y: current.y + ((next?.y ?? current.y) - current.y) * progress,
     visible: settings.enabled && cursorVisibleRanges(samples, settings.idleMs)
       .some((range) => timeMs >= range.startMs && timeMs <= range.endMs),
-    rippleProgress,
   };
+}
+
+export function rippleAt(samples: readonly CursorSample[], timeMs: number, settings: CursorSettings): CursorRipple | null {
+  if (!settings.enabled || !settings.ripple) return null;
+  for (let index = samples.length - 1; index >= 0; index -= 1) {
+    const sample = samples[index];
+    if (!sample || !sample.click || sample.timeMs > timeMs) continue;
+    const elapsed = timeMs - sample.timeMs;
+    return elapsed <= CURSOR_RIPPLE_MS ? { x: sample.x, y: sample.y, progress: elapsed / CURSOR_RIPPLE_MS } : null;
+  }
+  return null;
 }
 
 export function mapCursorToOutput(point: Pick<CursorSample, 'x' | 'y'>, camera: CameraState, capture: Size, output: Size): { x: number; y: number } {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { MediaClockFit, TraceEvent } from '@cutscene/trace';
 import { createEditorStore } from './store';
 import { DEFAULT_CURSOR_SETTINGS, cursorAt, cursorVisibleRanges, deriveCursorSamples,
-  mapCursorToOutput, smoothCursorSamples } from './cursor';
+  mapCursorToOutput, rippleAt, smoothCursorSamples } from './cursor';
 import { cameraAt } from './camera';
 import type { EditableSegment } from './segments';
 
@@ -57,15 +57,28 @@ describe('cursor model', () => {
     ]);
   });
 
-  it('linearly interpolates an already-smoothed path and reports ripple timing', () => {
+  it('linearly interpolates an already-smoothed path', () => {
     const path = [
       { timeMs: 100, x: 300, y: 200, click: false },
       { timeMs: 200, x: 450, y: 250, click: true },
       { timeMs: 400, x: 550, y: 350, click: false },
     ];
     expect(cursorAt(path, 150, { ...DEFAULT_CURSOR_SETTINGS, smoothing: 1 })).toMatchObject({ x: 375, y: 225, visible: true });
-    expect(cursorAt(path, 350, DEFAULT_CURSOR_SETTINGS)?.rippleProgress).toBeCloseTo(.375);
-    expect(cursorAt(path, 601, DEFAULT_CURSOR_SETTINGS)?.rippleProgress).toBeNull();
+  });
+
+  it('anchors the full ripple to the exact click while later pointer motion continues', () => {
+    const path = [
+      { timeMs: 100, x: 300, y: 200, click: false },
+      { timeMs: 200, x: 450, y: 250, click: true },
+      { timeMs: 300, x: 900, y: 700, click: false },
+    ];
+    expect(rippleAt(path, 350, { ...DEFAULT_CURSOR_SETTINGS, idleMs: 20 }))
+      .toEqual({ x: 450, y: 250, progress: .375 });
+    expect(rippleAt(path, 600, { ...DEFAULT_CURSOR_SETTINGS, idleMs: 0 }))
+      .toEqual({ x: 450, y: 250, progress: 1 });
+    expect(rippleAt(path, 601, DEFAULT_CURSOR_SETTINGS)).toBeNull();
+    expect(rippleAt(path, 300, { ...DEFAULT_CURSOR_SETTINGS, enabled: false })).toBeNull();
+    expect(rippleAt(path, 300, { ...DEFAULT_CURSOR_SETTINGS, ripple: false })).toBeNull();
   });
 
   it('merges idle windows and hides before, between, and after them', () => {

@@ -6,7 +6,7 @@ import { pageEventAt } from './bundle';
 import { activeCallout, calloutLayout, calloutSize } from './callouts';
 import { redactionBoxesAt } from './redactions';
 import { brandFontFamily, selectedBrandPreset, watermarkLayout } from './brand';
-import { cursorAt, deriveCursorSamples, mapCursorToOutput, smoothCursorSamples } from './cursor';
+import { cursorAt, deriveCursorSamples, mapCursorToOutput, rippleAt, smoothCursorSamples } from './cursor';
 
 function SemanticBox() {
   const bundle = useEditorStore((state) => state.bundle);
@@ -83,6 +83,9 @@ export function VideoView({ video }: { video: RefObject<HTMLVideoElement | null>
       const cursorFrame = cursorAt(cursorSamples, timeMs, cursorSettings);
       const point = cursorFrame ? mapCursorToOutput(cursorFrame, camera, bundle.meta.capture,
         { width: surface.clientWidth, height: surface.clientHeight }) : null;
+      const rippleFrame = rippleAt(cursorSamples, timeMs, cursorSettings);
+      const ripplePoint = rippleFrame ? mapCursorToOutput(rippleFrame, camera, bundle.meta.capture,
+        { width: surface.clientWidth, height: surface.clientHeight }) : null;
       if (cursor.current) {
         cursor.current.style.display = !point || !cursorFrame?.visible ? 'none' : '';
         if (point) {
@@ -93,15 +96,14 @@ export function VideoView({ video }: { video: RefObject<HTMLVideoElement | null>
         }
       }
       if (ripple.current) {
-        const progress = cursorFrame?.visible ? cursorFrame.rippleProgress : null;
-        ripple.current.hidden = !point || progress === null;
-        if (point && progress !== null) {
-          ripple.current.style.left = `${point.x}px`;
-          ripple.current.style.top = `${point.y}px`;
+        ripple.current.hidden = !ripplePoint;
+        if (ripplePoint && rippleFrame) {
+          ripple.current.style.left = `${ripplePoint.x}px`;
+          ripple.current.style.top = `${ripplePoint.y}px`;
           ripple.current.style.width = `${cursorSettings.size}px`;
           ripple.current.style.height = `${cursorSettings.size}px`;
-          ripple.current.style.opacity = `${1 - progress}`;
-          ripple.current.style.transform = `translate(-50%, -50%) scale(${1 + progress})`;
+          ripple.current.style.opacity = `${1 - rippleFrame.progress}`;
+          ripple.current.style.transform = `translate(-50%, -50%) scale(${1 + rippleFrame.progress})`;
         }
       }
       if (publish || Math.abs(timeMs - publishedAt) >= 50) { setPlayhead(timeMs); publishedAt = timeMs; }
