@@ -5,3 +5,4 @@ export * from './clock';
 export * from './coordinates';
 export * from './zoom';
 export * from './skeleton';
+export * from './docs';
