@@ -54,6 +54,20 @@ it('falls back to empty state for corrupt JSON and invalid or inexact shapes', (
   }))).toEqual(emptyBrandState());
 });
 
+it('rejects blank and duplicate preset ids', () => {
+  const preset = { name: 'Docs', color: '#336699', font: 'mono', intro: '', outro: '', watermark: '' };
+  expect(parseBrandState(JSON.stringify({
+    brandPresets: [{ ...preset, id: '  ' }], selectedBrandId: null,
+  }))).toEqual(emptyBrandState());
+  expect(parseBrandState(JSON.stringify({
+    brandPresets: [{ ...preset, id: 'same' }, { ...preset, id: 'same' }], selectedBrandId: 'same',
+  }))).toEqual(emptyBrandState());
+
+  const first = addBrandPreset(emptyBrandState(), 'same');
+  expect(addBrandPreset(first, 'same')).toEqual(first);
+  expect(addBrandPreset(first, '  ')).toEqual(first);
+});
+
 it('round trips valid state', () => {
   const state = addBrandPreset(emptyBrandState(), 'brand_1');
   expect(parseBrandState(serializeBrandState(state))).toEqual(state);
@@ -77,6 +91,27 @@ it('loads and persists brand state through editor store actions', () => {
 
   expect(parseBrandState(values.get(BRAND_STORAGE_KEY) ?? null)).toEqual({
     brandPresets: [saved.brandPresets[0]], selectedBrandId: 'saved',
+  });
+});
+
+it('reloads exact brand state after update and selection actions', () => {
+  const values = new Map<string, string>();
+  vi.stubGlobal('localStorage', {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => values.set(key, value),
+  });
+  vi.stubGlobal('crypto', { randomUUID: () => 'created' });
+
+  const store = createEditorStore();
+  store.getState().addBrandPreset();
+  store.getState().updateBrandPreset('created', { name: 'Docs' });
+  store.getState().selectBrandPreset('created');
+
+  expect(createEditorStore().getState()).toMatchObject({
+    brandPresets: [{
+      id: 'created', name: 'Docs', color: '#1E2126', font: 'mono', intro: '', outro: '', watermark: '',
+    }],
+    selectedBrandId: 'created',
   });
 });
 

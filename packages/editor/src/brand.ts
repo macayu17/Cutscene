@@ -32,11 +32,13 @@ export function parseBrandState(raw: string | null): BrandState {
     if (!hasExactKeys(value, STATE_KEYS) || !Array.isArray(value.brandPresets)) return emptyBrandState();
     const brandPresets = value.brandPresets.map(parsePreset);
     if (brandPresets.some((preset) => preset === null)) return emptyBrandState();
+    const validPresets = brandPresets as BrandPreset[];
+    if (new Set(validPresets.map(({ id }) => id)).size !== validPresets.length) return emptyBrandState();
     const selectedBrandId = value.selectedBrandId;
-    if (selectedBrandId !== null && (typeof selectedBrandId !== 'string' || !brandPresets.some((preset) => preset?.id === selectedBrandId))) {
+    if (selectedBrandId !== null && (typeof selectedBrandId !== 'string' || !validPresets.some((preset) => preset.id === selectedBrandId))) {
       return emptyBrandState();
     }
-    return { brandPresets: brandPresets as BrandPreset[], selectedBrandId };
+    return { brandPresets: validPresets, selectedBrandId };
   } catch {
     return emptyBrandState();
   }
@@ -47,6 +49,9 @@ export function serializeBrandState(state: BrandState): string {
 }
 
 export function addBrandPreset(state: BrandState, id: string): BrandState {
+  if (!id.trim() || state.brandPresets.some((preset) => preset.id === id)) {
+    return { brandPresets: state.brandPresets, selectedBrandId: state.selectedBrandId };
+  }
   const preset: BrandPreset = {
     id,
     name: `Preset ${state.brandPresets.length + 1}`,
@@ -61,7 +66,6 @@ export function addBrandPreset(state: BrandState, id: string): BrandState {
 
 export function updateBrandPreset(state: BrandState, id: string, patch: Partial<Omit<BrandPreset, 'id'>>): BrandState {
   return {
-    ...state,
     brandPresets: state.brandPresets.map((preset) => preset.id === id ? {
       ...preset,
       ...(typeof patch.name === 'string' ? { name: patch.name.trim() || 'Untitled' } : {}),
@@ -71,11 +75,15 @@ export function updateBrandPreset(state: BrandState, id: string, patch: Partial<
       ...(typeof patch.outro === 'string' ? { outro: patch.outro.trim() } : {}),
       ...(typeof patch.watermark === 'string' ? { watermark: patch.watermark.trim() } : {}),
     } : preset),
+    selectedBrandId: state.selectedBrandId,
   };
 }
 
 export function selectBrandPreset(state: BrandState, id: string | null): BrandState {
-  return { ...state, selectedBrandId: id !== null && state.brandPresets.some((preset) => preset.id === id) ? id : null };
+  return {
+    brandPresets: state.brandPresets,
+    selectedBrandId: id !== null && state.brandPresets.some((preset) => preset.id === id) ? id : null,
+  };
 }
 
 export function deleteBrandPreset(state: BrandState, id: string): BrandState {
@@ -92,6 +100,7 @@ export function selectedBrandPreset(state: BrandState): BrandPreset | null {
 function parsePreset(value: unknown): BrandPreset | null {
   if (!hasExactKeys(value, PRESET_KEYS)
     || typeof value.id !== 'string'
+    || !value.id.trim()
     || typeof value.name !== 'string'
     || typeof value.color !== 'string'
     || !COLOR.test(value.color)
