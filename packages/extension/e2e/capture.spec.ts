@@ -144,6 +144,7 @@ test('captures a playable, complete, masked recording bundle', async () => {
       expect(sample).not.toHaveProperty('text');
       expect(sample).not.toHaveProperty('value');
     }
+    expect(hoverSamples.some((sample) => point(sample.pointer, 'Hover pointer').x >= 600)).toBe(false);
     for (let index = 1; index < hoverSamples.length; index += 1) {
       expect(Number(hoverSamples[index]?.t) - Number(hoverSamples[index - 1]?.t))
         .toBeGreaterThanOrEqual(POINTER_SAMPLE_INTERVAL_MS - 1);
