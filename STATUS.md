@@ -107,6 +107,8 @@ Cursor treatment evidence:
   last hover media time: 939.382970 ms
   browser URL: http://127.0.0.1:4175/
   browser viewport: 1440x1000
+  server command: pnpm --filter @cutscene/editor exec vite preview --host
+                  127.0.0.1 --port 4175 --strictPort
   brand: unbranded / none
   cursor: enabled, 70% smoothing, 32px, ripple, 800ms idle hide
   preview cursor box: 32.000x38.391 CSS px
@@ -138,6 +140,10 @@ Cursor treatment evidence:
                artifacts/screenshots/phase3-cursor-idle-before.png,
                artifacts/screenshots/phase3-cursor-idle-after.png,
                artifacts/screenshots/phase3-cursor-9x16-click.png
+  preview screenshot state: http://127.0.0.1:4175/ at 1440x1000
+  export screenshot state: https://todomvc.com/examples/react/dist/ recorded
+                           at 1280x800 CSS px; decoded at 1920x1080,
+                           except 9x16 click at 1080x1920
 
 Phase 3 remains active. Its exit criterion requires repeat use on a different
 project and has not been met.
