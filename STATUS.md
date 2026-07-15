@@ -11,8 +11,8 @@ accepted product risk, not a successful Phase 2 result. See PRD.md §6.
 
 Phase 4 builds artifact generation from the existing trace (PRD.md §10):
   [x] Playwright flow skeleton
-  [ ] step-by-step documentation
-  [ ] per-step screenshot set
+  [x] step-by-step documentation
+  [x] per-step screenshot set
   [ ] README GIF variants (full flow + per step)
   [ ] transcript and captions (SRT/VTT)
 
@@ -28,6 +28,23 @@ Playwright flow skeleton evidence:
   suggested-assertion comments in this flow: 0 (no route change; single route)
   output transpiles as TypeScript (ts.transpileModule, 0 syntactic errors)
   sample output: artifacts/phase4-skeleton-sample.spec.ts
+
+Step documentation and screenshot set evidence:
+  source bundle: artifacts/phase3-cursor-bundle (rec_558fc4a1)
+  target: https://todomvc.com/examples/react/dist/
+  browser: Chromium via built editor at http://127.0.0.1:4176/, 1440x900
+  decoded video: 1920x1080
+  documented steps: 5 (1 navigation, 3 input, 1 click)
+  screenshots rendered: 4 (navigation has no target box)
+  screenshot dimensions (2x, cropped to target):
+    step-02/03 "New Todo Input": 1615x305 px
+    step-04/05 checkbox:          238x238 px
+  masked names/values leaked into docs.md: 0 (checkbox falls back to role)
+  console/page errors during export: 0
+  archives extract with native Windows Expand-Archive: yes
+  ZIP writer interop round-trip (Expand-Archive): passed
+  local artifacts: artifacts/phase4-docs-sample/docs.md,
+                   artifacts/phase4-docs-sample/screenshots/step-0{2,3,4,5}.png
 
 Phase 1 passed on 2026-07-14. See docs/phase-1-evidence.md.
 An uninformed viewer identified the side-by-side difference within 10 seconds.
