@@ -1,8 +1,20 @@
-Phase: 3
+Phase: 4
+
+Phase 3's repeat-use exit gate was waived by explicit owner override on
+2026-07-15, the same demand-validation risk already accepted for Phase 2.
+No external repeat-use evidence exists. This is an accepted product risk,
+not a met Phase 3 exit criterion. See PRD.md §7.
 
 Phase 2 was waived by explicit owner override on 2026-07-14.
 No external PRs were opened. The missing demand-validation evidence is an
 accepted product risk, not a successful Phase 2 result. See PRD.md §6.
+
+Phase 4 builds artifact generation from the existing trace (PRD.md §10):
+  [ ] Playwright flow skeleton
+  [ ] step-by-step documentation
+  [ ] per-step screenshot set
+  [ ] README GIF variants (full flow + per step)
+  [ ] transcript and captions (SRT/VTT)
 
 Phase 1 passed on 2026-07-14. See docs/phase-1-evidence.md.
 An uninformed viewer identified the side-by-side difference within 10 seconds.
