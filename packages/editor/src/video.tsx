@@ -5,7 +5,7 @@ import { cameraAt, cameraMatrix } from './camera';
 import { pageEventAt } from './bundle';
 import { activeCallout, calloutLayout, calloutSize } from './callouts';
 import { redactionBoxesAt } from './redactions';
-import { brandFontFamily } from './brand';
+import { brandFontFamily, watermarkLayout } from './brand';
 
 function SemanticBox() {
   const bundle = useEditorStore((state) => state.bundle);
@@ -104,6 +104,7 @@ export function VideoView({ video }: { video: RefObject<HTMLVideoElement | null>
     };
   }, [bundle, mediaUrl, segments, setPlayhead, video]);
   if (!bundle || !mediaUrl) return null;
+  const watermark = watermarkLayout(bundle.meta.capture);
   return <div className="video-stage" style={{ aspectRatio: `${bundle.meta.capture.width}/${bundle.meta.capture.height}` }}>
     <div ref={transform} className="video-transform">
       <video ref={video} src={mediaUrl} controls/>
@@ -111,6 +112,8 @@ export function VideoView({ video }: { video: RefObject<HTMLVideoElement | null>
       <SemanticBox/>
     </div>
     <CalloutOverlay/>
-    {brand?.watermark ? <div className="brand-watermark" style={{ color: brand.color, fontFamily: brandFontFamily(brand.font) }}>{brand.watermark}</div> : null}
+    {brand?.watermark ? <div className="brand-watermark" style={{ color: brand.color, fontFamily: brandFontFamily(brand.font),
+      left: `${watermark.x / bundle.meta.capture.width * 100}%`, top: `${watermark.y / bundle.meta.capture.height * 100}%`,
+      width: `${watermark.width / bundle.meta.capture.width * 100}%`, height: `${watermark.height / bundle.meta.capture.height * 100}%` }}>{brand.watermark}</div> : null}
   </div>;
 }

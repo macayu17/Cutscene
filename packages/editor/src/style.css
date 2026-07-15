@@ -33,7 +33,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focu
 .semantic-box { position: absolute; border: 2px solid var(--signal); pointer-events: none; animation: measure 120ms steps(4, end); }
 .redaction-overlay { position: absolute; background: rgb(30 33 38 / 18%); backdrop-filter: blur(12px); pointer-events: none; }
 .callout-overlay { position: absolute; display: flex; align-items: center; padding: 8px 10px; border-left: 3px solid var(--signal); background: var(--surface); color: var(--text); font-size: var(--t-sm); overflow: hidden; pointer-events: none; }
-.brand-watermark { position: absolute; right: 2%; bottom: 2%; max-width: 24%; padding: 5px 8px; background: rgb(22 24 28 / 82%); font-size: var(--t-sm); overflow: hidden; text-align: right; pointer-events: none; }
+.brand-watermark { position: absolute; display: flex; align-items: center; justify-content: flex-end; font-size: var(--t-sm); overflow: hidden; text-align: right; pointer-events: none; }
 @keyframes measure { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
 .timeline { grid-column: 1 / -1; border-top: 1px solid var(--line); background: var(--surface); padding: 10px; }
 .time-row { display: grid; grid-template-columns: 54px 1fr 54px; align-items: center; gap: 8px; color: var(--text-dim); font-size: var(--t-xs); }

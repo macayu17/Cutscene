@@ -4,11 +4,18 @@ import { cameraTiming, portraitCropAt } from './camera';
 import { calloutLayout, calloutSize, calloutWindow, type EditableCallout } from './callouts';
 import { renderCalloutCard } from './callout-render';
 import { compileRedactions, type CompiledRedaction, type EditableRedaction, type RedactionBox } from './redactions';
+import { watermarkLayout, type BrandPreset } from './brand';
+import { renderBrandCard, renderBrandWatermark } from './brand-render';
 
-type ExportMeta = { capture: { width: number; height: number; fps: number }; viewport?: { width: number; height: number } };
+export type ExportMeta = {
+  capture: { width: number; height: number; fps: number };
+  viewport?: { width: number; height: number };
+  media: { durationMs: number; hasAudio: boolean };
+};
 export type ExportFormat = 'gif' | 'mp4' | 'vertical';
 export type ExportPlan = { args: string[]; output: 'output.gif' | 'output.mp4'; mimeType: 'image/gif' | 'video/mp4' };
 export type ExportOverlay = { filename: string; x: number; y: number; startSeconds: number; endSeconds: number };
+export type BrandExportCards = { introFilename?: string; outroFilename?: string; introSeconds: number; outroSeconds: number };
 
 function escape(expression: string): string { return expression.replaceAll(',', '\\,'); }
 
@@ -83,7 +90,14 @@ function redactionChain(redactions: readonly CompiledRedaction[]): { filters: st
 }
 
 export function buildExportPlan(format: ExportFormat, segments: readonly EditableSegment[], meta: ExportMeta,
-  overlays: readonly ExportOverlay[] = [], redactions: readonly CompiledRedaction[] = []): ExportPlan {
+  overlays: readonly ExportOverlay[] = [], redactions: readonly CompiledRedaction[] = [],
+  cards: BrandExportCards = { introSeconds: 0, outroSeconds: 0 }): ExportPlan {
+  const intro = cards.introFilename && cards.introSeconds > 0 ? cards.introFilename : undefined;
+  const outro = cards.outroFilename && cards.outroSeconds > 0 ? cards.outroFilename : undefined;
+  if (intro || outro) return buildBrandedExportPlan(format, segments, meta, overlays, redactions, {
+    ...(intro ? { introFilename: intro } : {}), ...(outro ? { outroFilename: outro } : {}),
+    introSeconds: intro ? cards.introSeconds : 0, outroSeconds: outro ? cards.outroSeconds : 0,
+  });
   const inputs = ['-i', 'input.webm', ...overlays.flatMap(({ filename }) => ['-i', filename])];
   const source = redactionChain(redactions);
   const sourceFilters = source.filters.length ? `${source.filters.join(';')};` : '';
@@ -114,6 +128,51 @@ export function buildExportPlan(format: ExportFormat, segments: readonly Editabl
     '-c:a', 'aac', '-movflags', '+faststart', 'output.mp4'] };
 }
 
+function buildBrandedExportPlan(format: ExportFormat, segments: readonly EditableSegment[], meta: ExportMeta,
+  overlays: readonly ExportOverlay[], redactions: readonly CompiledRedaction[], cards: BrandExportCards): ExportPlan {
+  const width = format === 'gif' ? 800 : format === 'vertical' ? 1_080 : 1_920;
+  const height = format === 'gif' ? 450 : format === 'vertical' ? 1_920 : 1_080;
+  const fps = format === 'gif' ? 15 : 60;
+  const cardInputs: string[] = [];
+  if (cards.introFilename) cardInputs.push('-loop', '1', '-t', String(cards.introSeconds), '-i', cards.introFilename);
+  if (cards.outroFilename) cardInputs.push('-loop', '1', '-t', String(cards.outroSeconds), '-i', cards.outroFilename);
+  const inputs = ['-i', 'input.webm', ...overlays.flatMap(({ filename }) => ['-i', filename]), ...cardInputs];
+  const source = redactionChain(redactions);
+  const sourceFilters = source.filters.length ? `${source.filters.join(';')};` : '';
+  const camera = format === 'vertical' ? portraitFilter(segments, meta) : zoomPanFilter(segments, meta, width, height, fps);
+  const chain = overlayChain(overlays);
+  const filters = [`${sourceFilters}[${source.output}]fps=${fps},${camera}[base]`, ...chain.filters];
+  let cardIndex = overlays.length + 1;
+  const concatInputs: string[] = [];
+  if (cards.introFilename) {
+    filters.push(`[${cardIndex}:v]fps=${fps},scale=${width}:${height}:flags=lanczos,setsar=1[intro]`);
+    concatInputs.push('[intro]');
+    cardIndex += 1;
+  }
+  concatInputs.push(`[${chain.output}]`);
+  if (cards.outroFilename) {
+    filters.push(`[${cardIndex}:v]fps=${fps},scale=${width}:${height}:flags=lanczos,setsar=1[outro]`);
+    concatInputs.push('[outro]');
+  }
+  filters.push(`${concatInputs.join('')}concat=n=${concatInputs.length}:v=1:a=0[branded]`);
+  if (format === 'gif') {
+    filters.push('[branded]split[a][b]', '[a]palettegen=stats_mode=diff[p]',
+      '[b][p]paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle[out]');
+    return { output: 'output.gif', mimeType: 'image/gif', args: [...inputs, '-filter_complex', filters.join(';'),
+      '-map', '[out]', '-loop', '0', 'output.gif'] };
+  }
+  const audio: string[] = [];
+  if (meta.media.hasAudio) {
+    const audioFilters = [cards.introFilename ? `adelay=${Math.round(cards.introSeconds * 1_000)}:all=1` : '',
+      cards.outroFilename ? `apad=pad_dur=${cards.outroSeconds}` : ''].filter(Boolean).join(',');
+    filters.push(`[0:a]${audioFilters}[audio]`);
+    audio.push('-map', '[audio]');
+  }
+  return { output: 'output.mp4', mimeType: 'video/mp4', args: [...inputs, '-filter_complex', filters.join(';'),
+    '-map', '[branded]', ...audio, '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p',
+    ...(meta.media.hasAudio ? ['-c:a', 'aac'] : []), '-movflags', '+faststart', 'output.mp4'] };
+}
+
 let loaded: Promise<InstanceType<typeof import('@ffmpeg/ffmpeg')['FFmpeg']>> | null = null;
 
 async function ffmpeg() {
@@ -130,6 +189,7 @@ async function ffmpeg() {
 export async function exportRecording(media: Blob, format: ExportFormat, segments: readonly EditableSegment[], meta: ExportMeta,
   callouts: readonly EditableCallout[], events: readonly TraceEvent[], clock: MediaClockFit,
   redactions: readonly EditableRedaction[], redactionBoxes: readonly RedactionBox[],
+  brand: BrandPreset | null,
   progress: (value: number) => void): Promise<Blob> {
   const engine = await ffmpeg();
   const listener = ({ progress: value }: { progress: number }) => progress(value);
@@ -150,10 +210,24 @@ export async function exportRecording(media: Blob, format: ExportFormat, segment
         x: Math.round(layout.card.x), y: Math.round(layout.card.y), startSeconds: window.startMs / 1_000,
         endSeconds: window.endMs / 1_000 } satisfies ExportOverlay }];
     });
-    const plan = buildExportPlan(format, segments, meta, prepared.map(({ overlay }) => overlay),
-      compileRedactions(redactionBoxes, redactions, meta.capture));
+    const watermarkBounds = brand?.watermark.trim() ? watermarkLayout(outputSize) : null;
+    const watermark = brand && watermarkBounds ? { filename: 'brand-watermark.png',
+      data: await renderBrandWatermark(brand.watermark, brand, watermarkBounds), overlay: { filename: 'brand-watermark.png',
+        x: watermarkBounds.x, y: watermarkBounds.y, startSeconds: 0,
+        endSeconds: meta.media.durationMs / 1_000 } satisfies ExportOverlay } : null;
+    const intro = brand?.intro.trim() ? { filename: 'intro.png', data: await renderBrandCard(brand.intro, brand, outputSize) } : null;
+    const outro = brand?.outro.trim() ? { filename: 'outro.png', data: await renderBrandCard(brand.outro, brand, outputSize) } : null;
+    const overlays = [...prepared.map(({ overlay }) => overlay), ...(watermark ? [watermark.overlay] : [])];
+    const plan = buildExportPlan(format, segments, meta, overlays,
+      compileRedactions(redactionBoxes, redactions, meta.capture), {
+        ...(intro ? { introFilename: intro.filename } : {}), ...(outro ? { outroFilename: outro.filename } : {}),
+        introSeconds: intro ? 1.5 : 0, outroSeconds: outro ? 1.5 : 0,
+      });
     await engine.writeFile('input.webm', new Uint8Array(await media.arrayBuffer()));
     for (const item of prepared) await engine.writeFile(item.filename, await item.data);
+    if (watermark) await engine.writeFile(watermark.filename, watermark.data);
+    if (intro) await engine.writeFile(intro.filename, intro.data);
+    if (outro) await engine.writeFile(outro.filename, outro.data);
     await engine.exec(plan.args);
     const data = await engine.readFile(plan.output);
     if (!(data instanceof Uint8Array)) throw new Error('Export produced invalid binary output.');
