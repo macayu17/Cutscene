@@ -64,11 +64,22 @@ export type RedactionSampleEvent = EventEnvelope & {
   box?: BoundingBox;
 };
 
-export type TraceEvent = ClockSyncEvent | RedactionSampleEvent |
+export type CalloutEvent = Omit<EventEnvelope, 'target'> & {
+  type: 'annotation.callout';
+  anchor: { stepId: string; locators: Locator[] };
+  text: string;
+  placement: 'auto';
+  target?: never;
+};
+
+type NonCalloutTraceEvent = ClockSyncEvent | RedactionSampleEvent |
   (Omit<EventEnvelope, 'target'> & { type: 'interaction.hover'; pointer: PointerPosition; target?: never }) |
   (EventEnvelope & { type: 'interaction.click'; pointer?: PointerPosition }) |
   (EventEnvelope & { type: Exclude<TraceEventType,
-    'system.clockSync' | 'annotation.redaction' | 'interaction.hover' | 'interaction.click'> });
+    'system.clockSync' | 'annotation.redaction' | 'annotation.callout' | 'interaction.hover' | 'interaction.click'> });
+
+export type TraceEvent = NonCalloutTraceEvent | (EventEnvelope & { type: 'annotation.callout' });
+export type ParsedTraceEvent = NonCalloutTraceEvent | CalloutEvent;
 
 export type RecordingMeta = {
   schemaVersion: 1;
@@ -97,6 +108,12 @@ const eventTypes = new Set<TraceEventType>([
 ]);
 const redactionKeys = new Set(['v', 'id', 't', 'type', 'stepId', 'route', 'viewport', 'scroll',
   'selector', 'instanceId', 'visible', 'box']);
+const targetKeys = new Set(['role', 'accessibleName', 'text', 'tagName', 'boundingBox', 'locators', 'value']);
+const calloutKeys = new Set(['v', 'id', 't', 'type', 'stepId', 'route', 'viewport', 'scroll',
+  'anchor', 'text', 'placement']);
+const locatorValueKeys = new Set(['type', 'value', 'confidence']);
+const locatorRoleKeys = new Set(['type', 'role', 'name', 'confidence']);
+const anchorKeys = new Set(['stepId', 'locators']);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -127,7 +144,79 @@ function isPointer(value: unknown): value is PointerPosition {
   return isRecord(value) && hasNumber(value, 'x') && hasNumber(value, 'y');
 }
 
-export function parseTraceEvent(input: unknown): Result<TraceEvent> {
+function hasOnlyKeys(value: Record<string, unknown>, keys: ReadonlySet<string>): boolean {
+  return Object.keys(value).every((key) => keys.has(key));
+}
+
+function isLocator(value: unknown): value is Locator {
+  if (!isRecord(value) || !hasNumber(value, 'confidence') || typeof value.type !== 'string') return false;
+  if (value.type === 'role') {
+    return hasString(value, 'role') && hasString(value, 'name') &&
+      hasOnlyKeys(value, locatorRoleKeys);
+  }
+  return ['testId', 'label', 'text', 'css'].includes(value.type) && hasString(value, 'value') &&
+    hasOnlyKeys(value, locatorValueKeys);
+}
+
+function isLocators(value: unknown): value is Locator[] {
+  return Array.isArray(value) && value.every(isLocator);
+}
+
+function isTarget(value: unknown): value is TargetDescriptor {
+  return isRecord(value) && (value.role === null || hasString(value, 'role')) &&
+    hasString(value, 'accessibleName') && hasString(value, 'text') && hasString(value, 'tagName') &&
+    isBox(value.boundingBox) && value.boundingBox.width > 0 && value.boundingBox.height > 0 &&
+    isLocators(value.locators) && (value.value === undefined || typeof value.value === 'string') &&
+    hasOnlyKeys(value, targetKeys);
+}
+
+function isCallout(value: Record<string, unknown>): boolean {
+  const anchor = value.anchor;
+  return isRecord(anchor) && typeof anchor.stepId === 'string' && anchor.stepId.length > 0 &&
+    isLocators(anchor.locators) && hasOnlyKeys(anchor, anchorKeys) &&
+    typeof value.text === 'string' && value.text.trim().length > 0 && value.placement === 'auto' &&
+    hasOnlyKeys(value, calloutKeys);
+}
+
+function isPositiveDimensions(value: unknown, keys: readonly string[]): value is Record<string, number> {
+  if (!isRecord(value)) return false;
+  return keys.every((key) => {
+    const dimension = value[key];
+    return typeof dimension === 'number' && Number.isFinite(dimension) && dimension > 0;
+  });
+}
+
+function hasValidIdentity(value: Record<string, unknown>): boolean {
+  if (typeof value.recordingId !== 'string' || value.recordingId.trim().length === 0 ||
+      typeof value.createdAt !== 'string' || !Number.isFinite(Date.parse(value.createdAt)) ||
+      new Date(value.createdAt).toISOString() !== value.createdAt || typeof value.url !== 'string' ||
+      typeof value.origin !== 'string' || !hasNumber(value, 'sessionEpoch')) return false;
+  try {
+    const url = new URL(value.url);
+    const origin = new URL(value.origin);
+    return (url.protocol === 'http:' || url.protocol === 'https:') &&
+      (origin.protocol === 'http:' || origin.protocol === 'https:') &&
+      url.origin === value.origin && origin.origin === value.origin;
+  } catch {
+    return false;
+  }
+}
+
+function hasValidMedia(value: unknown): boolean {
+  return isRecord(value) && typeof value.mimeType === 'string' && value.mimeType.length > 0 &&
+    typeof value.hasAudio === 'boolean' && typeof value.durationMs === 'number' &&
+    Number.isFinite(value.durationMs) && value.durationMs >= 0;
+}
+
+function hasValidApp(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return ['commit', 'version', 'environment'].every((key) => {
+    const field = value[key];
+    return field === null || (typeof field === 'string' && field.length > 0);
+  });
+}
+
+export function parseTraceEvent(input: unknown): Result<ParsedTraceEvent> {
   if (!isRecord(input) || input.v !== 1) return { ok: false, error: 'trace event must have v: 1' };
   if (!hasString(input, 'type') || !eventTypes.has(input.type as TraceEventType)) return { ok: false, error: 'unknown trace event type' };
   if (!hasString(input, 'id') || !hasNumber(input, 't') || !hasString(input, 'stepId') || !hasString(input, 'route')) {
@@ -139,6 +228,9 @@ export function parseTraceEvent(input: unknown): Result<TraceEvent> {
     return { ok: false, error: 'pointer sample is invalid' };
   }
   if (input.type === 'interaction.hover' && 'target' in input) return { ok: false, error: 'hover sample is invalid' };
+  if (input.type === 'annotation.callout' && !isCallout(input)) {
+    return { ok: false, error: 'callout annotation is invalid' };
+  }
   if (input.type === 'system.clockSync' &&
       (!hasNumber(input, 'contentClockMs') || !hasNumber(input, 'workerClockMs') || !hasNumber(input, 'mediaTimeMs'))) {
     return { ok: false, error: 'clock sync readings are invalid' };
@@ -150,21 +242,20 @@ export function parseTraceEvent(input: unknown): Result<TraceEvent> {
        Object.keys(input).some((key) => !redactionKeys.has(key)))) {
     return { ok: false, error: 'redaction sample is invalid' };
   }
-  return { ok: true, value: input as TraceEvent };
+  if (input.target !== undefined && !isTarget(input.target)) return { ok: false, error: 'trace event target is invalid' };
+  return { ok: true, value: input as ParsedTraceEvent };
 }
 
 export function parseRecordingMeta(input: unknown): Result<RecordingMeta> {
   if (!isRecord(input) || input.schemaVersion !== 1) return { ok: false, error: 'metadata must have schemaVersion: 1' };
-  const requiredStrings = ['recordingId', 'createdAt', 'url', 'origin'];
-  if (!requiredStrings.every((key) => hasString(input, key)) || !hasNumber(input, 'sessionEpoch')) {
+  if (!hasValidIdentity(input)) {
     return { ok: false, error: 'metadata identity is invalid' };
   }
-  if (!isViewport(input.viewport) || !isRecord(input.capture) ||
-      !hasNumber(input.capture, 'width') || !hasNumber(input.capture, 'height') || !hasNumber(input.capture, 'fps')) {
+  if (!isPositiveDimensions(input.viewport, ['width', 'height', 'dpr']) ||
+      !isPositiveDimensions(input.capture, ['width', 'height', 'fps'])) {
     return { ok: false, error: 'metadata dimensions are invalid' };
   }
-  if (!isRecord(input.media) || !hasString(input.media, 'mimeType') ||
-      typeof input.media.hasAudio !== 'boolean' || !hasNumber(input.media, 'durationMs')) {
+  if (!hasValidMedia(input.media)) {
     return { ok: false, error: 'metadata media is invalid' };
   }
   if (!isRecord(input.privacy) || typeof input.privacy.maskInputValues !== 'boolean' ||
@@ -175,6 +266,6 @@ export function parseRecordingMeta(input: unknown): Result<RecordingMeta> {
         !input.privacy.visualRedactionSelectors.every((item) => typeof item === 'string' && item.length > 0)))) {
     return { ok: false, error: 'metadata privacy is invalid' };
   }
-  if (!isRecord(input.app)) return { ok: false, error: 'metadata app is invalid' };
+  if (!hasValidApp(input.app)) return { ok: false, error: 'metadata app is invalid' };
   return { ok: true, value: input as RecordingMeta };
 }

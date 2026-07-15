@@ -10,13 +10,20 @@ export function sanitizeTarget(input: TargetObservation, unmaskSelectors: readon
   if (input.inputType === 'password') return null;
   const unmasked = input.selector !== undefined && unmaskSelectors.includes(input.selector);
   const masked = input.sensitive === true || (input.value !== undefined && !unmasked);
+  const secrets = input.sensitive === true
+    ? [input.accessibleName, input.text, input.value].filter((value): value is string => Boolean(value))
+    : [];
   const target: TargetDescriptor = {
     role: input.role,
-    accessibleName: input.accessibleName,
+    accessibleName: input.sensitive === true ? '[MASKED]' : input.accessibleName,
     text: input.sensitive === true ? '[MASKED]' : input.text,
     tagName: input.tagName,
     boundingBox: input.boundingBox,
-    locators: input.locators,
+    locators: input.sensitive === true
+      ? input.locators.filter((locator) =>
+        (locator.type === 'testId' || locator.type === 'css') &&
+        !secrets.some((secret) => locator.value.includes(secret)))
+      : input.locators,
   };
   if (input.value !== undefined) target.value = masked ? '[MASKED]' : input.value;
   return target;
