@@ -8,6 +8,9 @@ import { addCallout as addCalloutEdit, deleteCallout as deleteCalloutEdit, updat
   type EditableCallout } from './callouts';
 import { deleteRedaction as deleteRedactionEdit, deriveRedactionIntervals, deriveRedactions,
   toggleRedaction as toggleRedactionEdit, type EditableRedaction, type RedactionBox } from './redactions';
+import { BRAND_STORAGE_KEY, addBrandPreset as addBrandPresetEdit, deleteBrandPreset as deleteBrandPresetEdit,
+  emptyBrandState, parseBrandState, selectBrandPreset as selectBrandPresetEdit, serializeBrandState,
+  updateBrandPreset as updateBrandPresetEdit, type BrandPreset, type BrandState } from './brand';
 
 export type EditorState = {
   bundle: BundleData | null;
@@ -25,6 +28,8 @@ export type EditorState = {
   selectionEndMs: number | null;
   exportProgress: number | null;
   exportError: string | null;
+  brandPresets: BrandPreset[];
+  selectedBrandId: string | null;
   load: (bundle: BundleData, mediaUrl: string, media?: File) => void;
   selectEvent: (id: string, mediaTimeMs: number) => void;
   hoverEvent: (id: string | null) => void;
@@ -41,9 +46,14 @@ export type EditorState = {
   toggleRedaction: (selector: string) => void;
   deleteRedaction: (selector: string) => void;
   setExport: (progress: number | null, error?: string | null) => void;
+  addBrandPreset: () => void;
+  updateBrandPreset: (id: string, patch: Partial<Omit<BrandPreset, 'id'>>) => void;
+  selectBrandPreset: (id: string | null) => void;
+  deleteBrandPreset: (id: string) => void;
 };
 
 const creator = (set: StoreApi<EditorState>['setState']): EditorState => ({
+  ...readBrandState(),
   bundle: null, mediaUrl: null, media: null, segments: [], callouts: [], redactions: [], redactionBoxes: [], selectedSegmentId: null,
   selectedEventId: null, hoveredEventId: null, playheadMs: 0, exportProgress: null, exportError: null,
   selectionStartMs: null, selectionEndMs: null,
@@ -79,6 +89,10 @@ const creator = (set: StoreApi<EditorState>['setState']): EditorState => ({
   toggleRedaction: (selector) => set((state) => ({ redactions: toggleRedactionEdit(state.redactions, selector) })),
   deleteRedaction: (selector) => set((state) => ({ redactions: deleteRedactionEdit(state.redactions, selector) })),
   setExport: (exportProgress, exportError = null) => set({ exportProgress, exportError }),
+  addBrandPreset: () => set((state) => persistBrandState(addBrandPresetEdit(state, crypto.randomUUID()))),
+  updateBrandPreset: (id, patch) => set((state) => persistBrandState(updateBrandPresetEdit(state, id, patch))),
+  selectBrandPreset: (id) => set((state) => persistBrandState(selectBrandPresetEdit(state, id))),
+  deleteBrandPreset: (id) => set((state) => persistBrandState(deleteBrandPresetEdit(state, id))),
 });
 
 export function createEditorStore(): StoreApi<EditorState> { return createStore(creator); }
@@ -86,4 +100,21 @@ export const useEditorStore: UseBoundStore<StoreApi<EditorState>> = create(creat
 
 export function eventById(events: readonly TraceEvent[], id: string | null): TraceEvent | null {
   return id ? events.find((event) => event.id === id) ?? null : null;
+}
+
+function readBrandState(): BrandState {
+  try {
+    return parseBrandState(typeof localStorage === 'undefined' ? null : localStorage.getItem(BRAND_STORAGE_KEY));
+  } catch {
+    return emptyBrandState();
+  }
+}
+
+function persistBrandState(state: BrandState): BrandState {
+  try {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(BRAND_STORAGE_KEY, serializeBrandState(state));
+  } catch {
+    // Storage can be disabled without disabling in-memory editing.
+  }
+  return state;
 }
