@@ -3,6 +3,7 @@ export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 export type Viewport = { width: number; height: number; dpr: number };
 export type ScrollPosition = { x: number; y: number };
 export type BoundingBox = { x: number; y: number; width: number; height: number };
+export type PointerPosition = { x: number; y: number };
 
 export type Locator =
   | { type: 'testId'; value: string; confidence: number }
@@ -64,7 +65,10 @@ export type RedactionSampleEvent = EventEnvelope & {
 };
 
 export type TraceEvent = ClockSyncEvent | RedactionSampleEvent |
-  (EventEnvelope & { type: Exclude<TraceEventType, 'system.clockSync' | 'annotation.redaction'> });
+  (EventEnvelope & { type: 'interaction.hover'; pointer: PointerPosition }) |
+  (EventEnvelope & { type: 'interaction.click'; pointer?: PointerPosition }) |
+  (EventEnvelope & { type: Exclude<TraceEventType,
+    'system.clockSync' | 'annotation.redaction' | 'interaction.hover' | 'interaction.click'> });
 
 export type RecordingMeta = {
   schemaVersion: 1;
@@ -119,6 +123,10 @@ function isBox(value: unknown): value is BoundingBox {
     hasNumber(value, 'width') && hasNumber(value, 'height');
 }
 
+function isPointer(value: unknown): value is PointerPosition {
+  return isRecord(value) && hasNumber(value, 'x') && hasNumber(value, 'y');
+}
+
 export function parseTraceEvent(input: unknown): Result<TraceEvent> {
   if (!isRecord(input) || input.v !== 1) return { ok: false, error: 'trace event must have v: 1' };
   if (!hasString(input, 'type') || !eventTypes.has(input.type as TraceEventType)) return { ok: false, error: 'unknown trace event type' };
@@ -126,6 +134,10 @@ export function parseTraceEvent(input: unknown): Result<TraceEvent> {
     return { ok: false, error: 'trace event envelope is invalid' };
   }
   if (!isViewport(input.viewport) || !isScroll(input.scroll)) return { ok: false, error: 'trace event coordinates are invalid' };
+  if ((input.type === 'interaction.hover' && !isPointer(input.pointer)) ||
+      (input.type === 'interaction.click' && input.pointer !== undefined && !isPointer(input.pointer))) {
+    return { ok: false, error: 'pointer sample is invalid' };
+  }
   if (input.type === 'system.clockSync' &&
       (!hasNumber(input, 'contentClockMs') || !hasNumber(input, 'workerClockMs') || !hasNumber(input, 'mediaTimeMs'))) {
     return { ok: false, error: 'clock sync readings are invalid' };

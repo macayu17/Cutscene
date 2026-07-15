@@ -36,6 +36,30 @@ describe('parseTraceEvent', () => {
     });
   });
 
+  it('requires finite pointer coordinates on hover samples', () => {
+    const hover = { ...envelope, type: 'interaction.hover', pointer: { x: 12, y: 34 } };
+    expect(parseTraceEvent(hover)).toEqual({ ok: true, value: hover });
+    expect(parseTraceEvent({ ...envelope, type: 'interaction.hover' })).toEqual({
+      ok: false,
+      error: 'pointer sample is invalid',
+    });
+    expect(parseTraceEvent({ ...hover, pointer: { x: Infinity, y: 34 } })).toEqual({
+      ok: false,
+      error: 'pointer sample is invalid',
+    });
+  });
+
+  it('keeps click pointer data optional and validates it when present', () => {
+    const oldClick = { ...envelope, type: 'interaction.click' };
+    const click = { ...oldClick, pointer: { x: 12, y: 34 } };
+    expect(parseTraceEvent(oldClick)).toEqual({ ok: true, value: oldClick });
+    expect(parseTraceEvent(click)).toEqual({ ok: true, value: click });
+    expect(parseTraceEvent({ ...click, pointer: { x: Number.NaN, y: 2 } })).toEqual({
+      ok: false,
+      error: 'pointer sample is invalid',
+    });
+  });
+
   it('parses privacy-safe redaction geometry and rejects malformed samples', () => {
     const visible = { ...envelope, type: 'annotation.redaction', selector: '.customer-email', instanceId: 'redaction_1',
       visible: true, box: { x: 20, y: 30, width: 180, height: 24 } };

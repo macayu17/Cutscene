@@ -3,6 +3,7 @@ import { execFile } from 'node:child_process';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { chromium, expect, test } from '@playwright/test';
+import { POINTER_SAMPLE_INTERVAL_MS } from '../src/pointer';
 
 const execute = promisify(execFile);
 const durationSeconds = Number(process.env.CUTSCENE_DURATION_SECONDS ?? 3);
@@ -42,6 +43,7 @@ test('captures a playable, complete, masked recording bundle', async () => {
     await control.goto(`chrome-extension://${extensionId}/control.html?tabId=${tabId}`);
     await control.locator('#redact').fill('[');
     await control.locator('#start').click();
+    await expect(control.locator('#status')).toContainText('not a valid selector');
     await expect(control.locator('#start')).toBeEnabled();
     await expect(control.locator('#stop')).toBeDisabled();
     await control.locator('#redact').fill('.new-todo, .todo-list li');
@@ -51,15 +53,22 @@ test('captures a playable, complete, masked recording bundle', async () => {
     const startedAt = Date.now();
     await page.locator('.new-todo').fill('raw-secret-value');
     await page.locator('.new-todo').fill('');
+    await page.bringToFront();
+    for (const point of [{ x: 80, y: 80 }, { x: 180, y: 120 }, { x: 280, y: 180 }, { x: 380, y: 240 }, { x: 480, y: 300 }]) {
+      await page.mouse.move(point.x, point.y);
+      await page.waitForTimeout(40);
+    }
+    const clickPoints: Array<{ x: number; y: number }> = [];
     const intervalMs = Math.max(100, (durationSeconds * 1_000 - 3_000) / requestedClicks);
     for (let index = 0; index < requestedClicks; index += 1) {
-      if (clickMode === 'edge-input') {
-        const box = await page.locator('.new-todo').boundingBox();
-        if (!box) throw new Error('Comparison input is not visible.');
-        await page.locator('.new-todo').click({ position: { x: box.width - 8, y: box.height / 2 } });
-      } else {
-        await page.locator('.toggle').nth(index).click();
-      }
+      const clickTarget = clickMode === 'edge-input' ? page.locator('.new-todo') : page.locator('.toggle').nth(index);
+      const box = await clickTarget.boundingBox();
+      if (!box) throw new Error('Click target is not visible.');
+      const point = clickMode === 'edge-input'
+        ? { x: Math.round(box.x + box.width - 8), y: Math.round(box.y + box.height / 2) }
+        : { x: Math.round(box.x + box.width / 2), y: Math.round(box.y + box.height / 2) };
+      clickPoints.push(point);
+      await page.mouse.click(point.x, point.y);
       if (index === 0) {
         const todo = page.locator('.todo-list li').first();
         await todo.evaluate((element) => { element.style.visibility = 'hidden'; });
@@ -102,12 +111,35 @@ test('captures a playable, complete, masked recording bundle', async () => {
       'interaction.click', 'interaction.input', 'interaction.scroll', 'viewport.resize', 'annotation.redaction']) expect(types.has(type)).toBe(true);
     expect(traceText).not.toContain('raw-secret-value');
     expect(events.filter((event) => event.type === 'interaction.click')).toHaveLength(requestedClicks);
+    const hoverSamples = events.filter((event) => event.type === 'interaction.hover');
+    expect(hoverSamples.length).toBeGreaterThanOrEqual(5);
+    for (const sample of hoverSamples) {
+      const pointer = sample.pointer as { x: number; y: number };
+      expect(Number.isFinite(pointer.x)).toBe(true);
+      expect(Number.isFinite(pointer.y)).toBe(true);
+      expect(sample).not.toHaveProperty('target');
+      expect(sample).not.toHaveProperty('text');
+      expect(sample).not.toHaveProperty('value');
+    }
+    for (let index = 1; index < hoverSamples.length; index += 1) {
+      expect(Number(hoverSamples[index]?.t) - Number(hoverSamples[index - 1]?.t))
+        .toBeGreaterThanOrEqual(POINTER_SAMPLE_INTERVAL_MS - 1);
+    }
     const navigation = events.find((event) => event.type === 'navigation');
     const firstSync = events.find((event) => event.type === 'system.clockSync');
     expect(Math.abs(Number(navigation?.t) - Number(firstSync?.t))).toBeLessThan(100);
     const click = events.find((event) => event.type === 'interaction.click');
     expect(click).toMatchObject({ v: 1, stepId: expect.any(String), scroll: expect.any(Object) });
     expect((click?.target as { locators?: unknown[] }).locators?.length).toBeGreaterThan(0);
+    const scriptedClick = clickPoints[0];
+    if (!scriptedClick) throw new Error('Scripted click point missing.');
+    expect(click?.pointer).toEqual(scriptedClick);
+    const clickPointer = click?.pointer as { x: number; y: number };
+    const clickBox = (click?.target as { boundingBox: { x: number; y: number; width: number; height: number } }).boundingBox;
+    expect(clickPointer.x).toBeGreaterThanOrEqual(clickBox.x);
+    expect(clickPointer.x).toBeLessThanOrEqual(clickBox.x + clickBox.width);
+    expect(clickPointer.y).toBeGreaterThanOrEqual(clickBox.y);
+    expect(clickPointer.y).toBeLessThanOrEqual(clickBox.y + clickBox.height);
     const meta = JSON.parse(await readFile(metaItem.filename, 'utf8')) as Record<string, unknown>;
     expect(meta).toMatchObject({ schemaVersion: 1, privacy: { visualRedactionSelectors: ['.new-todo, .todo-list li'] },
       app: { commit: null, version: null, environment: null } });

@@ -1,6 +1,7 @@
-import { rankLocators, sanitizeTarget, type BoundingBox, type RedactionSampleEvent, type TargetDescriptor, type TraceEvent,
-  type TraceEventType } from '@cutscene/trace';
+import { rankLocators, sanitizeTarget, type BoundingBox, type PointerPosition, type RedactionSampleEvent,
+  type TargetDescriptor, type TraceEvent, type TraceEventType } from '@cutscene/trace';
 import type { Result } from './messages';
+import { shouldSamplePointer } from './pointer';
 
 type PageContext = { viewport: ReturnType<typeof viewport>; scroll: ReturnType<typeof scroll>; route: string; url: string; origin: string;
   contentClockMs: number; visualRedactionSelectors: string[] };
@@ -11,6 +12,7 @@ let scheduledScroll = false;
 let scheduledResize = false;
 let redactionFrame = 0;
 let captureReady = false;
+let lastPointerAt = -Infinity;
 let redactionSelectors: string[] = [];
 let redactionIds = new WeakMap<Element, string>();
 type RedactionState = { selector: string; instanceId: string; box: BoundingBox; viewport: ReturnType<typeof viewport> };
@@ -72,13 +74,22 @@ function target(element: Element): TargetDescriptor | null {
   return sanitizeTarget(observation);
 }
 
-function emit(type: Exclude<TraceEventType, 'system.clockSync' | 'annotation.redaction'>, targetDescriptor?: TargetDescriptor): void {
+function emit(type: Exclude<TraceEventType, 'system.clockSync' | 'annotation.redaction'>, targetDescriptor?: TargetDescriptor,
+  pointer?: PointerPosition): void {
   if (sessionEpoch === null || !captureReady) return;
-  const event: TraceEvent = {
-    v: 1, id: `evt_${crypto.randomUUID()}`, t: now(), type,
+  const envelope = {
+    v: 1 as const, id: `evt_${crypto.randomUUID()}`, t: now(), type,
     stepId: `step_${String(++step).padStart(4, '0')}`, route: route(), viewport: viewport(), scroll: scroll(),
-    ...(targetDescriptor ? { target: targetDescriptor } : {}),
   };
+  let event: TraceEvent;
+  if (type === 'interaction.hover') {
+    if (!pointer) return;
+    event = { ...envelope, type, pointer };
+  } else if (type === 'interaction.click') {
+    event = { ...envelope, type, ...(targetDescriptor ? { target: targetDescriptor } : {}), ...(pointer ? { pointer } : {}) };
+  } else {
+    event = { ...envelope, type, ...(targetDescriptor ? { target: targetDescriptor } : {}) };
+  }
   void chrome.runtime.sendMessage({ type: 'trace.event', event });
 }
 
@@ -127,8 +138,16 @@ function actionable(value: EventTarget | null): Element | null {
   return value instanceof Element ? value.closest('button,a,input,select,textarea,[role],[data-testid]') ?? value : null;
 }
 
-document.addEventListener('click', (event) => { const element = actionable(event.target); if (element) { const safe = target(element); if (safe) emit('interaction.click', safe); } }, true);
+document.addEventListener('click', (event) => { const element = actionable(event.target); if (element) { const safe = target(element);
+  if (safe) emit('interaction.click', safe, { x: event.clientX, y: event.clientY }); } }, true);
 document.addEventListener('input', (event) => { const element = actionable(event.target); if (element) { const safe = target(element); if (safe) emit('interaction.input', safe); } }, true);
+addEventListener('pointermove', (event) => {
+  if (event.pointerType !== 'mouse' || sessionEpoch === null || !captureReady) return;
+  const sampledAt = now();
+  if (!shouldSamplePointer(lastPointerAt, sampledAt)) return;
+  lastPointerAt = sampledAt;
+  emit('interaction.hover', undefined, { x: event.clientX, y: event.clientY });
+}, true);
 addEventListener('scroll', () => { if (sessionEpoch === null || scheduledScroll) return; scheduledScroll = true; requestAnimationFrame(() => { scheduledScroll = false; emit('interaction.scroll'); }); }, true);
 addEventListener('resize', () => { if (sessionEpoch === null || scheduledResize) return; scheduledResize = true; requestAnimationFrame(() => { scheduledResize = false; emit('viewport.resize'); }); });
 addEventListener('popstate', () => emit('navigation'));
@@ -149,7 +168,7 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, respond) => {
       message.redactSelectors.every((value) => typeof value === 'string') ? message.redactSelectors : [])];
     try { selectors.forEach((selector) => document.querySelectorAll(selector)); }
     catch (error: unknown) { respond({ ok: false, error: error instanceof Error ? error.message : String(error) } satisfies Result); return false; }
-    sessionEpoch = message.sessionEpoch; step = 0; captureReady = false;
+    sessionEpoch = message.sessionEpoch; step = 0; captureReady = false; lastPointerAt = -Infinity;
     redactionSelectors = [...selectors]; redactionIds = new WeakMap(); previousRedactions = new Map();
     cancelAnimationFrame(redactionFrame);
     respond({ ok: true, value: { viewport: viewport(), scroll: scroll(), route: route(), url: location.href,
@@ -160,7 +179,8 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, respond) => {
       // The recorder is already running; anchor this current geometry at zero so its first frame cannot leak.
       sampleRedactions(true);
       respond({ ok: true, value: undefined } satisfies Result); }
-  } else if (message.type === 'session.stop') { sessionEpoch = null; captureReady = false; cancelAnimationFrame(redactionFrame); redactionSelectors = [];
+  } else if (message.type === 'session.stop') { sessionEpoch = null; captureReady = false; lastPointerAt = -Infinity;
+    cancelAnimationFrame(redactionFrame); redactionSelectors = [];
     previousRedactions.clear(); respond({ ok: true, value: undefined } satisfies Result); }
   else if (message.type === 'clock.sample') respond({ ok: true, value: now() } satisfies Result<number>);
   else return false;
