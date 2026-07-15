@@ -19,8 +19,8 @@ At rest, centre the crop on the captured raster. During an active zoom segment,
 interpolate its centre toward the segment's mapped focus centre using the
 existing cubic entry, hold, and slow-exit timing. Clamp both axes so the crop
 never leaves the source raster. The segment zoom scale is intentionally ignored:
-the fixed portrait crop already reframes strongly and still shows roughly 396
-CSS pixels of width for the standard 1280 CSS pixel viewport.
+the fixed portrait crop already reframes strongly and still shows more than the
+roughly 320 CSS pixel legibility floor in the standard evidence capture.
 
 ## Rendering order
 
