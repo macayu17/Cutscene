@@ -55,3 +55,16 @@ it.each(['gif', 'mp4'] as const)('blurs source pixels before zoom and keeps call
     expect(command.match(/palettegen/g)).toHaveLength(1);
   }
 });
+
+it('builds an undistorted 1080x1920 crop and pan after redaction and before callouts', () => {
+  const plan = buildExportPlan('vertical', segments, meta, [overlay], [redaction]);
+  const command = plan.args.join(' ');
+  expect(plan).toMatchObject({ output: 'output.mp4', mimeType: 'video/mp4' });
+  expect(command).toContain('crop=594:1056');
+  expect(command).toContain('scale=1080:1920:flags=lanczos,setsar=1');
+  expect(command).not.toContain('zoompan=');
+  expect(command.indexOf('boxblur=')).toBeLessThan(command.indexOf('crop=594:1056'));
+  expect(command.indexOf('scale=1080:1920')).toBeLessThan(command.indexOf('[base][1:v]overlay='));
+  expect(plan.args).toEqual(expect.arrayContaining(['-map', '[out]', '-map', '0:a?', '-c:v', 'libx264',
+    '-pix_fmt', 'yuv420p']));
+});
