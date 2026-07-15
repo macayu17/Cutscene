@@ -142,7 +142,7 @@ export async function exportRecording(media: Blob, format: ExportFormat, segment
       const event = events.find(({ id }) => id === callout.sourceEventId);
       const segment = segments.find(({ eventId }) => eventId === callout.sourceEventId);
       const window = calloutWindow(callout, segments, events, clock);
-      const crop = segment && format === 'vertical' ? portraitCropAt(segment.clickMs, [segment], meta.capture) : undefined;
+      const crop = segment && format === 'vertical' ? portraitCropAt(segment.clickMs, segments, meta.capture) : undefined;
       const layout = event && segment ? calloutLayout(event, segment, meta.capture, outputSize, cardSize, crop) : null;
       if (!event || !window || !layout || !callout.text.trim()) return [];
       const filename = `callout_${index}.png`;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { MediaClockFit, TraceEvent } from '@cutscene/trace';
 import type { EditableSegment } from './segments';
+import { portraitCropAt } from './camera';
 import { activeCallout, addCallout, calloutLayout, calloutSize, calloutWindow, deleteCallout, placeCallout, updateCallout } from './callouts';
 
 const clock: MediaClockFit = { slope: 1, intercept: 0, toMediaTime: (value) => value };
@@ -93,11 +94,13 @@ describe('placeCallout', () => {
 
   it('places a portrait callout around the target mapped through its crop', () => {
     const frame = { width: 1_080, height: 1_920 };
-    const layout = calloutLayout(event, segment, { width: 1_920, height: 1_080 }, frame, calloutSize(frame),
-      { x: 300, y: 0, width: 607.5, height: 1_080 });
+    const capture = { width: 1_920, height: 1_080 };
+    const layout = calloutLayout(event, segment, capture, frame, calloutSize(frame),
+      portraitCropAt(segment.clickMs, [segment], capture));
 
-    expect(layout?.target).toEqual({ x: expect.closeTo(597.3333), y: 720, width: 240, height: 96 });
-    expect(layout?.card).toEqual({ x: expect.closeTo(582.3333), y: 423.04, width: 270, height: 256 });
+    expect(layout?.target).toEqual({ x: expect.closeTo(24.5455), y: expect.closeTo(736.3636),
+      width: expect.closeTo(245.4545), height: expect.closeTo(98.1818) });
+    expect(layout?.card).toEqual({ x: expect.closeTo(12.2727), y: expect.closeTo(439.4036), width: 270, height: 256 });
     expect(layout?.card.x).toBeGreaterThanOrEqual(0);
     expect((layout?.card.x ?? 0) + (layout?.card.width ?? 0)).toBeLessThanOrEqual(frame.width);
     expect(layout?.card.y).toBeGreaterThanOrEqual(0);

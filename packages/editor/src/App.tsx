@@ -45,7 +45,7 @@ export default function App() {
         redactions, redactionBoxes,
         (value) => setExport(value));
       const link = document.createElement('a'); link.href = URL.createObjectURL(output);
-      link.download = `${bundle.meta.recordingId}.${format === 'gif' ? 'gif' : 'mp4'}`; link.click();
+      link.download = `${bundle.meta.recordingId}${format === 'vertical' ? '-9x16' : ''}.${format === 'gif' ? 'gif' : 'mp4'}`; link.click();
       setTimeout(() => URL.revokeObjectURL(link.href), 60_000); setExport(null);
     } catch (cause: unknown) { setExport(null, cause instanceof Error ? cause.message : String(cause)); }
   };
