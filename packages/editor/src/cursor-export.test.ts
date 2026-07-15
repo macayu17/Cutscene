@@ -1,4 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { cameraAt, portraitCropAt } from './camera';
 import { mapCursorToOutput, type CursorTrack } from './cursor';
 import {
@@ -6,6 +10,7 @@ import {
   cursorEnableExpression,
   cursorPathExpression,
   cursorPointExpressions,
+  escapeFilter,
 } from './cursor-export';
 import { renderCursorAssets } from './cursor-render';
 
@@ -30,9 +35,22 @@ const track: CursorTrack = {
 describe('cursor filter expressions', () => {
   it('uses shallow cumulative clamped ramps and collapses equal-time samples', () => {
     const expression = cursorPathExpression(track.samples, 'x');
-    expect(expression).toBe('300+(150)*min(max((t-0.1)/0.1,0),1)+(150)*min(max((t-0.2)/0.2,0),1)');
+    expect(expression).toBe('((300+(150)*min(max((t-0.1)/0.1,0),1))+(150)*min(max((t-0.2)/0.2,0),1))');
     expect(expression).not.toContain('if(');
     expect(expression).not.toMatch(/\/0(?:[),]|$)/);
+  });
+
+  it('balances a lossless 60-second 30Hz path with bounded expression depth', () => {
+    const samples = Array.from({ length: 1_800 }, (_, index) => ({
+      timeMs: index * 1_000 / 30, x: index, y: index * 2, click: false,
+    }));
+    const expression = cursorPathExpression(samples, 'x');
+    const shape = additionShape(expression);
+    expect(expression.match(/min\(max\(/g)).toHaveLength(1_799);
+    expect(shape.maxAdditionsPerGroup).toBe(1);
+    expect(shape.maxDepth).toBeLessThanOrEqual(16);
+    expect(evaluate(expression, 0)).toBe(0);
+    expect(evaluate(expression, (samples.at(-1)?.timeMs ?? 0) / 1_000)).toBe(1_799);
   });
 
   it('builds merged idle visibility from overlay-local time', () => {
@@ -72,6 +90,28 @@ describe('cursor filter expressions', () => {
     expect(overlays[1]?.y).toContain('250');
     expect(overlays[0]?.x).toContain('min(max(');
     expect(overlays.flatMap(({ x, y }) => [String(x), String(y)]).join(' ')).not.toMatch(/\b(?:iw|ih|in_time)\b/);
+  });
+
+  const hasFfmpeg = spawnSync('ffmpeg', ['-version'], { encoding: 'utf8' }).status === 0;
+  it.skipIf(!hasFfmpeg)('passes a full 60-second 30Hz overlay through the native FFmpeg parser', () => {
+    const samples = Array.from({ length: 1_800 }, (_, index) => ({
+      timeMs: index * 1_000 / 30, x: index % 1_920, y: index % 1_080, click: false,
+    }));
+    const overlay = buildCursorOverlays('mp4', { enabled: true, ripple: false, samples, clicks: [],
+      visibleRanges: [{ startMs: 0, endMs: 60_000 }] }, 24, segments, { ...meta, media: { ...meta.media, durationMs: 60_000 } })[0];
+    if (!overlay) throw new Error('Expected cursor overlay.');
+    const filter = `[0:v][1:v]overlay=x='${escapeFilter(String(overlay.x))}':y='${escapeFilter(String(overlay.y))}':` +
+      `enable='${escapeFilter(overlay.enable ?? '')}'[out]`;
+    const directory = mkdtempSync(join(tmpdir(), 'cutscene-ffmpeg-'));
+    const script = join(directory, 'cursor-filter.txt');
+    try {
+      writeFileSync(script, filter);
+      const result = spawnSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=black:s=64x64:d=0.1:r=10',
+        '-f', 'lavfi', '-i', 'color=c=white:s=4x4:d=0.1:r=10', '-filter_complex_script', script,
+        '-map', '[out]', '-frames:v', '1', '-f', 'null', '-'], { encoding: 'utf8' });
+      expect(filter.length).toBe(220_784);
+      expect(result.status, result.stderr).toBe(0);
+    } finally { rmSync(directory, { recursive: true, force: true }); }
   });
 });
 
@@ -135,6 +175,19 @@ function evaluate(expression: string, t: number): number {
     throw new Error(`Unsupported function ${token}`);
   };
   return parse();
+}
+
+function additionShape(expression: string): { maxDepth: number; maxAdditionsPerGroup: number } {
+  const additions = [0];
+  let maxDepth = 0;
+  let maxAdditionsPerGroup = 0;
+  for (const character of expression) {
+    if (character === '(') { additions.push(0); maxDepth = Math.max(maxDepth, additions.length - 1); }
+    else if (character === ')') { maxAdditionsPerGroup = Math.max(maxAdditionsPerGroup, additions.pop() ?? 0); }
+    else if (character === '+') additions[additions.length - 1] = (additions.at(-1) ?? 0) + 1;
+  }
+  maxAdditionsPerGroup = Math.max(maxAdditionsPerGroup, additions[0] ?? 0);
+  return { maxDepth, maxAdditionsPerGroup };
 }
 
 function fakeCanvas() {

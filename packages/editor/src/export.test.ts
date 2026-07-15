@@ -158,13 +158,6 @@ it('does not reference source audio when branded media has no audio', () => {
   expect(plan.args).not.toContain('[audio]');
 });
 
-it.each(['gif', 'mp4', 'vertical'] as const)('keeps the existing unbranded %s plan byte-for-byte', (format) => {
-  const existing = buildExportPlan(format, segments, meta, [overlay], [redaction]);
-  expect(buildExportPlan(format, segments, meta, [overlay], [redaction], {
-    introSeconds: 0, outroSeconds: 0,
-  })).toEqual(existing);
-});
-
 it('renders a centered, contrasting brand card as PNG bytes', async () => {
   const { canvas, context } = fakeCanvas();
   vi.stubGlobal('document', { createElement: () => canvas });

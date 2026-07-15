@@ -13,13 +13,22 @@ export function cursorPathExpression(samples: readonly CursorSample[], coordinat
   const first = points[0];
   if (!first) return '0';
   let previous = first;
-  return String(first[coordinate]) + points.slice(1).map((point) => {
+  const terms = [String(first[coordinate]), ...points.slice(1).flatMap((point) => {
     const duration = (point.timeMs - previous.timeMs) / 1_000;
     const delta = point[coordinate] - previous[coordinate];
     const start = previous.timeMs / 1_000;
     previous = point;
-    return duration > 0 && delta !== 0 ? `+(${delta})*min(max((t-${start})/${duration},0),1)` : '';
-  }).join('');
+    return duration > 0 && delta !== 0 ? [`(${delta})*min(max((t-${start})/${duration},0),1)`] : [];
+  })];
+  while (terms.length > 1) {
+    const next: string[] = [];
+    for (let index = 0; index < terms.length; index += 2) {
+      const right = terms[index + 1];
+      next.push(right === undefined ? terms[index] ?? '0' : `(${terms[index]}+${right})`);
+    }
+    terms.splice(0, terms.length, ...next);
+  }
+  return terms[0] ?? '0';
 }
 
 export function cursorEnableExpression(ranges: readonly CursorVisibleRange[]): string {
