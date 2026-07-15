@@ -1,6 +1,15 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { buildExportPlan, type ExportOverlay } from './export';
+import { buildExportPlan, exportRecording, type ExportOverlay } from './export';
 import { renderBrandCard, renderBrandWatermark } from './brand-render';
+import { DEFAULT_CURSOR_SETTINGS } from './cursor';
+
+const engine = vi.hoisted(() => ({
+  load: vi.fn(async () => undefined), on: vi.fn(), off: vi.fn(), writeFile: vi.fn(async () => undefined),
+  deleteFile: vi.fn<(filename: string) => Promise<void>>(async () => undefined),
+  exec: vi.fn(async () => 0), readFile: vi.fn(async () => new Uint8Array([7])),
+}));
+vi.mock('@ffmpeg/ffmpeg', () => ({ FFmpeg: function FFmpeg() { return engine; } }));
+vi.mock('@ffmpeg/util', () => ({ toBlobURL: vi.fn(async (url: string) => url) }));
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -37,6 +46,24 @@ it('keeps the old no-pointer MP4 fast path exactly', () => {
       '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-movflags', '+faststart', 'output.mp4',
     ],
   });
+});
+
+it('rejects a failed rerun without reading stale output and cleans every run file', async () => {
+  vi.clearAllMocks();
+  engine.exec.mockResolvedValueOnce(0).mockResolvedValueOnce(9);
+  engine.readFile.mockResolvedValue(new Uint8Array([7]));
+  engine.deleteFile.mockRejectedValue(new Error('MEMFS file is absent'));
+  const clock = { slope: 1, intercept: 0, toMediaTime: (value: number) => value };
+  const settings = { ...DEFAULT_CURSOR_SETTINGS, enabled: false };
+  const run = () => exportRecording(new Blob([new Uint8Array([1])]), 'mp4', [], meta, [], [], clock,
+    [], [], null, settings, vi.fn());
+
+  await expect(run()).resolves.toBeInstanceOf(Blob);
+  await expect(run()).rejects.toThrow('FFmpeg export failed with exit code 9.');
+  expect(engine.readFile).toHaveBeenCalledTimes(1);
+  expect(engine.deleteFile.mock.calls.filter(([filename]) => filename === 'output.mp4')).toHaveLength(4);
+  expect(engine.deleteFile.mock.calls.filter(([filename]) => filename === 'input.webm')).toHaveLength(2);
+  expect(engine.off).toHaveBeenCalledTimes(2);
 });
 
 const overlay = { filename: 'callout_0.png', x: 120, y: 80, startSeconds: 1, endSeconds: 2 };

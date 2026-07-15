@@ -4,12 +4,18 @@ export function cursorRippleDiameter(size: number, phase: number): number {
   return Math.round(size * (1.5 + phase * .5));
 }
 
+export function cursorArrowPadding(size: number): number {
+  return Math.ceil(Math.max(1.5, size / 10) / 2);
+}
+
 export async function renderCursorAssets(size: number): Promise<CursorAsset[]> {
-  const arrow = canvas(size, Math.ceil(size * 1.2));
+  const padding = cursorArrowPadding(size);
+  const arrow = canvas(size + padding * 2, Math.ceil(size * 1.2) + padding * 2);
   arrow.context.fillStyle = '#C8CDD4';
   arrow.context.strokeStyle = '#16181C';
   arrow.context.lineWidth = Math.max(1.5, size / 10);
   arrow.context.lineJoin = 'round';
+  arrow.context.translate(padding, padding);
   arrow.context.beginPath();
   arrow.context.moveTo(0, 0);
   arrow.context.lineTo(size * .72, size * .58);

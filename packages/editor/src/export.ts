@@ -153,6 +153,7 @@ export async function exportRecording(media: Blob, format: ExportFormat, segment
   brand: BrandPreset | null, cursorSettings: CursorSettings,
   progress: (value: number) => void): Promise<Blob> {
   const engine = await ffmpeg();
+  const runFiles = new Set<string>();
   const listener = ({ progress: value }: { progress: number }) => progress(value);
   engine.on('progress', listener);
   try {
@@ -188,17 +189,25 @@ export async function exportRecording(media: Blob, format: ExportFormat, segment
         ...(intro ? { introFilename: intro.filename } : {}), ...(outro ? { outroFilename: outro.filename } : {}),
         introSeconds: intro ? 1.5 : 0, outroSeconds: outro ? 1.5 : 0,
       });
+    ['input.webm', plan.output, ...prepared.map(({ filename }) => filename),
+      ...(watermark ? [watermark.filename] : []), ...(intro ? [intro.filename] : []), ...(outro ? [outro.filename] : []),
+      ...cursorAssets.map(({ filename }) => filename)].forEach((filename) => runFiles.add(filename));
     await engine.writeFile('input.webm', new Uint8Array(await media.arrayBuffer()));
     for (const item of prepared) await engine.writeFile(item.filename, await item.data);
     if (watermark) await engine.writeFile(watermark.filename, watermark.data);
     if (intro) await engine.writeFile(intro.filename, intro.data);
     if (outro) await engine.writeFile(outro.filename, outro.data);
     for (const asset of cursorAssets) await engine.writeFile(asset.filename, asset.data);
-    await engine.exec(plan.args);
+    await engine.deleteFile(plan.output).catch(() => undefined);
+    const exitCode = await engine.exec(plan.args);
+    if (exitCode !== 0) throw new Error(`FFmpeg export failed with exit code ${exitCode}.`);
     const data = await engine.readFile(plan.output);
     if (!(data instanceof Uint8Array)) throw new Error('Export produced invalid binary output.');
     const output = new Uint8Array(data.byteLength);
     output.set(data);
     return new Blob([output.buffer], { type: plan.mimeType });
-  } finally { engine.off('progress', listener); }
+  } finally {
+    await Promise.allSettled([...runFiles].map((filename) => engine.deleteFile(filename)));
+    engine.off('progress', listener);
+  }
 }

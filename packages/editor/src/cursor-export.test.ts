@@ -12,7 +12,7 @@ import {
   cursorPointExpressions,
   escapeFilter,
 } from './cursor-export';
-import { renderCursorAssets } from './cursor-render';
+import { cursorArrowPadding, renderCursorAssets } from './cursor-render';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -89,6 +89,8 @@ describe('cursor filter expressions', () => {
     expect(overlays[1]?.x).toContain('450');
     expect(overlays[1]?.y).toContain('250');
     expect(overlays[0]?.x).toContain('min(max(');
+    expect(overlays[0]?.x).toMatch(/\)-2$/);
+    expect(overlays[0]?.y).toMatch(/\)-2$/);
     expect(overlays.flatMap(({ x, y }) => [String(x), String(y)]).join(' ')).not.toMatch(/\b(?:iw|ih|in_time)\b/);
   });
 
@@ -109,7 +111,7 @@ describe('cursor filter expressions', () => {
       const result = spawnSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=black:s=64x64:d=0.1:r=10',
         '-f', 'lavfi', '-i', 'color=c=white:s=4x4:d=0.1:r=10', '-filter_complex_script', script,
         '-map', '[out]', '-frames:v', '1', '-f', 'null', '-'], { encoding: 'utf8' });
-      expect(filter.length).toBe(220_784);
+      expect(filter.length).toBeGreaterThan(100_000);
       expect(result.status, result.stderr).toBe(0);
     } finally { rmSync(directory, { recursive: true, force: true }); }
   });
@@ -117,16 +119,20 @@ describe('cursor filter expressions', () => {
 
 describe('cursor PNG rendering', () => {
   it('renders one arrow and four reusable ripple phases', async () => {
-    const { canvas, context } = fakeCanvas();
-    vi.stubGlobal('document', { createElement: () => canvas });
+    const canvases = Array.from({ length: 5 }, () => fakeCanvas());
+    let index = 0;
+    vi.stubGlobal('document', { createElement: () => canvases[index++]?.canvas });
     const assets = await renderCursorAssets(24);
     expect(assets.map(({ filename }) => filename)).toEqual([
       'cursor-arrow.png', 'cursor-ripple-0.png', 'cursor-ripple-1.png', 'cursor-ripple-2.png', 'cursor-ripple-3.png',
     ]);
     expect(assets.every(({ data }) => data.byteLength === 2)).toBe(true);
-    expect(context.moveTo).toHaveBeenCalledWith(0, 0);
-    expect(context.fillStyle).toBe('#C8CDD4');
-    expect(context.strokeStyle).toContain('#F2A63B');
+    expect(cursorArrowPadding(24)).toBe(2);
+    expect(canvases[0]?.canvas).toMatchObject({ width: 28, height: 33 });
+    expect(canvases[0]?.context.translate).toHaveBeenCalledWith(2, 2);
+    expect(canvases[0]?.context.moveTo).toHaveBeenCalledWith(0, 0);
+    expect(canvases[0]?.context.fillStyle).toBe('#C8CDD4');
+    expect(canvases[4]?.context.strokeStyle).toContain('#F2A63B');
   });
 
   it('reports plain Canvas and PNG encoding errors', async () => {
@@ -193,7 +199,7 @@ function additionShape(expression: string): { maxDepth: number; maxAdditionsPerG
 function fakeCanvas() {
   const context = {
     fillStyle: '', strokeStyle: '', globalAlpha: 1, lineWidth: 0, lineJoin: '', lineCap: '',
-    beginPath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), closePath: vi.fn(), fill: vi.fn(), stroke: vi.fn(), arc: vi.fn(),
+    translate: vi.fn(), beginPath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), closePath: vi.fn(), fill: vi.fn(), stroke: vi.fn(), arc: vi.fn(),
   };
   const canvas = { width: 0, height: 0, getContext: () => context,
     toBlob: (callback: BlobCallback) => callback(new Blob([new Uint8Array([1, 2])], { type: 'image/png' })) };

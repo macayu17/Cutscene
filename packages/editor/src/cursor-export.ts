@@ -1,7 +1,7 @@
 import { mapBoxToCapture } from '@cutscene/trace';
 import { cameraTiming, portraitCropAt } from './camera';
 import type { CursorSample, CursorTrack, CursorVisibleRange } from './cursor';
-import { cursorRippleDiameter } from './cursor-render';
+import { cursorArrowPadding, cursorRippleDiameter } from './cursor-render';
 import type { ExportFormat, ExportMeta, ExportOverlay } from './export';
 import type { EditableSegment } from './segments';
 
@@ -69,7 +69,8 @@ export function buildCursorOverlays(format: ExportFormat, track: CursorTrack, si
   if (!track.enabled || !track.samples.length) return [];
   const path = cursorPointExpressions(format, cursorPathExpression(track.samples, 'x'),
     cursorPathExpression(track.samples, 'y'), segments, meta);
-  const arrow: ExportOverlay = { filename: 'cursor-arrow.png', x: path.x, y: path.y,
+  const padding = cursorArrowPadding(size);
+  const arrow: ExportOverlay = { filename: 'cursor-arrow.png', x: `(${path.x})-${padding}`, y: `(${path.y})-${padding}`,
     startSeconds: 0, endSeconds: meta.media.durationMs / 1_000, enable: cursorEnableExpression(track.visibleRanges) };
   if (!track.ripple) return [arrow];
   return [arrow, ...track.clicks.flatMap((click) => Array.from({ length: 4 }, (_, phase): ExportOverlay => {
