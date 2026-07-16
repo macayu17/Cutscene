@@ -1,6 +1,7 @@
 import { fitMediaClock, parseRecordingMeta, parseTraceEvent, scrollMatches, type MediaClockFit, type RecordingMeta, type Result, type TraceEvent } from '@cutscene/trace';
 
 export type BundleData = { meta: RecordingMeta; events: TraceEvent[]; clock: MediaClockFit };
+export type BundleFiles = { media: File; trace: File; meta: File };
 
 export function geometryMatches(recorded: Pick<TraceEvent, 'viewport' | 'scroll'>,
   current: Pick<TraceEvent, 'viewport' | 'scroll'>): boolean {
@@ -35,12 +36,12 @@ export function parseBundle(metaText: string, traceText: string): Result<BundleD
   return clock.ok ? { ok: true, value: { meta: meta.value, events, clock: clock.value } } : clock;
 }
 
-export async function readBundleFiles(files: readonly File[]): Promise<Result<BundleData & { mediaUrl: string; media: File }>> {
+export async function readBundleFiles(files: readonly File[]): Promise<Result<BundleData & { mediaUrl: string; files: BundleFiles }>> {
   const media = files.find((file) => file.name === 'media.webm');
   const trace = files.find((file) => file.name === 'trace.jsonl');
   const meta = files.find((file) => file.name === 'meta.json');
   const missing = [['media.webm', media], ['trace.jsonl', trace], ['meta.json', meta]].filter(([, file]) => !file).map(([name]) => name);
   if (!media || !trace || !meta) return { ok: false, error: `Missing ${missing.length === 1 ? missing[0] : `${missing.slice(0, -1).join(', ')} and ${missing.at(-1)}`}.` };
   const parsed = parseBundle(await meta.text(), await trace.text());
-  return parsed.ok ? { ok: true, value: { ...parsed.value, mediaUrl: URL.createObjectURL(media), media } } : parsed;
+  return parsed.ok ? { ok: true, value: { ...parsed.value, mediaUrl: URL.createObjectURL(media), files: { media, trace, meta } } } : parsed;
 }

@@ -37,6 +37,18 @@ it('names every missing recording file', async () => {
   expect(result).toEqual({ ok: false, error: 'Missing trace.jsonl and meta.json.' });
 });
 
+it('retains the original recording files for sharing', async () => {
+  vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:media');
+  const mediaFile = new File(['video'], 'media.webm');
+  const traceFile = new File([trace], 'trace.jsonl');
+  const metaFile = new File([meta], 'meta.json');
+  const result = await readBundleFiles([mediaFile, traceFile, metaFile]);
+
+  expect(result.ok).toBe(true);
+  if (!result.ok) return;
+  expect(result.value.files).toEqual({ media: mediaFile, trace: traceFile, meta: metaFile });
+});
+
 it('ignores clock markers when resolving current page state', () => {
   const parsed = parseBundle(meta, trace);
   expect(parsed.ok && pageEventAt(parsed.value.events, 1_100)?.type).toBe('interaction.click');
