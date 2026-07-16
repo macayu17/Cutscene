@@ -2,13 +2,18 @@ import { createHash } from 'node:crypto';
 import { parseTraceEvent, type CommentEvent, type CommentResolution, type Result } from '@cutscene/trace';
 
 export type MemberRole = 'owner' | 'editor' | 'commenter' | 'viewer';
+export type MemberScope = 'team' | 'project';
+export type InvitationRole = Exclude<MemberRole, 'owner'>;
 export type ReviewState = 'draft' | 'in_review' | 'changes_requested' | 'approved' | 'published' | 'outdated';
 
-export type ReviewMember = { id: string; name: string; role: MemberRole; tokenHash: string };
+export type ReviewMember = { id: string; name: string; role: MemberRole; scope: MemberScope; tokenHash: string };
 export type ReviewInvitation = {
-  role: 'commenter' | 'viewer';
+  id: string;
+  role: InvitationRole;
+  scope: MemberScope;
   tokenHash: string;
   usedAt: string | null;
+  revokedAt: string | null;
 };
 export type StoredComment = {
   event: CommentEvent;
@@ -32,6 +37,9 @@ export type ReviewDocument = {
 export type ReviewView = Omit<ReviewDocument, 'members' | 'invitations'> & {
   currentMemberId: string;
   members: Array<Omit<ReviewMember, 'tokenHash'>>;
+  invitations: Array<Pick<ReviewInvitation, 'id' | 'role' | 'scope'> & {
+    status: 'pending' | 'used' | 'revoked';
+  }>;
 };
 
 export function hashToken(token: string): string {
@@ -43,17 +51,41 @@ export function createReviewDocument(input: {
   ownerId: string;
   ownerName: string;
   ownerToken: string;
+  invitationId: string;
   invitationToken: string;
 }): ReviewDocument {
   return {
     v: 1,
     teamId: input.teamId,
     state: 'draft',
-    members: [{ id: input.ownerId, name: input.ownerName, role: 'owner', tokenHash: hashToken(input.ownerToken) }],
-    invitations: [{ role: 'commenter', tokenHash: hashToken(input.invitationToken), usedAt: null }],
+    members: [{ id: input.ownerId, name: input.ownerName, role: 'owner', scope: 'team',
+      tokenHash: hashToken(input.ownerToken) }],
+    invitations: [{ id: input.invitationId, role: 'commenter', scope: 'project',
+      tokenHash: hashToken(input.invitationToken), usedAt: null, revokedAt: null }],
     comments: [],
     presence: [],
   };
+}
+
+export function addInvitation(review: ReviewDocument, input: {
+  id: string;
+  token: string;
+  role: InvitationRole;
+  scope: MemberScope;
+}): ReviewDocument {
+  return { ...review, invitations: [...review.invitations, {
+    id: input.id, role: input.role, scope: input.scope, tokenHash: hashToken(input.token),
+    usedAt: null, revokedAt: null,
+  }] };
+}
+
+export function revokeInvitation(review: ReviewDocument, id: string, now: string): Result<ReviewDocument> {
+  const invitation = review.invitations.find((candidate) => candidate.id === id);
+  if (!invitation || invitation.usedAt !== null || invitation.revokedAt !== null) {
+    return { ok: false, error: 'pending invitation not found' };
+  }
+  return { ok: true, value: { ...review, invitations: review.invitations.map((candidate) =>
+    candidate.id === id ? { ...candidate, revokedAt: now } : candidate) } };
 }
 
 export function authenticate(review: ReviewDocument, token: string): ReviewMember | null {
@@ -73,7 +105,7 @@ export function joinReview(review: ReviewDocument, input: {
   if (!name || name.length > 80) return { ok: false, error: 'name must be between 1 and 80 characters' };
   const invitationHash = hashToken(input.invitationToken);
   const invitation = review.invitations.find((candidate) =>
-    candidate.tokenHash === invitationHash && candidate.usedAt === null);
+    candidate.tokenHash === invitationHash && candidate.usedAt === null && candidate.revokedAt === null);
   if (!invitation) return { ok: false, error: 'invitation is invalid or already used' };
   return {
     ok: true,
@@ -83,6 +115,7 @@ export function joinReview(review: ReviewDocument, input: {
         id: input.memberId,
         name,
         role: invitation.role,
+        scope: invitation.scope,
         tokenHash: hashToken(input.memberToken),
       }],
       invitations: review.invitations.map((candidate) =>
@@ -92,12 +125,16 @@ export function joinReview(review: ReviewDocument, input: {
 }
 
 export function publicReview(review: ReviewDocument, currentMemberId: string, now: string): ReviewView {
+  const current = review.members.find((member) => member.id === currentMemberId);
   return {
     v: 1,
     teamId: review.teamId,
     state: review.state,
     currentMemberId,
-    members: review.members.map(({ id, name, role }) => ({ id, name, role })),
+    members: review.members.map(({ id, name, role, scope }) => ({ id, name, role, scope })),
+    invitations: current?.role === 'owner' ? review.invitations.map(({ id, role, scope, usedAt, revokedAt }) => ({
+      id, role, scope, status: revokedAt ? 'revoked' : usedAt ? 'used' : 'pending',
+    })) : [],
     comments: review.comments,
     presence: review.presence.filter((lease) => lease.expiresAt > now),
   };
@@ -115,14 +152,25 @@ function record(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function member(value: unknown): value is ReviewMember {
+type StoredMember = Omit<ReviewMember, 'scope'> & { scope?: MemberScope };
+type StoredInvitation = Omit<ReviewInvitation, 'id' | 'scope' | 'revokedAt'> & {
+  id?: string;
+  scope?: MemberScope;
+  revokedAt?: string | null;
+};
+
+function member(value: unknown): value is StoredMember {
   return record(value) && typeof value.id === 'string' && typeof value.name === 'string' &&
-    ['owner', 'editor', 'commenter', 'viewer'].includes(String(value.role)) && typeof value.tokenHash === 'string';
+    ['owner', 'editor', 'commenter', 'viewer'].includes(String(value.role)) && typeof value.tokenHash === 'string' &&
+    (value.scope === undefined || value.scope === 'team' || value.scope === 'project');
 }
 
-function invitation(value: unknown): value is ReviewInvitation {
-  return record(value) && ['commenter', 'viewer'].includes(String(value.role)) &&
-    typeof value.tokenHash === 'string' && (value.usedAt === null || typeof value.usedAt === 'string');
+function invitation(value: unknown): value is StoredInvitation {
+  return record(value) && ['editor', 'commenter', 'viewer'].includes(String(value.role)) &&
+    (value.id === undefined || typeof value.id === 'string') &&
+    (value.scope === undefined || value.scope === 'team' || value.scope === 'project') &&
+    typeof value.tokenHash === 'string' && (value.usedAt === null || typeof value.usedAt === 'string') &&
+    (value.revokedAt === undefined || value.revokedAt === null || typeof value.revokedAt === 'string');
 }
 
 function resolution(value: unknown): value is CommentResolution {
@@ -155,5 +203,18 @@ export function parseReviewDocument(value: unknown): Result<ReviewDocument> {
       !Array.isArray(value.presence) || !value.presence.every(lease)) {
     return { ok: false, error: 'review.json is invalid' };
   }
-  return { ok: true, value: value as ReviewDocument };
+  return { ok: true, value: {
+    v: 1,
+    teamId: value.teamId,
+    state: value.state as ReviewState,
+    members: value.members.map((entry) => ({ ...entry,
+      scope: entry.scope ?? (entry.role === 'owner' ? 'team' : 'project') })),
+    invitations: value.invitations.map((entry) => ({ ...entry,
+      id: entry.id ?? `legacy-${entry.tokenHash.slice(0, 16)}`,
+      scope: entry.scope ?? 'project',
+      revokedAt: entry.revokedAt ?? null,
+    })),
+    comments: value.comments,
+    presence: value.presence,
+  } };
 }

@@ -29,6 +29,7 @@ async function startServer(): Promise<string> {
 }
 
 type CreatedRecording = { id: string; ownerToken: string; invitationToken: string };
+type Invitation = { id: string; invitationToken: string; role: 'editor' | 'commenter' | 'viewer'; scope: 'team' | 'project' };
 
 async function createRecording(base: string): Promise<CreatedRecording> {
   const response = await fetch(`${base}/api/recordings`, { method: 'POST' });
@@ -76,6 +77,26 @@ async function joinReviewer(base: string, created: CreatedRecording): Promise<{ 
   const response = await fetch(`${base}/api/recordings/${created.id}/join`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ invitationToken: created.invitationToken, name: 'Reviewer' }),
+  });
+  expect(response.status).toBe(201);
+  return await response.json() as { memberId: string; memberToken: string };
+}
+
+async function invite(base: string, created: CreatedRecording, role: Invitation['role'],
+  scope: Invitation['scope']): Promise<Invitation> {
+  const response = await fetch(`${base}/api/recordings/${created.id}/invitations`, {
+    method: 'POST', headers: { ...auth(created.ownerToken), 'content-type': 'application/json' },
+    body: JSON.stringify({ role, scope }),
+  });
+  expect(response.status).toBe(201);
+  return await response.json() as Invitation;
+}
+
+async function joinMember(base: string, created: CreatedRecording, invitation: Invitation,
+  name: string): Promise<{ memberId: string; memberToken: string }> {
+  const response = await fetch(`${base}/api/recordings/${created.id}/join`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ invitationToken: invitation.invitationToken, name }),
   });
   expect(response.status).toBe(201);
   return await response.json() as { memberId: string; memberToken: string };
@@ -142,6 +163,60 @@ it('requires a member token for bundle mutation and exchanges an invitation once
   const body = await view.json() as { members: unknown[] };
   expect(body.members).toHaveLength(2);
   expect(JSON.stringify(body)).not.toContain('tokenHash');
+});
+
+it('creates, exchanges, and revokes scoped role invitations', async () => {
+  const base = await startServer();
+  const created = await createRecording(base);
+  await uploadBundle(base, created);
+  const editorInvitation = await invite(base, created, 'editor', 'team');
+  const commenterInvitation = await invite(base, created, 'commenter', 'project');
+  const viewerInvitation = await invite(base, created, 'viewer', 'team');
+  const editor = await joinMember(base, created, editorInvitation, 'Editor');
+  const commenter = await joinMember(base, created, commenterInvitation, 'Commenter');
+  const viewer = await joinMember(base, created, viewerInvitation, 'Viewer');
+
+  const review = await (await fetch(`${base}/api/recordings/${created.id}/review`, {
+    headers: auth(created.ownerToken),
+  })).json() as { members: Array<{ name: string; role: string; scope: string }> };
+  expect(review.members).toEqual(expect.arrayContaining([
+    expect.objectContaining({ name: 'Owner', role: 'owner', scope: 'team' }),
+    expect.objectContaining({ name: 'Editor', role: 'editor', scope: 'team' }),
+    expect.objectContaining({ name: 'Commenter', role: 'commenter', scope: 'project' }),
+    expect.objectContaining({ name: 'Viewer', role: 'viewer', scope: 'team' }),
+  ]));
+  expect((await fetch(`${base}/api/recordings/${created.id}/timeline`, {
+    method: 'POST', headers: auth(editor.memberToken), body: timelineUpdate('zoom_editor'),
+  })).status).toBe(200);
+  expect((await fetch(`${base}/api/recordings/${created.id}/state`, {
+    method: 'PUT', headers: { ...auth(editor.memberToken), 'content-type': 'application/json' },
+    body: JSON.stringify({ state: 'approved' }),
+  })).status).toBe(200);
+  expect((await fetch(`${base}/api/recordings/${created.id}/state`, {
+    method: 'PUT', headers: { ...auth(commenter.memberToken), 'content-type': 'application/json' },
+    body: JSON.stringify({ state: 'approved' }),
+  })).status).toBe(403);
+  expect((await fetch(`${base}/api/recordings/${created.id}/comments`, {
+    method: 'POST', headers: { ...auth(viewer.memberToken), 'content-type': 'application/json' },
+    body: JSON.stringify({ eventId: 'click_export', body: 'Not allowed' }),
+  })).status).toBe(403);
+
+  const revoked = await invite(base, created, 'viewer', 'project');
+  expect((await fetch(`${base}/api/recordings/${created.id}/invitations/${revoked.id}`, {
+    method: 'DELETE', headers: auth(created.ownerToken),
+  })).status).toBe(200);
+  expect((await fetch(`${base}/api/recordings/${created.id}/join`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ invitationToken: revoked.invitationToken, name: 'Revoked' }),
+  })).status).toBe(409);
+  expect((await fetch(`${base}/api/recordings/${created.id}/invitations`, {
+    method: 'POST', headers: { ...auth(commenter.memberToken), 'content-type': 'application/json' },
+    body: JSON.stringify({ role: 'viewer', scope: 'project' }),
+  })).status).toBe(403);
+  expect((await fetch(`${base}/api/recordings/${created.id}/invitations`, {
+    method: 'POST', headers: { ...auth(created.ownerToken), 'content-type': 'application/json' },
+    body: JSON.stringify({ role: 'owner', scope: 'team' }),
+  })).status).toBe(400);
 });
 
 it('constructs semantic comments, retains concurrent writes, and enforces approval roles', async () => {

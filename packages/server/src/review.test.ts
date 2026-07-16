@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { authenticate, canApprove, canComment, createReviewDocument, joinReview, publicReview } from './review.ts';
+import { addInvitation, authenticate, canApprove, canComment, createReviewDocument, joinReview,
+  publicReview, revokeInvitation } from './review.ts';
 
 const seeded = () => createReviewDocument({
   teamId: 'team_1', ownerId: 'member_owner', ownerName: 'Owner', ownerToken: 'owner-secret',
-  invitationToken: 'invite-secret',
+  invitationId: 'invite_initial', invitationToken: 'invite-secret',
 });
 
 describe('review document', () => {
@@ -25,11 +26,36 @@ describe('review document', () => {
     expect(first.ok).toBe(true);
     if (!first.ok) return;
     expect(authenticate(first.value, 'reviewer-secret')).toMatchObject({
-      id: 'member_reviewer', name: 'Reviewer', role: 'commenter',
+      id: 'member_reviewer', name: 'Reviewer', role: 'commenter', scope: 'project',
     });
     expect(joinReview(first.value, {
       invitationToken: 'invite-secret', memberId: 'member_other', memberToken: 'other-secret',
       name: 'Other', now: '2026-07-16T10:02:00.000Z',
+    })).toEqual({ ok: false, error: 'invitation is invalid or already used' });
+  });
+
+  it('creates scoped role invitations and revokes an unused invitation', () => {
+    const invited = addInvitation(seeded(), {
+      id: 'invite_editor', token: 'editor-invite', role: 'editor', scope: 'team',
+    });
+    expect(JSON.stringify(invited)).not.toContain('editor-invite');
+    const joined = joinReview(invited, {
+      invitationToken: 'editor-invite', memberId: 'member_editor', memberToken: 'editor-secret',
+      name: 'Editor', now: '2026-07-16T10:01:00.000Z',
+    });
+    expect(joined.ok).toBe(true);
+    if (!joined.ok) return;
+    expect(authenticate(joined.value, 'editor-secret')).toMatchObject({ role: 'editor', scope: 'team' });
+
+    const withViewer = addInvitation(joined.value, {
+      id: 'invite_viewer', token: 'viewer-invite', role: 'viewer', scope: 'project',
+    });
+    const revoked = revokeInvitation(withViewer, 'invite_viewer', '2026-07-16T10:02:00.000Z');
+    expect(revoked.ok).toBe(true);
+    if (!revoked.ok) return;
+    expect(joinReview(revoked.value, {
+      invitationToken: 'viewer-invite', memberId: 'member_viewer', memberToken: 'viewer-secret',
+      name: 'Viewer', now: '2026-07-16T10:02:00.000Z',
     })).toEqual({ ok: false, error: 'invitation is invalid or already used' });
   });
 
@@ -44,7 +70,9 @@ describe('review document', () => {
     expect(view).toMatchObject({ v: 1, teamId: 'team_1', state: 'draft', currentMemberId: 'member_owner' });
     expect(view.presence).toEqual([{ memberId: 'member_owner', resource: 'timeline', expiresAt: '2026-07-16T10:00:30.000Z' }]);
     expect(JSON.stringify(view)).not.toContain('tokenHash');
-    expect(JSON.stringify(view)).not.toContain('invitations');
+    expect(view.invitations).toEqual([{
+      id: 'invite_initial', role: 'commenter', scope: 'project', status: 'pending',
+    }]);
   });
 
   it('enforces commenter and approval roles', () => {

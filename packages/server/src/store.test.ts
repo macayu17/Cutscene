@@ -71,7 +71,7 @@ it('serialises review updates without dropping concurrent changes', async () => 
   const id = createId();
   const review = createReviewDocument({
     teamId: 'team_1', ownerId: 'owner', ownerName: 'Owner', ownerToken: 'owner-secret',
-    invitationToken: 'invite-secret',
+    invitationId: 'invite_initial', invitationToken: 'invite-secret',
   });
   try {
     await ensureRecording(root, id);

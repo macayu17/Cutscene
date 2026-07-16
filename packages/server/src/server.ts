@@ -5,8 +5,9 @@ import { BUNDLE_FILES, createId, ensureRecording, isBundleFile, isValidId, readB
 import { randomUUID } from 'node:crypto';
 import { fitMediaClock, mapBoxToCapture, parseRecordingMeta, parseTraceEvent, reanchorComments,
   type MediaClockFit, type TraceEvent } from '@cutscene/trace';
-import { authenticate, canApprove, canComment, createReviewDocument, joinReview, publicReview,
-  type ReviewMember, type ReviewState } from './review.ts';
+import { addInvitation, authenticate, canApprove, canComment, createReviewDocument, joinReview,
+  publicReview, revokeInvitation, type InvitationRole, type MemberScope, type ReviewMember,
+  type ReviewState } from './review.ts';
 import { reviewPage } from './review-page.ts';
 import { listTimelineVersions, MAX_TIMELINE_BYTES, mergeTimelineUpdate, readTimelineUpdate,
   readTimelineVersion } from './timeline-store.ts';
@@ -101,7 +102,7 @@ export async function handle(req: IncomingMessage, res: ServerResponse, root: st
   res.setHeader('access-control-allow-origin', '*');
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
-      'access-control-allow-methods': 'GET, POST, PUT, OPTIONS',
+      'access-control-allow-methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'access-control-allow-headers': 'authorization, content-type',
     });
     res.end();
@@ -112,13 +113,31 @@ export async function handle(req: IncomingMessage, res: ServerResponse, root: st
   if (req.method === 'POST' && parts.length === 2 && parts[0] === 'api' && parts[1] === 'recordings') {
     const id = createId();
     const ownerToken = randomUUID();
+    const invitationId = randomUUID();
     const invitationToken = randomUUID();
     await ensureRecording(root, id);
     await writeReview(root, id, createReviewDocument({
       teamId: randomUUID(), ownerId: randomUUID(), ownerName: 'Owner', ownerToken,
-      invitationToken,
+      invitationId, invitationToken,
     }));
     return json(res, 201, { id, ownerToken, invitationToken });
+  }
+
+  if (parts.length === 5 && parts[0] === 'api' && parts[1] === 'recordings' && parts[3] === 'invitations') {
+    const id = parts[2]!;
+    const invitationId = parts[4]!;
+    if (!isValidId(id)) return json(res, 400, { error: 'invalid recording id' });
+    const member = await memberFor(req, root, id);
+    if (!member) return json(res, 401, { error: 'member token required' });
+    if (member.role !== 'owner') return json(res, 403, { error: 'only the owner can manage invitations' });
+    if (req.method !== 'DELETE') return json(res, 405, { error: 'method not allowed' });
+    let revokeError: string | null = null;
+    await updateReview(root, id, (review) => {
+      const revoked = revokeInvitation(review, invitationId, new Date().toISOString());
+      if (!revoked.ok) { revokeError = revoked.error; return review; }
+      return revoked.value;
+    });
+    return revokeError ? json(res, 409, { error: revokeError }) : json(res, 200, { id: invitationId });
   }
 
   if (parts.length === 5 && parts[0] === 'api' && parts[1] === 'recordings' && parts[3] === 'versions') {
@@ -158,6 +177,26 @@ export async function handle(req: IncomingMessage, res: ServerResponse, root: st
       if (!canApprove(member.role)) return json(res, 403, { error: 'member cannot read timeline history' });
       return req.method === 'GET' ? json(res, 200, await listTimelineVersions(root, id))
         : json(res, 405, { error: 'method not allowed' });
+    }
+
+    if (action === 'invitations') {
+      const member = await memberFor(req, root, id);
+      if (!member) return json(res, 401, { error: 'member token required' });
+      if (member.role !== 'owner') return json(res, 403, { error: 'only the owner can manage invitations' });
+      if (req.method !== 'POST') return json(res, 405, { error: 'method not allowed' });
+      const input = await readJson(req);
+      if (!input.ok) return json(res, 400, { error: input.error });
+      const role = input.value.role;
+      const scope = input.value.scope;
+      if (!['editor', 'commenter', 'viewer'].includes(String(role)) || !['team', 'project'].includes(String(scope))) {
+        return json(res, 400, { error: 'role must be editor, commenter, or viewer; scope must be team or project' });
+      }
+      const invitationId = randomUUID();
+      const invitationToken = randomUUID();
+      await updateReview(root, id, (review) => addInvitation(review, {
+        id: invitationId, token: invitationToken, role: role as InvitationRole, scope: scope as MemberScope,
+      }));
+      return json(res, 201, { id: invitationId, invitationToken, role, scope });
     }
 
     if (action === 'join' && req.method === 'POST') {
