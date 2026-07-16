@@ -1,5 +1,9 @@
 import { expect, it } from 'vitest';
-import { createId, isBundleFile, isValidId, validateBundleFile } from './store.ts';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createId, ensureRecording, isBundleFile, isValidId, recordingReady, saveBundleFile,
+  validateBundleFile } from './store.ts';
 
 const meta = {
   schemaVersion: 1, recordingId: 'rec_1', createdAt: '2026-07-16T09:00:00.000Z', sessionEpoch: 1,
@@ -42,4 +46,21 @@ it('rejects a non-JSON trace line and reports which one', () => {
 
 it('treats media bytes as opaque', () => {
   expect(validateBundleFile('media.webm', Buffer.from([0x1a, 0x45, 0xdf, 0xa3])).ok).toBe(true);
+  expect(validateBundleFile('media.webm', Buffer.alloc(0))).toEqual({ ok: false, error: 'media.webm is empty' });
+});
+
+it('publishes only a complete recording bundle', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'cutscene-server-'));
+  const id = createId();
+  try {
+    await ensureRecording(root, id);
+    expect(await recordingReady(root, id)).toBe(false);
+    await saveBundleFile(root, id, 'media.webm', Buffer.from([1]));
+    await saveBundleFile(root, id, 'trace.jsonl', buf('{}\n'));
+    expect(await recordingReady(root, id)).toBe(false);
+    await saveBundleFile(root, id, 'meta.json', buf(meta));
+    expect(await recordingReady(root, id)).toBe(true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });

@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { BUNDLE_FILES, createId, ensureRecording, isBundleFile, isValidId, readBundleFile,
-  recordingExists, saveBundleFile, validateBundleFile, type BundleFile } from './store.ts';
+  recordingExists, recordingReady, saveBundleFile, validateBundleFile, type BundleFile } from './store.ts';
 
 const MAX_BYTES = 250 * 1024 * 1024; // one bundle cannot exhaust disk
 
@@ -80,7 +80,7 @@ export async function handle(req: IncomingMessage, res: ServerResponse, root: st
 
   if (req.method === 'GET' && parts.length === 2 && parts[0] === 'r') {
     const id = parts[1]!;
-    if (!isValidId(id) || !(await recordingExists(root, id))) return html(res, 404, '<!doctype html><title>Not found</title><h1>Demo not found</h1>');
+    if (!isValidId(id) || !(await recordingReady(root, id))) return html(res, 404, '<!doctype html><title>Not found</title><h1>Demo not found</h1>');
     return html(res, 200, sharePage(id));
   }
 

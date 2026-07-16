@@ -32,6 +32,7 @@ export function isBundleFile(name: string): name is BundleFile {
 // ponytail: JSON + schemaVersion, not full schema re-validation. Deepen only if
 // bundles start arriving from something other than the editor.
 export function validateBundleFile(file: BundleFile, data: Buffer): Result<undefined> {
+  if (file === 'media.webm' && data.length === 0) return { ok: false, error: 'media.webm is empty' };
   if (file === 'meta.json') {
     let json: unknown;
     try { json = JSON.parse(data.toString('utf8')); } catch { return { ok: false, error: 'meta.json is not valid JSON' }; }
@@ -56,6 +57,13 @@ export async function ensureRecording(root: string, id: string): Promise<void> {
 
 export async function recordingExists(root: string, id: string): Promise<boolean> {
   try { await access(join(root, id)); return true; } catch { return false; }
+}
+
+export async function recordingReady(root: string, id: string): Promise<boolean> {
+  const files = await Promise.all(BUNDLE_FILES.map(async (file) => {
+    try { await access(join(root, id, file)); return true; } catch { return false; }
+  }));
+  return files.every(Boolean);
 }
 
 export async function saveBundleFile(root: string, id: string, file: BundleFile, data: Buffer): Promise<void> {
