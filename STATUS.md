@@ -17,8 +17,8 @@ Phase 6 progress:
   [x] draft, in-review, changes-requested, approved, published, and outdated
       review states
   [x] Yjs timeline document and snapshot-derived version history
-  [ ] full owner/editor/commenter/viewer invitation management
-  [ ] shared brand kits
+  [x] owner/editor/commenter/viewer invitations with team and project-only scope
+  [x] shared brand kits
   [ ] human two-person team review and approval evidence
 
 Comment re-anchoring evidence:
@@ -35,12 +35,15 @@ Comment re-anchoring evidence:
     shared review: 7.1 s
 
 Shared review browser evidence:
-  browser contexts: 2 isolated sessions (owner and invited reviewer)
+  browser contexts: 2 isolated sessions (owner and invited team editor)
   distinct team member ids: 2/2
+  invited editor scope: team
   semantic comment body: "Mention PDF export."
   original anchor: step_3 at 4,200 ms
   replacement anchor: step_8 at 7,100 ms
   re-anchor result seen by both sessions: matched
+  owner action: request review
+  editor action: approve
   final review state seen by both sessions: approved
   owner/reviewer page errors: 0 / 0
   semantic box uses the shared capture coordinate transform: yes
@@ -58,17 +61,34 @@ Shared timeline evidence:
   retained versions: 3 (initial document plus the two edits)
   restored version 1 timeline items: 2
   editor page errors: 0 / 0
-  repository tests: 213 passed (64 trace, 21 server, 115 editor,
+  repository tests: 220 passed (64 trace, 25 server, 118 editor,
                     13 extension)
   typecheck: 4/4 workspace packages passed
   production build: editor and extension passed
   focused Chromium timeline E2E: 1/1 passed in 6.2 s
-  full Chromium E2E: 3/3 passed in 30.7 s
+  full Chromium E2E: 3/3 passed in 30.9 s
+
+Team and brand-kit evidence:
+  roles: owner, editor, commenter, viewer
+  invitation scopes: team membership and this-project-only access
+  invitation credentials: SHA-256 hashes at rest; plaintext returned once
+  invitation lifecycle: create, one-use exchange, and revoke
+  permission checks: editor edits/approves; commenter comments; viewer reads
+  owner-only invitation management: enforced
+  member editor link: exposed after joining without leaking it in review data
+  shared kit validation: exact preset schema, unique ids, 50-preset limit
+  shared kit reads: every authenticated role
+  shared kit writes: owner and editor only
+  browser kit flow: editor A saved "Launch kit" with ACME watermark; editor B
+                    reloaded the same preset and watermark
+  role API tests: team editor, project commenter, team viewer, revoked viewer
+  review poll carries duplicate brand-kit payload: no
 
 The Phase 6 exit criterion is not met yet. The resolver is verified in
-the real browser flow, and two editor sessions converge through Yjs, but those
-sessions were automated identities rather than two people on a team. Full role
-invitations and shared brand kits are also still outstanding.
+the real browser flow, two editor sessions converge through Yjs, all roles are
+enforced, and the brand kit is shared. The two team sessions were automated
+identities rather than two actual people, so the human exit gate is still
+outstanding.
 
 Phase 4's exit gate (a user generating an artifact unprompted) was waived by
 explicit owner override on 2026-07-16, the same demand-validation risk already
