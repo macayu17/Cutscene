@@ -1,0 +1,23 @@
+{
+  "name": "@cutscene/runner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "cutscene-regenerate": "src/cli.ts"
+  },
+  "scripts": {
+    "regenerate": "node src/cli.ts",
+    "test": "vitest run src",
+    "typecheck": "tsc --noEmit",
+    "e2e": "playwright test"
+  },
+  "dependencies": {
+    "@cutscene/trace": "workspace:*",
+    "@playwright/test": "^1.61.1",
+    "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3"
+  }
+}

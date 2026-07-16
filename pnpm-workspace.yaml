@@ -3,6 +3,7 @@ packages:
   - packages/extension
   - packages/editor
   - packages/server
+  - packages/runner
 
 allowBuilds:
   esbuild: true
