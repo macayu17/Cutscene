@@ -11,8 +11,15 @@ Phase 6 progress:
       `orphaned` results
   [x] deterministic selection by locator confidence, same step, nearest
       fallback time, then trace order
-  [ ] shared reviewer interface and persistence
-  [ ] two-person team review and approval evidence
+  [x] filesystem-backed shared reviewer interface and persistence
+  [x] hashed owner/commenter credentials and one-use invitation
+  [x] presence leases and event-level soft-lock warnings
+  [x] draft, in-review, changes-requested, approved, published, and outdated
+      review states
+  [ ] Yjs timeline document and snapshot-derived version history
+  [ ] full owner/editor/commenter/viewer invitation management
+  [ ] shared brand kits
+  [ ] human two-person team review and approval evidence
 
 Comment re-anchoring evidence:
   strong locator match (confidence >= 0.8) -> matched at the new media time
@@ -20,14 +27,29 @@ Comment re-anchoring evidence:
   no locator match -> orphaned at the recorded fallback media time
   moved timestamp test: 4,200 ms -> 7,100 ms
   same-step tie test: 6,000 ms wins over a closer 4,300 ms candidate
-  repository tests: 191 passed (64 trace, 7 server, 107 editor, 13 extension)
+  repository tests: 202 passed (64 trace, 17 server, 108 editor, 13 extension)
   typecheck: 4/4 workspace packages passed
   production build: editor and extension passed
-  capture E2E: 1/1 passed in Chromium
+  Chromium E2E: 2/2 passed
+    capture: 17.2 s
+    shared review: 7.1 s
+
+Shared review browser evidence:
+  browser contexts: 2 isolated sessions (owner and invited reviewer)
+  distinct team member ids: 2/2
+  semantic comment body: "Mention PDF export."
+  original anchor: step_3 at 4,200 ms
+  replacement anchor: step_8 at 7,100 ms
+  re-anchor result seen by both sessions: matched
+  final review state seen by both sessions: approved
+  owner/reviewer page errors: 0 / 0
+  semantic box uses the shared capture coordinate transform: yes
+  real Chromium proof: artifacts/screenshots/phase6-shared-review.jpeg
 
 The Phase 6 exit criterion is not met yet. The resolver is verified in
-isolation, but two people have not reviewed and approved the same recording,
-and no real shared comment has survived a re-edit yet.
+the real browser flow, but the two sessions were automated identities rather
+than two people. The required human review evidence and remaining Phase 6
+multiplayer/team/brand-kit scope are still outstanding.
 
 Phase 4's exit gate (a user generating an artifact unprompted) was waived by
 explicit owner override on 2026-07-16, the same demand-validation risk already
