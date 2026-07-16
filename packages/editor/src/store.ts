@@ -13,6 +13,8 @@ import { BRAND_STORAGE_KEY, addBrandPreset as addBrandPresetEdit, deleteBrandPre
   updateBrandPreset as updateBrandPresetEdit, type BrandPreset, type BrandState } from './brand';
 import { DEFAULT_CURSOR_SETTINGS, updateCursorSettings as updateCursorSettingsEdit, type CursorSettings } from './cursor';
 import { parseCaptions, type CaptionCue } from '@cutscene/trace';
+import { createTimelineDocument, type TimelineDocument } from './timeline-document';
+import { connectTimelineSync, type TimelineConnection, type TimelineSyncStatus } from './timeline-sync';
 
 export type EditorState = {
   bundle: BundleData | null;
@@ -35,6 +37,9 @@ export type EditorState = {
   cursorSettings: CursorSettings;
   captions: CaptionCue[];
   captionError: string | null;
+  timelineDocument: TimelineDocument | null;
+  timelineConnection: TimelineConnection | null;
+  timelineSyncStatus: TimelineSyncStatus;
   loadCaptions: (text: string) => void;
   load: (bundle: BundleData, mediaUrl: string, media?: File) => void;
   releaseMedia: () => void;
@@ -58,6 +63,8 @@ export type EditorState = {
   selectBrandPreset: (id: string | null) => void;
   deleteBrandPreset: (id: string) => void;
   updateCursorSettings: (patch: Partial<CursorSettings>) => void;
+  connectSharedTimeline: (ownerUrl: string) => Promise<void>;
+  disconnectSharedTimeline: () => void;
 };
 
 const creator = (set: StoreApi<EditorState>['setState'], get: StoreApi<EditorState>['getState']): EditorState => ({
@@ -67,11 +74,13 @@ const creator = (set: StoreApi<EditorState>['setState'], get: StoreApi<EditorSta
   selectionStartMs: null, selectionEndMs: null,
   cursorSettings: DEFAULT_CURSOR_SETTINGS,
   captions: [], captionError: null,
+  timelineDocument: null, timelineConnection: null, timelineSyncStatus: { state: 'idle' },
   loadCaptions: (text) => set(() => {
     const parsed = parseCaptions(text);
     return parsed.ok ? { captions: parsed.value, captionError: null } : { captions: [], captionError: parsed.error };
   }),
   load: (bundle, mediaUrl, media) => {
+    get().disconnectSharedTimeline();
     const previous = get().mediaUrl;
     set({ bundle, mediaUrl, ...(media ? { media } : {}), segments: automaticSegments(bundle.events, bundle.clock, bundle.meta.viewport),
       callouts: [], redactions: deriveRedactions(bundle.meta, bundle.events),
@@ -90,33 +99,114 @@ const creator = (set: StoreApi<EditorState>['setState'], get: StoreApi<EditorSta
   setPlayhead: (playheadMs) => set({ playheadMs }),
   setBound: (bound) => set((state) => bound === 'start' ? { selectionStartMs: state.playheadMs } : { selectionEndMs: state.playheadMs }),
   selectSegment: (selectedSegmentId) => set({ selectedSegmentId }),
-  addSegment: () => set((state) => state.bundle ? { segments: addSegment(state.segments, state.playheadMs, state.bundle.meta.viewport) } : {}),
-  deleteSegment: () => set((state) => state.selectedSegmentId ? { segments: deleteSegment(state.segments, state.selectedSegmentId), selectedSegmentId: null } : {}),
-  retimeSegment: (startMs, endMs) => set((state) => state.selectedSegmentId ? { segments: retimeSegment(state.segments, state.selectedSegmentId, startMs, endMs) } : {}),
-  retargetSegment: () => set((state) => {
-    if (!state.bundle || !state.selectedSegmentId || !state.selectedEventId) return {};
+  addSegment: () => {
+    const state = get();
+    if (!state.bundle) return;
+    const segments = addSegment(state.segments, state.playheadMs, state.bundle.meta.viewport);
+    const added = segments.find((segment) => !state.segments.some(({ id }) => id === segment.id));
+    if (state.timelineDocument && added) state.timelineDocument.upsert({ kind: 'zoom', order: segments.indexOf(added), value: added });
+    else set({ segments });
+  },
+  deleteSegment: () => {
+    const state = get();
+    if (!state.selectedSegmentId) return;
+    if (state.timelineDocument) state.timelineDocument.remove('zoom', state.selectedSegmentId);
+    else set({ segments: deleteSegment(state.segments, state.selectedSegmentId) });
+    set({ selectedSegmentId: null });
+  },
+  retimeSegment: (startMs, endMs) => {
+    const state = get();
+    if (!state.selectedSegmentId) return;
+    const segments = retimeSegment(state.segments, state.selectedSegmentId, startMs, endMs);
+    const changed = segments.find(({ id }) => id === state.selectedSegmentId);
+    if (state.timelineDocument && changed) state.timelineDocument.upsert({ kind: 'zoom', order: segments.indexOf(changed), value: changed });
+    else set({ segments });
+  },
+  retargetSegment: () => {
+    const state = get();
+    if (!state.bundle || !state.selectedSegmentId || !state.selectedEventId) return;
     const event = eventById(state.bundle.events, state.selectedEventId);
-    if (!event?.target) return {};
+    if (!event?.target) return;
     const derived = deriveZoomSegments([{ t: state.bundle.clock.toMediaTime(event.t), box: event.target.boundingBox, scroll: event.scroll,
       viewport: event.viewport }], state.bundle.meta.viewport)[0];
-    return derived ? { segments: retargetSegment(state.segments, state.selectedSegmentId, event.id, derived.focus, event.viewport) } : {};
-  }),
-  addCallout: () => set((state) => {
-    if (!state.bundle || !state.selectedEventId) return {};
+    if (!derived) return;
+    const segments = retargetSegment(state.segments, state.selectedSegmentId, event.id, derived.focus, event.viewport);
+    const changed = segments.find(({ id }) => id === state.selectedSegmentId);
+    if (state.timelineDocument && changed) state.timelineDocument.upsert({ kind: 'zoom', order: segments.indexOf(changed), value: changed });
+    else set({ segments });
+  },
+  addCallout: () => {
+    const state = get();
+    if (!state.bundle || !state.selectedEventId) return;
     const event = eventById(state.bundle.events, state.selectedEventId);
     const segment = state.segments.find(({ eventId }) => eventId === state.selectedEventId);
-    return event && segment ? { callouts: addCalloutEdit(state.callouts, event, segment) } : {};
-  }),
-  updateCallout: (id, text) => set((state) => ({ callouts: updateCalloutEdit(state.callouts, id, text) })),
-  deleteCallout: (id) => set((state) => ({ callouts: deleteCalloutEdit(state.callouts, id) })),
-  toggleRedaction: (selector) => set((state) => ({ redactions: toggleRedactionEdit(state.redactions, selector) })),
-  deleteRedaction: (selector) => set((state) => ({ redactions: deleteRedactionEdit(state.redactions, selector) })),
+    if (!event || !segment) return;
+    const callouts = addCalloutEdit(state.callouts, event, segment);
+    const added = callouts.find((callout) => !state.callouts.some(({ id }) => id === callout.id));
+    if (state.timelineDocument && added) state.timelineDocument.upsert({ kind: 'callout', order: callouts.indexOf(added), value: added });
+    else set({ callouts });
+  },
+  updateCallout: (id, text) => {
+    const state = get();
+    const callouts = updateCalloutEdit(state.callouts, id, text);
+    const changed = callouts.find((callout) => callout.id === id);
+    if (state.timelineDocument && changed) state.timelineDocument.upsert({ kind: 'callout', order: callouts.indexOf(changed), value: changed });
+    else set({ callouts });
+  },
+  deleteCallout: (id) => {
+    const state = get();
+    if (state.timelineDocument) state.timelineDocument.remove('callout', id);
+    else set({ callouts: deleteCalloutEdit(state.callouts, id) });
+  },
+  toggleRedaction: (selector) => {
+    const state = get();
+    const redactions = toggleRedactionEdit(state.redactions, selector);
+    const changed = redactions.find((redaction) => redaction.selector === selector);
+    if (state.timelineDocument && changed) state.timelineDocument.upsert({ kind: 'redaction', order: redactions.indexOf(changed), value: changed });
+    else set({ redactions });
+  },
+  deleteRedaction: (selector) => {
+    const state = get();
+    if (state.timelineDocument) state.timelineDocument.remove('redaction', selector);
+    else set({ redactions: deleteRedactionEdit(state.redactions, selector) });
+  },
   setExport: (exportProgress, exportError = null) => set({ exportProgress, exportError }),
   addBrandPreset: () => set((state) => persistBrandState(addBrandPresetEdit(state, crypto.randomUUID()))),
   updateBrandPreset: (id, patch) => set((state) => persistBrandState(updateBrandPresetEdit(state, id, patch))),
   selectBrandPreset: (id) => set((state) => persistBrandState(selectBrandPresetEdit(state, id))),
   deleteBrandPreset: (id) => set((state) => persistBrandState(deleteBrandPresetEdit(state, id))),
   updateCursorSettings: (patch) => set((state) => ({ cursorSettings: updateCursorSettingsEdit(state.cursorSettings, patch) })),
+  connectSharedTimeline: async (ownerUrl) => {
+    get().disconnectSharedTimeline();
+    const state = get();
+    const timelineDocument = createTimelineDocument();
+    const seed = { segments: state.segments, callouts: state.callouts, redactions: state.redactions };
+    const stopObserving = timelineDocument.observe(({ segments, callouts, redactions }) => set({ segments, callouts, redactions }));
+    set({ timelineDocument, timelineSyncStatus: { state: 'syncing' } });
+    const connected = await connectTimelineSync(ownerUrl, timelineDocument,
+      (timelineSyncStatus) => set({ timelineSyncStatus }), { seed });
+    if (!connected.ok) {
+      stopObserving();
+      timelineDocument.destroy();
+      set({ timelineDocument: null, timelineConnection: null,
+        timelineSyncStatus: { state: 'error', error: connected.error } });
+      return;
+    }
+    if (get().timelineDocument !== timelineDocument) {
+      connected.value.stop();
+      stopObserving();
+      timelineDocument.destroy();
+      return;
+    }
+    const connection = connected.value;
+    set({ timelineConnection: { ...connection, stop: () => { connection.stop(); stopObserving(); } } });
+  },
+  disconnectSharedTimeline: () => {
+    const state = get();
+    state.timelineConnection?.stop();
+    state.timelineDocument?.destroy();
+    set({ timelineDocument: null, timelineConnection: null, timelineSyncStatus: { state: 'idle' } });
+  },
 });
 
 export function createEditorStore(): StoreApi<EditorState> { return createStore(creator); }
