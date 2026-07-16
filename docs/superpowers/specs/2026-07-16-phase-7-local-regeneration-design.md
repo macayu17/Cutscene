@@ -66,9 +66,10 @@ with a target. Events are grouped by `stepId` in trace order.
 - A masked input without a configured value is a configuration error.
 - Multiple distinct input targets in one step are unreplayable and fail before
   browser launch.
-- The trace currently does not capture keyboard submissions. A flow that needs
-  Enter, Tab, or another missing action is reported as unsupported; the runner
-  never invents the action.
+- A recorded `interaction.keypress` is unsupported because the version 1 event
+  carries no key value. A keyboard action omitted during capture can make a
+  later locator orphaned. In either case the runner reports what it knows and
+  never invents the missing action.
 
 The optional seed command is the supported way to establish server-side fixture
 state before replay. It runs only after configuration and trace validation.
@@ -97,8 +98,9 @@ Each demo writes:
 ```
 
 The JSON report is versioned with `v: 1` and contains the demo ID, source trace,
-base URL, per-step status, chosen locator tier, and aggregate counts. The text
-report follows the compact matched/drifted/orphaned presentation in `PRD.md`.
+base URL, per-step status, the chosen locator tier for each action, and aggregate
+counts. The text report follows the compact matched/drifted/orphaned
+presentation in `PRD.md`.
 Neither report contains resolved input values.
 
 Exit codes are:
@@ -108,8 +110,10 @@ Exit codes are:
 - `2`: invalid configuration, missing environment value, invalid trace,
   unsupported replay plan, seed failure, or browser failure.
 
-Reports are written atomically. A failed run cannot leave a partial report that
-looks successful.
+Each report file is written through a sibling temporary file and rename. The
+versioned JSON report is written last and is the authoritative completion
+record, so a failed run cannot leave a partial result that looks successful to
+automation.
 
 ## Errors
 
