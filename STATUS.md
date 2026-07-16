@@ -1,4 +1,25 @@
-Phase: 6
+Phase: 7
+
+Phase 6 passed on 2026-07-16. Two actual people reviewed the corrected demo as
+members of the same team: Owner (owner) and Ayush - Editor (editor). The owner
+requested review and the editor approved it.
+
+Human collaboration exit evidence:
+  recording: 017b78cf-eef4-46ac-87ea-e4effce4d3ba
+  final review state: approved
+  team members: Owner (owner, team), Ayush - Editor (editor, team)
+  open comments: 1
+  comment author: Ayush - Editor
+  comment body: "Timing needs adjsutsment"
+  original semantic anchor: step_0001 at 1,539.981987 ms
+  re-edited semantic anchor: step_0001 at 2,539.987364 ms
+  timestamp movement: +1,000.005377 ms
+  re-anchor classification: matched
+  locator confidence: 1.0
+  resolved event id: evt_00b9863e-11d5-43c7-b169-56dbec8c1d60
+  uploaded / prepared trace SHA-256 equal: yes
+  trace SHA-256: 2010D010ADE064B439BCAAD4EC3E262F42EB53DC90A2D9C81E9BE25397419599
+  corrected targets remain in DOM order: yes
 
 Phase 5 passed on 2026-07-16. The owner shared a generated link with a friend
 who is not a Cutscene user; the friend confirmed that the video played. This is
@@ -19,7 +40,7 @@ Phase 6 progress:
   [x] Yjs timeline document and snapshot-derived version history
   [x] owner/editor/commenter/viewer invitations with team and project-only scope
   [x] shared brand kits
-  [ ] human two-person team review and approval evidence
+  [x] human two-person team review and approval evidence
 
 Comment re-anchoring evidence:
   strong locator match (confidence >= 0.8) -> matched at the new media time
@@ -103,17 +124,15 @@ Capture fixture layout regression evidence:
   focused Chromium capture E2E: 1/1 passed in 23.2 s
   full Chromium E2E: 3/3 passed in 38.8 s
 
-Actual-team progress:
-  joined members: Owner (owner, team), Ayush (editor, team)
-  current review state: draft
-  current real-person comments: 0
-  remaining exit work: Ayush comments, a re-edit moves that comment's timestamp,
-                       the comment survives, and Ayush approves
+Actual-team result:
+  joined members: Owner (owner, team), Ayush - Editor (editor, team)
+  final review state: approved
+  real-person comments: 1
+  timestamp moved and comment survived: yes
 
-The Phase 6 exit criterion is not met yet. The resolver is verified in
-the real browser flow, two editor sessions converge through Yjs, all roles are
-enforced, and the brand kit is shared. A second actual person has joined the
-team, but the real comment/re-edit/approval sequence is still outstanding.
+The Phase 6 exit criterion is met. The resolver is verified in the real browser
+flow, two editor sessions converge through Yjs, all roles are enforced, the
+brand kit is shared, and the real comment/re-edit/approval sequence passed.
 
 Phase 4's exit gate (a user generating an artifact unprompted) was waived by
 explicit owner override on 2026-07-16, the same demand-validation risk already
