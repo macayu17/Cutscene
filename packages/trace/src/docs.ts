@@ -1,4 +1,4 @@
-import type { BoundingBox, RecordingMeta, TargetDescriptor, TraceEvent } from './schema';
+import type { BoundingBox, RecordingMeta, TargetDescriptor, TraceEvent } from './schema.ts';
 
 // Step-by-step documentation generated from the trace. The action copy comes
 // from the DOM's accessible name, never from a language model. One section per

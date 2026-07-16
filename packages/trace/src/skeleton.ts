@@ -1,4 +1,4 @@
-import type { RecordingMeta, TargetDescriptor, TraceEvent } from './schema';
+import type { RecordingMeta, TargetDescriptor, TraceEvent } from './schema.ts';
 
 // A skeleton, not a test. It replays the recorded flow by resolving each step's
 // ranked locators in order; it never asserts. The recorder does not know intent,

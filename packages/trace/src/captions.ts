@@ -1,4 +1,4 @@
-import type { Result } from './schema';
+import type { Result } from './schema.ts';
 
 // Transcript and captions. Phase 4 does not transcribe audio: word-level timing
 // comes from an imported SRT or VTT (or a manually entered cue list), and the

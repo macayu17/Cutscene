@@ -1,4 +1,4 @@
-import type { TargetDescriptor } from './schema';
+import type { TargetDescriptor } from './schema.ts';
 
 export type TargetObservation = TargetDescriptor & {
   inputType?: string;

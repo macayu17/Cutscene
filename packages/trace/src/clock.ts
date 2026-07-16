@@ -1,4 +1,4 @@
-import type { Result } from './schema';
+import type { Result } from './schema.ts';
 
 export type ClockMarker = { t: number; mediaTimeMs: number };
 export type MediaClockFit = { slope: number; intercept: number; toMediaTime: (t: number) => number };

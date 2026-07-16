@@ -1,4 +1,4 @@
-import type { BoundingBox, ScrollPosition } from './schema';
+import type { BoundingBox, ScrollPosition } from './schema.ts';
 
 type Size = { width: number; height: number };
 

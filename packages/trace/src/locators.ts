@@ -1,4 +1,4 @@
-import type { Locator } from './schema';
+import type { Locator } from './schema.ts';
 
 export type LocatorObservation = {
   testId?: string;

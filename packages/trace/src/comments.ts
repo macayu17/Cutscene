@@ -1,5 +1,5 @@
-import type { MediaClockFit } from './clock';
-import type { CommentEvent, Locator, TraceEvent } from './schema';
+import type { MediaClockFit } from './clock.ts';
+import type { CommentEvent, Locator, TraceEvent } from './schema.ts';
 
 export type CommentResolution =
   | { commentId: string; status: 'matched' | 'drifted'; eventId: string;

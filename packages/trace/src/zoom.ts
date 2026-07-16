@@ -1,4 +1,4 @@
-import type { BoundingBox, ScrollPosition } from './schema';
+import type { BoundingBox, ScrollPosition } from './schema.ts';
 
 export type ZoomClick = { t: number; box: BoundingBox; scroll: ScrollPosition; viewport?: Size };
 export type ZoomSegment = {
