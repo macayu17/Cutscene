@@ -84,11 +84,36 @@ Team and brand-kit evidence:
   role API tests: team editor, project commenter, team viewer, revoked viewer
   review poll carries duplicate brand-kit payload: no
 
+Capture fixture layout regression evidence:
+  cause: the redaction geometry stress step set the first TodoMVC item to
+         `position: fixed` and left that test-only style on the recorded page
+  effect: target 1 left normal flow and appeared between targets 2 and 3 in
+          editor, owner, and invitation playback
+  fix: restore the element after the geometry sample and assert that its
+       `position` style is empty before recording continues
+  corrected video: 1 -> 5 remain in DOM order at 2 s, 5 s, 8 s, 11 s, and 14 s
+  live bundle replacement: media.webm, trace.jsonl, meta.json -> 200, 200, 200
+  source / served SHA-256 equal for all three files: yes
+  live Chromium proof: 1440x900 at 5.0 s, page/console errors 0
+  screenshot: artifacts/screenshots/phase6-live-clean-review.png
+  repository tests: 220 passed (64 trace, 25 server, 118 editor,
+                    13 extension)
+  typecheck: 4/4 workspace packages passed
+  production build: editor and extension passed
+  focused Chromium capture E2E: 1/1 passed in 23.2 s
+  full Chromium E2E: 3/3 passed in 38.8 s
+
+Actual-team progress:
+  joined members: Owner (owner, team), Ayush (editor, team)
+  current review state: draft
+  current real-person comments: 0
+  remaining exit work: Ayush comments, a re-edit moves that comment's timestamp,
+                       the comment survives, and Ayush approves
+
 The Phase 6 exit criterion is not met yet. The resolver is verified in
 the real browser flow, two editor sessions converge through Yjs, all roles are
-enforced, and the brand kit is shared. The two team sessions were automated
-identities rather than two actual people, so the human exit gate is still
-outstanding.
+enforced, and the brand kit is shared. A second actual person has joined the
+team, but the real comment/re-edit/approval sequence is still outstanding.
 
 Phase 4's exit gate (a user generating an artifact unprompted) was waived by
 explicit owner override on 2026-07-16, the same demand-validation risk already
