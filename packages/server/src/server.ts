@@ -45,6 +45,15 @@ function readBody(req: IncomingMessage): Promise<Buffer | null> {
 }
 
 export async function handle(req: IncomingMessage, res: ServerResponse, root: string): Promise<void> {
+  res.setHeader('access-control-allow-origin', '*');
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'access-control-allow-methods': 'GET, POST, PUT, OPTIONS',
+      'access-control-allow-headers': 'content-type',
+    });
+    res.end();
+    return;
+  }
   const parts = (req.url ?? '/').split('?')[0]!.split('/').filter(Boolean);
 
   if (req.method === 'POST' && parts.length === 2 && parts[0] === 'api' && parts[1] === 'recordings') {
