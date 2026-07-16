@@ -79,6 +79,7 @@ async function loadEvents(){eventPayload=await request('/events');renderEvents()
 function renderReview(review){
   byId('review-state').textContent=review.state.replaceAll('_',' ');
   const current=review.members.find((member)=>member.id===review.currentMemberId);
+  byId('member-link-row').hidden=!current;byId('member-link').value=current?location.origin+location.pathname+'#token='+encodeURIComponent(token):'';
   const mayComment=current&&current.role!=='viewer';
   const mayApprove=current&&(current.role==='owner'||current.role==='editor');
   byId('comment-form').hidden=!mayComment;byId('state-actions').hidden=!mayApprove;byId('invitation-form').hidden=current?.role!=='owner';
@@ -154,7 +155,7 @@ export function reviewPage(id: string): string {
     `<section class="viewer"><div class="stage"><video id="review-video" controls playsinline src="/api/recordings/${encoded}/media.webm"></video><div id="semantic-box" hidden></div></div></section>` +
     `<aside class="review"><h2>TEAM</h2><p id="presence">View only.</p><p id="lock"></p>` +
     `<form id="join-form" hidden><label for="member-name">Display name</label><input id="member-name" maxlength="80" required><button type="submit">Join review</button></form>` +
-    `<ul id="member-list" class="members"></ul><form id="invitation-form" hidden><label for="invitation-role">Invite role</label><select id="invitation-role"><option value="editor">Editor</option><option value="commenter">Commenter</option><option value="viewer">Viewer</option></select><label for="invitation-scope">Access</label><select id="invitation-scope"><option value="team">Team member</option><option value="project">This project only</option></select><button type="submit">Create invitation</button><label for="invitation-link">Invitation link</label><input id="invitation-link" readonly></form><ul id="invitation-list" class="invitations"></ul>` +
+    `<ul id="member-list" class="members"></ul><p id="member-link-row" hidden><label for="member-link">Member editor link</label><input id="member-link" readonly></p><form id="invitation-form" hidden><label for="invitation-role">Invite role</label><select id="invitation-role"><option value="editor">Editor</option><option value="commenter">Commenter</option><option value="viewer">Viewer</option></select><label for="invitation-scope">Access</label><select id="invitation-scope"><option value="team">Team member</option><option value="project">This project only</option></select><button type="submit">Create invitation</button><label for="invitation-link">Invitation link</label><input id="invitation-link" readonly></form><ul id="invitation-list" class="invitations"></ul>` +
     `<div id="state-actions" class="state-actions" hidden><button type="button" data-state="in_review">Request review</button><button type="button" data-state="changes_requested">Request changes</button><button type="button" data-state="approved">Approve</button><button type="button" data-state="published">Publish</button></div>` +
     `<h2>COMMENTS</h2><ul id="comment-list" class="comments"></ul>` +
     `<form id="comment-form" hidden><label for="comment-body">Comment on selected event</label><textarea id="comment-body" maxlength="2000" required></textarea><button type="submit">Add comment</button></form>` +

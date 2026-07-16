@@ -11,6 +11,7 @@ it('renders the dependency-free semantic review client', () => {
   expect(html).toContain('id="join-form"');
   expect(html).toContain('id="invitation-form"');
   expect(html).toContain('id="member-list"');
+  expect(html).toContain('id="member-link"');
   expect(html).toContain('data-state="approved"');
   expect(html).toContain('location.hash');
   expect(html).toContain('sessionStorage');
