@@ -219,6 +219,35 @@ it('creates, exchanges, and revokes scoped role invitations', async () => {
   })).status).toBe(400);
 });
 
+it('shares a validated brand kit while restricting writes to editors', async () => {
+  const base = await startServer();
+  const created = await createRecording(base);
+  const editor = await joinMember(base, created, await invite(base, created, 'editor', 'team'), 'Editor');
+  const viewer = await joinMember(base, created, await invite(base, created, 'viewer', 'project'), 'Viewer');
+  const url = `${base}/api/recordings/${created.id}/brand-kit`;
+  const brandPresets = [{
+    id: 'brand_1', name: 'Launch', color: '#336699', font: 'mono',
+    intro: 'Start', outro: 'End', watermark: 'ACME',
+  }];
+
+  expect((await fetch(url, {
+    method: 'PUT', headers: { ...auth(editor.memberToken), 'content-type': 'application/json' },
+    body: JSON.stringify({ brandPresets }),
+  })).status).toBe(200);
+  const loaded = await fetch(url, { headers: auth(viewer.memberToken) });
+  expect(loaded.status).toBe(200);
+  expect(await loaded.json()).toEqual({ brandPresets });
+  expect((await fetch(url, {
+    method: 'PUT', headers: { ...auth(viewer.memberToken), 'content-type': 'application/json' },
+    body: JSON.stringify({ brandPresets: [] }),
+  })).status).toBe(403);
+  expect((await fetch(url, {
+    method: 'PUT', headers: { ...auth(created.ownerToken), 'content-type': 'application/json' },
+    body: JSON.stringify({ brandPresets: [{ ...brandPresets[0], color: 'blue' }] }),
+  })).status).toBe(400);
+  expect(await (await fetch(url, { headers: auth(created.ownerToken) })).json()).toEqual({ brandPresets });
+});
+
 it('constructs semantic comments, retains concurrent writes, and enforces approval roles', async () => {
   const base = await startServer();
   const created = await createRecording(base);

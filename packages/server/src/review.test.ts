@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { addInvitation, authenticate, canApprove, canComment, createReviewDocument, joinReview,
-  publicReview, revokeInvitation } from './review.ts';
+  publicReview, replaceBrandKit, revokeInvitation } from './review.ts';
 
 const seeded = () => createReviewDocument({
   teamId: 'team_1', ownerId: 'member_owner', ownerName: 'Owner', ownerToken: 'owner-secret',
@@ -73,6 +73,21 @@ describe('review document', () => {
     expect(view.invitations).toEqual([{
       id: 'invite_initial', role: 'commenter', scope: 'project', status: 'pending',
     }]);
+  });
+
+  it('validates and shares a bounded brand kit', () => {
+    const preset = {
+      id: 'brand_1', name: 'Launch', color: '#336699', font: 'mono' as const,
+      intro: 'Start', outro: 'End', watermark: 'ACME',
+    };
+    const replaced = replaceBrandKit(seeded(), [preset]);
+    expect(replaced).toEqual({ ok: true, value: expect.objectContaining({ brandKit: [preset] }) });
+    expect(replaceBrandKit(seeded(), [{ ...preset, color: 'blue' }])).toEqual({
+      ok: false, error: 'brand kit is invalid',
+    });
+    expect(replaceBrandKit(seeded(), [preset, { ...preset }])).toEqual({
+      ok: false, error: 'brand kit contains duplicate ids',
+    });
   });
 
   it('enforces commenter and approval roles', () => {

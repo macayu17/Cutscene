@@ -6,8 +6,8 @@ import { randomUUID } from 'node:crypto';
 import { fitMediaClock, mapBoxToCapture, parseRecordingMeta, parseTraceEvent, reanchorComments,
   type MediaClockFit, type TraceEvent } from '@cutscene/trace';
 import { addInvitation, authenticate, canApprove, canComment, createReviewDocument, joinReview,
-  publicReview, revokeInvitation, type InvitationRole, type MemberScope, type ReviewMember,
-  type ReviewState } from './review.ts';
+  publicReview, replaceBrandKit, revokeInvitation, type InvitationRole, type MemberScope,
+  type ReviewMember, type ReviewState } from './review.ts';
 import { reviewPage } from './review-page.ts';
 import { listTimelineVersions, MAX_TIMELINE_BYTES, mergeTimelineUpdate, readTimelineUpdate,
   readTimelineVersion } from './timeline-store.ts';
@@ -197,6 +197,27 @@ export async function handle(req: IncomingMessage, res: ServerResponse, root: st
         id: invitationId, token: invitationToken, role: role as InvitationRole, scope: scope as MemberScope,
       }));
       return json(res, 201, { id: invitationId, invitationToken, role, scope });
+    }
+
+    if (action === 'brand-kit') {
+      const member = await memberFor(req, root, id);
+      if (!member) return json(res, 401, { error: 'member token required' });
+      if (req.method === 'GET') {
+        const review = await readReview(root, id);
+        return review ? json(res, 200, { brandPresets: review.brandKit })
+          : json(res, 404, { error: 'recording not found' });
+      }
+      if (req.method !== 'PUT') return json(res, 405, { error: 'method not allowed' });
+      if (!canApprove(member.role)) return json(res, 403, { error: 'member cannot update the brand kit' });
+      const input = await readJson(req);
+      if (!input.ok) return json(res, 400, { error: input.error });
+      let brandError: string | null = null;
+      await updateReview(root, id, (review) => {
+        const replaced = replaceBrandKit(review, input.value.brandPresets);
+        if (!replaced.ok) { brandError = replaced.error; return review; }
+        return replaced.value;
+      });
+      return brandError ? json(res, 400, { error: brandError }) : json(res, 200, { ok: true });
     }
 
     if (action === 'join' && req.method === 'POST') {

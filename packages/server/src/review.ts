@@ -4,6 +4,15 @@ import { parseTraceEvent, type CommentEvent, type CommentResolution, type Result
 export type MemberRole = 'owner' | 'editor' | 'commenter' | 'viewer';
 export type MemberScope = 'team' | 'project';
 export type InvitationRole = Exclude<MemberRole, 'owner'>;
+export type SharedBrandPreset = {
+  id: string;
+  name: string;
+  color: string;
+  font: 'mono' | 'sans' | 'serif';
+  intro: string;
+  outro: string;
+  watermark: string;
+};
 export type ReviewState = 'draft' | 'in_review' | 'changes_requested' | 'approved' | 'published' | 'outdated';
 
 export type ReviewMember = { id: string; name: string; role: MemberRole; scope: MemberScope; tokenHash: string };
@@ -30,6 +39,7 @@ export type ReviewDocument = {
   state: ReviewState;
   members: ReviewMember[];
   invitations: ReviewInvitation[];
+  brandKit: SharedBrandPreset[];
   comments: StoredComment[];
   presence: PresenceLease[];
 };
@@ -62,9 +72,36 @@ export function createReviewDocument(input: {
       tokenHash: hashToken(input.ownerToken) }],
     invitations: [{ id: input.invitationId, role: 'commenter', scope: 'project',
       tokenHash: hashToken(input.invitationToken), usedAt: null, revokedAt: null }],
+    brandKit: [],
     comments: [],
     presence: [],
   };
+}
+
+function brandPreset(value: unknown): value is SharedBrandPreset {
+  if (!record(value) || Object.keys(value).sort().join('\0') !==
+      ['color', 'font', 'id', 'intro', 'name', 'outro', 'watermark'].join('\0')) return false;
+  return typeof value.id === 'string' && value.id.trim().length > 0 && value.id.length <= 80 &&
+    typeof value.name === 'string' && value.name.trim().length > 0 && value.name.length <= 80 &&
+    typeof value.color === 'string' && /^#[0-9A-Fa-f]{6}$/.test(value.color) &&
+    ['mono', 'sans', 'serif'].includes(String(value.font)) &&
+    typeof value.intro === 'string' && value.intro.length <= 200 &&
+    typeof value.outro === 'string' && value.outro.length <= 200 &&
+    typeof value.watermark === 'string' && value.watermark.length <= 200;
+}
+
+function parseBrandKit(value: unknown): Result<SharedBrandPreset[]> {
+  if (!Array.isArray(value) || value.length > 50 || !value.every(brandPreset)) {
+    return { ok: false, error: 'brand kit is invalid' };
+  }
+  const ids = value.map(({ id }) => id);
+  if (new Set(ids).size !== ids.length) return { ok: false, error: 'brand kit contains duplicate ids' };
+  return { ok: true, value };
+}
+
+export function replaceBrandKit(review: ReviewDocument, value: unknown): Result<ReviewDocument> {
+  const brandKit = parseBrandKit(value);
+  return brandKit.ok ? { ok: true, value: { ...review, brandKit: brandKit.value } } : brandKit;
 }
 
 export function addInvitation(review: ReviewDocument, input: {
@@ -135,6 +172,7 @@ export function publicReview(review: ReviewDocument, currentMemberId: string, no
     invitations: current?.role === 'owner' ? review.invitations.map(({ id, role, scope, usedAt, revokedAt }) => ({
       id, role, scope, status: revokedAt ? 'revoked' : usedAt ? 'used' : 'pending',
     })) : [],
+    brandKit: review.brandKit,
     comments: review.comments,
     presence: review.presence.filter((lease) => lease.expiresAt > now),
   };
@@ -203,6 +241,8 @@ export function parseReviewDocument(value: unknown): Result<ReviewDocument> {
       !Array.isArray(value.presence) || !value.presence.every(lease)) {
     return { ok: false, error: 'review.json is invalid' };
   }
+  const brandKit = parseBrandKit(value.brandKit ?? []);
+  if (!brandKit.ok) return { ok: false, error: 'review.json is invalid' };
   return { ok: true, value: {
     v: 1,
     teamId: value.teamId,
@@ -214,6 +254,7 @@ export function parseReviewDocument(value: unknown): Result<ReviewDocument> {
       scope: entry.scope ?? 'project',
       revokedAt: entry.revokedAt ?? null,
     })),
+    brandKit: brandKit.value,
     comments: value.comments,
     presence: value.presence,
   } };
