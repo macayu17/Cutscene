@@ -66,9 +66,9 @@ Start the optional share server:
 pnpm --filter @cutscene/server start
 ```
 
-It stores bundles in `data/` and listens on port `4180`. Create a recording with
-`POST /api/recordings`, upload `media.webm`, `trace.jsonl`, and `meta.json` with
-`PUT /api/recordings/<id>/<file>`, then share `/r/<id>`.
+It stores bundles in `data/` and listens on port `4180`. After loading a
+recording in the editor, choose **Create share link** and enter the server URL.
+The editor uploads the original three files and shows the public link.
 
 ## Record and edit
 
@@ -80,6 +80,8 @@ It stores bundles in `data/` and listens on port `4180`. Create a recording with
 4. Choose that folder in the editor.
 5. Inspect the trace, adjust the edit, then export video, documentation,
    screenshots, step GIFs, a Playwright skeleton, or captions.
+6. To share the recording, start the optional server and choose **Create share
+   link** in the editor.
 
 ## Measured result
 

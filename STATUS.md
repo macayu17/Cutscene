@@ -13,6 +13,9 @@ Zero backend dependencies: Node built-in http + fs, filesystem store, no DB.
   [x] upload a recording bundle to a self-hosted server
   [x] public share link that plays the demo for a non-user
 
+The capability is verified locally. The Phase 5 exit gate still requires an
+actual user to share with a non-user; that external event has not been recorded.
+
 Share-link wedge evidence:
   server: packages/server, node built-in http + fs, no DB, zero runtime deps
   run: PORT=4181 CUTSCENE_DATA=<dir> node src/index.ts (Node 22 strips TS types)
@@ -24,6 +27,10 @@ Share-link wedge evidence:
   GET media.webm -> 200 video/webm, 5,127,598 bytes (served intact)
   unknown id -> 404, path traversal id -> 400, non-JSON meta upload -> 400
   a public link plays the demo for anyone, signed in or not: yes
+  editor browser flow -> recording loaded, Create share link completed
+  browser share URL -> /r/21aada7c-bcad-4075-a172-d745b1ce291e, status 200
+  shared video visible -> yes; browser page errors -> 0
+  source / served media -> 5,127,598 / 5,127,598 bytes, SHA-256 equal
 
 Phase 3's repeat-use exit gate was waived by explicit owner override on
 2026-07-15, the same demand-validation risk already accepted for Phase 2.
