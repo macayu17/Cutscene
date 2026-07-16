@@ -1,4 +1,8 @@
-Phase: 5
+Phase: 6
+
+Phase 5 passed on 2026-07-16. The owner shared a generated link with a friend
+who is not a Cutscene user; the friend confirmed that the video played. This is
+the external user-to-non-user event required by PRD.md §11.
 
 Phase 4's exit gate (a user generating an artifact unprompted) was waived by
 explicit owner override on 2026-07-16, the same demand-validation risk already
@@ -13,8 +17,7 @@ Zero backend dependencies: Node built-in http + fs, filesystem store, no DB.
   [x] upload a recording bundle to a self-hosted server
   [x] public share link that plays the demo for a non-user
 
-The capability is verified locally. The Phase 5 exit gate still requires an
-actual user to share with a non-user; that external event has not been recorded.
+The capability is verified locally and by the non-user confirmation above.
 
 Share-link wedge evidence:
   server: packages/server, node built-in http + fs, no DB, zero runtime deps
