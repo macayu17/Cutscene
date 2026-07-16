@@ -16,7 +16,7 @@ Phase 6 progress:
   [x] presence leases and event-level soft-lock warnings
   [x] draft, in-review, changes-requested, approved, published, and outdated
       review states
-  [ ] Yjs timeline document and snapshot-derived version history
+  [x] Yjs timeline document and snapshot-derived version history
   [ ] full owner/editor/commenter/viewer invitation management
   [ ] shared brand kits
   [ ] human two-person team review and approval evidence
@@ -46,10 +46,29 @@ Shared review browser evidence:
   semantic box uses the shared capture coordinate transform: yes
   real Chromium proof: artifacts/screenshots/phase6-shared-review.jpeg
 
+Shared timeline evidence:
+  document: Y.Array<Y.Map> containing zooms, callouts, and redactions
+  Yjs version: 13.6.31 (the only added runtime dependency)
+  transport: authenticated binary HTTP updates with 1.5 s polling
+  persistence: atomic current snapshot plus numbered snapshot history
+  duplicate updates: suppressed by state-vector comparison
+  browser contexts: 2 isolated editor sessions
+  concurrent edits: one added zoom and one disabled `.secret` redaction
+  converged state: 2/2 sessions saw 2 zooms and the disabled redaction
+  retained versions: 3 (initial document plus the two edits)
+  restored version 1 timeline items: 2
+  editor page errors: 0 / 0
+  repository tests: 213 passed (64 trace, 21 server, 115 editor,
+                    13 extension)
+  typecheck: 4/4 workspace packages passed
+  production build: editor and extension passed
+  focused Chromium timeline E2E: 1/1 passed in 6.2 s
+  full Chromium E2E: 3/3 passed in 30.7 s
+
 The Phase 6 exit criterion is not met yet. The resolver is verified in
-the real browser flow, but the two sessions were automated identities rather
-than two people. The required human review evidence and remaining Phase 6
-multiplayer/team/brand-kit scope are still outstanding.
+the real browser flow, and two editor sessions converge through Yjs, but those
+sessions were automated identities rather than two people on a team. Full role
+invitations and shared brand kits are also still outstanding.
 
 Phase 4's exit gate (a user generating an artifact unprompted) was waived by
 explicit owner override on 2026-07-16, the same demand-validation risk already
