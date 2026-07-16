@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { parseTraceEvent, type CommentEvent, type CommentResolution, type Result } from '@cutscene/trace';
 
 export type MemberRole = 'owner' | 'editor' | 'commenter' | 'viewer';
-export type ReviewState = 'draft' | 'in_review' | 'changes_requested' | 'approved';
+export type ReviewState = 'draft' | 'in_review' | 'changes_requested' | 'approved' | 'published' | 'outdated';
 
 export type ReviewMember = { id: string; name: string; role: MemberRole; tokenHash: string };
 export type ReviewInvitation = {
@@ -151,7 +151,7 @@ function lease(value: unknown): value is PresenceLease {
 
 export function parseReviewDocument(value: unknown): Result<ReviewDocument> {
   if (!record(value) || value.v !== 1 || typeof value.teamId !== 'string' ||
-      !['draft', 'in_review', 'changes_requested', 'approved'].includes(String(value.state)) ||
+      !['draft', 'in_review', 'changes_requested', 'approved', 'published', 'outdated'].includes(String(value.state)) ||
       !Array.isArray(value.members) || !value.members.every(member) ||
       !Array.isArray(value.invitations) || !value.invitations.every(invitation) ||
       !Array.isArray(value.comments) || !value.comments.every(comment) ||
