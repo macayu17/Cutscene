@@ -8,6 +8,9 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@cutscene/trace": "workspace:*"
+  },
   "devDependencies": {
     "@types/node": "^22.10.0"
   }

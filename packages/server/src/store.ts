@@ -1,6 +1,7 @@
-import { mkdir, readFile, writeFile, access } from 'node:fs/promises';
+import { access, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { parseReviewDocument, type ReviewDocument } from './review.ts';
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
@@ -72,4 +73,49 @@ export async function saveBundleFile(root: string, id: string, file: BundleFile,
 
 export async function readBundleFile(root: string, id: string, file: BundleFile): Promise<Buffer | null> {
   try { return await readFile(join(root, id, file)); } catch { return null; }
+}
+
+const reviewWrites = new Map<string, Promise<void>>();
+
+export async function readReview(root: string, id: string): Promise<ReviewDocument | null> {
+  try {
+    const input: unknown = JSON.parse(await readFile(join(root, id, 'review.json'), 'utf8'));
+    const parsed = parseReviewDocument(input);
+    return parsed.ok ? parsed.value : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function writeReview(root: string, id: string, review: ReviewDocument): Promise<void> {
+  const directory = join(root, id);
+  const target = join(directory, 'review.json');
+  const temporary = join(directory, `.review-${randomUUID()}.tmp`);
+  await mkdir(directory, { recursive: true });
+  try {
+    await writeFile(temporary, JSON.stringify(review));
+    await rename(temporary, target);
+  } finally {
+    await rm(temporary, { force: true });
+  }
+}
+
+export async function updateReview(root: string, id: string,
+  update: (review: ReviewDocument) => ReviewDocument): Promise<ReviewDocument> {
+  const key = join(root, id);
+  const previous = reviewWrites.get(key) ?? Promise.resolve();
+  const operation = previous.catch(() => undefined).then(async () => {
+    const current = await readReview(root, id);
+    if (!current) throw new Error('review not found');
+    const next = update(current);
+    await writeReview(root, id, next);
+    return next;
+  });
+  const settled = operation.then(() => undefined, () => undefined);
+  reviewWrites.set(key, settled);
+  try {
+    return await operation;
+  } finally {
+    if (reviewWrites.get(key) === settled) reviewWrites.delete(key);
+  }
 }

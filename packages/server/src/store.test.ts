@@ -3,7 +3,8 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createId, ensureRecording, isBundleFile, isValidId, recordingReady, saveBundleFile,
-  validateBundleFile } from './store.ts';
+  readReview, updateReview, validateBundleFile, writeReview } from './store.ts';
+import { createReviewDocument } from './review.ts';
 
 const meta = {
   schemaVersion: 1, recordingId: 'rec_1', createdAt: '2026-07-16T09:00:00.000Z', sessionEpoch: 1,
@@ -60,6 +61,28 @@ it('publishes only a complete recording bundle', async () => {
     expect(await recordingReady(root, id)).toBe(false);
     await saveBundleFile(root, id, 'meta.json', buf(meta));
     expect(await recordingReady(root, id)).toBe(true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+it('serialises review updates without dropping concurrent changes', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'cutscene-server-review-'));
+  const id = createId();
+  const review = createReviewDocument({
+    teamId: 'team_1', ownerId: 'owner', ownerName: 'Owner', ownerToken: 'owner-secret',
+    invitationId: 'invite_1', invitationToken: 'invite-secret', now: '2026-07-16T10:00:00.000Z',
+  });
+  try {
+    await ensureRecording(root, id);
+    await writeReview(root, id, review);
+    await Promise.all(['first', 'second'].map((resource) => updateReview(root, id, (current) => ({
+      ...current,
+      presence: [...current.presence, { memberId: resource, resource, expiresAt: '2026-07-16T10:01:00.000Z' }],
+    }))));
+
+    expect((await readReview(root, id))?.presence.map(({ resource }) => resource).sort())
+      .toEqual(['first', 'second']);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
