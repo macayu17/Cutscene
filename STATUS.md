@@ -4,6 +4,31 @@ Phase 5 passed on 2026-07-16. The owner shared a generated link with a friend
 who is not a Cutscene user; the friend confirmed that the video played. This is
 the external user-to-non-user event required by PRD.md §11.
 
+Phase 6 progress:
+  [x] strict v1 `annotation.comment` schema with element locator anchor and
+      fallback media time
+  [x] DOM-free cross-version re-anchoring with `matched`, `drifted`, and
+      `orphaned` results
+  [x] deterministic selection by locator confidence, same step, nearest
+      fallback time, then trace order
+  [ ] shared reviewer interface and persistence
+  [ ] two-person team review and approval evidence
+
+Comment re-anchoring evidence:
+  strong locator match (confidence >= 0.8) -> matched at the new media time
+  text/CSS locator match (confidence < 0.8) -> drifted at the new media time
+  no locator match -> orphaned at the recorded fallback media time
+  moved timestamp test: 4,200 ms -> 7,100 ms
+  same-step tie test: 6,000 ms wins over a closer 4,300 ms candidate
+  repository tests: 191 passed (64 trace, 7 server, 107 editor, 13 extension)
+  typecheck: 4/4 workspace packages passed
+  production build: editor and extension passed
+  capture E2E: 1/1 passed in Chromium
+
+The Phase 6 exit criterion is not met yet. The resolver is verified in
+isolation, but two people have not reviewed and approved the same recording,
+and no real shared comment has survived a re-edit yet.
+
 Phase 4's exit gate (a user generating an artifact unprompted) was waived by
 explicit owner override on 2026-07-16, the same demand-validation risk already
 accepted for Phases 2 and 3. No external user evidence exists. This is an
