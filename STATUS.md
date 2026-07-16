@@ -21,17 +21,37 @@ Local Chromium dry-run evidence:
   injected input value occurrences in JSON, text, stdout, and stderr: 0
   Playwright result: 1/1 passed in 2.1 s
 
-Corrected TodoMVC trace dry-run:
+Prior TodoMVC trace dry-run:
   source: artifacts/phase6-human-reedit/trace.jsonl
   trace SHA-256: 2010D010ADE064B439BCAAD4EC3E262F42EB53DC90A2D9C81E9BE25397419599
   trace events: 77 (5 clicks, 13 inputs)
   configured input override: step_0000 through environment
   CLI exit code: 2
   measured reason: step step_0000 contains multiple input targets
-  cause in source trace: seven input samples carry the ranked locator set and
-                         one masked sample carries no locators
+  cause in source trace: the capture E2E deliberately typed into a second
+                         `[data-sensitive]` input before the first click
+  privacy result: correct; that target's semantic locators were removed
   browser launched: no; replay validation stopped first
   workaround applied: no
+
+Clean TodoMVC trace dry-run:
+  source: artifacts/phase7-clean-bundle/e545e315-2d1b-445a-9ca3-6d6f6f71a902
+  recording: rec_5ea4c539-afbc-4014-9571-38736874ef7c
+  duration: 16.1553 s
+  video: 617,436 bytes
+  trace: 34,526 bytes, 80 events (5 clicks, 10 inputs)
+  trace SHA-256: 25D93F80388712E9C2B986BF55EC6A16EBA133DFED6D356F6C89A1309239F2E9
+  `step_0000` input targets: 1
+  planned / evaluated steps: 6 / 2
+  matched / drifted / orphaned: 1 / 0 / 1
+  matched action: step_0000 fill via testId[0]
+  abort point: step_0001 checkbox
+  CLI exit code: 1
+  measured reason: no locator resolved
+  root cause: the source trace did not capture the Enter key used to create
+              TodoMVC rows, so replay filled the input but created no checkbox
+  injected input value occurrences in JSON and text reports: 0
+  heuristic Enter or locator workaround applied: no
 
 This is a local Phase 7 slice, not the Phase 7 exit. PRD.md requires an
 automatically opened pull request against a repository we do not control and a

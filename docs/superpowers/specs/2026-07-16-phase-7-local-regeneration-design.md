@@ -137,10 +137,10 @@ stable report formatting, and exit-code selection.
 
 A Playwright test uses a local fixture page to prove all three locator outcomes
 and action execution without network access. A separate live TodoMVC dry-run
-uses the corrected reference trace to demonstrate honest failure reporting. It
-stops before browser launch because one masked input sample in `step_0000` has
-no locator set while the other samples do; the runner does not merge those
-targets by guessed geometry.
+uses a clean reference trace to demonstrate honest failure reporting. Replay
+fills the TodoMVC input through its first-ranked test ID, then stops at the first
+checkbox because the source trace did not capture the Enter key that created
+the row. The runner does not invent that missing keyboard action.
 
 ## Deferred work
 

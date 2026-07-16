@@ -3,6 +3,7 @@ import { execFile } from 'node:child_process';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { chromium, expect, test } from '@playwright/test';
+import { parseTraceEvent, planReplay, type TraceEvent } from '@cutscene/trace';
 import { POINTER_SAMPLE_INTERVAL_MS } from '../src/pointer';
 
 const execute = promisify(execFile);
@@ -10,6 +11,7 @@ const durationSeconds = Number(process.env.CUTSCENE_DURATION_SECONDS ?? 3);
 const requestedClicks = Number(process.env.CUTSCENE_CLICK_COUNT ?? 1);
 const requestedOutput = process.env.CUTSCENE_ARTIFACT_DIR;
 const clickMode = process.env.CUTSCENE_CLICK_MODE ?? 'toggle';
+const cleanDemo = process.env.CUTSCENE_CLEAN_DEMO === '1';
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -81,15 +83,17 @@ test('captures a playable, complete, masked recording bundle', async () => {
     }
 
     const startedAt = Date.now();
-    await page.evaluate(() => {
-      const wrapper = document.createElement('div');
-      wrapper.dataset.sensitive = '';
-      wrapper.innerHTML = '<input id="nested-sensitive" aria-label="raw-nested-label">';
-      document.body.append(wrapper);
-    });
-    await page.locator('#nested-sensitive').fill('raw-nested-secret');
-    await page.locator('.new-todo').fill('raw-secret-value');
-    await page.locator('.new-todo').fill('');
+    if (!cleanDemo) {
+      await page.evaluate(() => {
+        const wrapper = document.createElement('div');
+        wrapper.dataset.sensitive = '';
+        wrapper.innerHTML = '<input id="nested-sensitive" aria-label="raw-nested-label">';
+        document.body.append(wrapper);
+      });
+      await page.locator('#nested-sensitive').fill('raw-nested-secret');
+      await page.locator('.new-todo').fill('raw-secret-value');
+      await page.locator('.new-todo').fill('');
+    }
     await page.bringToFront();
     for (const point of [{ x: 80, y: 80 }, { x: 180, y: 120 }, { x: 280, y: 180 }, { x: 380, y: 240 }, { x: 480, y: 300 }]) {
       await page.mouse.move(point.x, point.y);
@@ -151,6 +155,15 @@ test('captures a playable, complete, masked recording bundle', async () => {
     if (!traceItem || !metaItem || !mediaItem) throw new Error('Bundle files missing.');
     const traceText = await readFile(traceItem.filename, 'utf8');
     const events = traceText.trim().split(/\r?\n/).map((line) => JSON.parse(line) as Record<string, unknown>);
+    if (cleanDemo) {
+      const traceEvents: TraceEvent[] = [];
+      for (const event of events) {
+        const parsed = parseTraceEvent(event);
+        if (!parsed.ok) throw new Error(parsed.error);
+        traceEvents.push(parsed.value);
+      }
+      expect(planReplay(traceEvents, { step_0000: 'Clean demo value' })).toMatchObject({ ok: true });
+    }
     for (let index = 1; index < events.length; index += 1) {
       expect(Number(events[index - 1]?.t)).toBeLessThanOrEqual(Number(events[index]?.t));
     }
