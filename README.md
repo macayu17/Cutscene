@@ -16,7 +16,8 @@ right.
   fall back to pixels because they do not expose useful semantic elements.
 - Cross-origin iframes cannot be traced.
 - Shadow DOM is traced only when its root is open.
-- Recordings stay local. There is no hosted service, account system, or backend.
+- Recording and editing are local by default. The optional self-hosted share
+  server has public UUID links only; it has no accounts or private links.
 
 ## What works today
 
@@ -31,7 +32,13 @@ right.
 - Element-anchored callouts rendered consistently in preview, GIF, and MP4.
 - Preconfigured CSS-selector blur tracks with enable/delete controls and the
   same redaction in preview, GIF, and MP4.
+- Cursor smoothing, click ripple, idle hiding, local brand presets, and 9:16
+  crop export.
 - README GIF export with one global palette, plus 1080p H.264 MP4 export.
+- Step documentation, cropped screenshots, per-step GIFs, a Playwright flow
+  skeleton, and imported SRT/VTT captions.
+- A minimal filesystem-backed server for uploading a bundle and sharing its
+  video through a public link.
 
 ## Run locally
 
@@ -53,6 +60,16 @@ pnpm --filter @cutscene/editor exec vite
 
 Open the local URL printed by Vite.
 
+Start the optional share server:
+
+```sh
+pnpm --filter @cutscene/server start
+```
+
+It stores bundles in `data/` and listens on port `4180`. Create a recording with
+`POST /api/recordings`, upload `media.webm`, `trace.jsonl`, and `meta.json` with
+`PUT /api/recordings/<id>/<file>`, then share `/r/<id>`.
+
 ## Record and edit
 
 1. Open a DOM-based page in Chrome.
@@ -61,7 +78,8 @@ Open the local URL printed by Vite.
 3. Stop recording. Chrome downloads `media.webm`, `trace.jsonl`, and `meta.json`
    into one `cutscene-<recording-id>` folder.
 4. Choose that folder in the editor.
-5. Inspect the trace, adjust zoom segments, then export a GIF or MP4.
+5. Inspect the trace, adjust the edit, then export video, documentation,
+   screenshots, step GIFs, a Playwright skeleton, or captions.
 
 ## Measured result
 
@@ -70,8 +88,8 @@ zooms landed on the correct element; mean timing error was 0.258 frame and the
 maximum was 0.422 frame. The 800×450 README GIF was 2,352,555 bytes at 15fps.
 See [the evidence report](docs/phase-1-evidence.md) for the full measurements.
 
-Phase 1 passed. Phase 3 is in progress. See [`STATUS.md`](STATUS.md) for the
-current implementation evidence and gate history.
+Phase 5 is in progress. See [`STATUS.md`](STATUS.md) for implementation
+evidence, measured artifacts, and gate history.
 
 ## Development
 
@@ -82,9 +100,10 @@ pnpm build
 pnpm e2e
 ```
 
-The repository has three active packages:
+The repository has four active packages:
 
 - `packages/extension` — Manifest V3 capture extension.
 - `packages/trace` — schema, privacy, locators, clock mapping, coordinates, and
   zoom generation.
 - `packages/editor` — local React editor and FFmpeg export pipeline.
+- `packages/server` — optional self-hosted public share links.

@@ -18,6 +18,8 @@ Share-link wedge evidence:
   run: PORT=4181 CUTSCENE_DATA=<dir> node src/index.ts (Node 22 strips TS types)
   POST /api/recordings -> 201 { id: 54fc5035-1910-4305-8ca5-b438771b56c6 }
   PUT media.webm / trace.jsonl / meta.json -> 200, 200, 200
+  incomplete bundle share page -> 404
+  empty media upload -> 400
   GET /r/:id -> 200 text/html with <video src=/api/recordings/:id/media.webm>
   GET media.webm -> 200 video/webm, 5,127,598 bytes (served intact)
   unknown id -> 404, path traversal id -> 400, non-JSON meta upload -> 400
@@ -233,9 +235,6 @@ Cursor treatment evidence:
   export screenshot state: https://todomvc.com/examples/react/dist/ recorded
                            at 1280x800 CSS px; decoded at 1920x1080,
                            except 9x16 click at 1080x1920
-
-Phase 3 remains active. Its exit criterion requires repeat use on a different
-project and has not been met.
 
 Phase 0 spike passed on 2026-07-14. See PRD.md §4.
 
