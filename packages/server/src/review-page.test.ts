@@ -9,6 +9,8 @@ it('renders the dependency-free semantic review client', () => {
   expect(html).toContain('id="event-list"');
   expect(html).toContain('id="comment-form"');
   expect(html).toContain('id="join-form"');
+  expect(html).toContain('id="invitation-form"');
+  expect(html).toContain('id="member-list"');
   expect(html).toContain('data-state="approved"');
   expect(html).toContain('location.hash');
   expect(html).toContain('sessionStorage');
@@ -17,6 +19,7 @@ it('renders the dependency-free semantic review client', () => {
   expect(html).toContain('/comments');
   expect(html).toContain('/presence');
   expect(html).toContain('/state');
+  expect(html).toContain('/invitations');
   expect(html).toContain('textContent');
   expect(html).toContain('--signal:#F2A63B');
   expect(html).toContain('prefers-reduced-motion');

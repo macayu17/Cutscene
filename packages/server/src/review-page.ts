@@ -1,12 +1,12 @@
 const STYLE = `
 :root{--bg:#16181C;--surface:#1E2126;--line:#2C3037;--text:#C8CDD4;--dim:#727A85;--signal:#F2A63B;--danger:#C7524B}
 *{box-sizing:border-box}html,body{height:100%;margin:0}body{display:grid;grid-template-rows:32px minmax(0,1fr);overflow:hidden;background:var(--bg);color:var(--text);font:12px/1.4 "IBM Plex Mono",monospace}
-button,input,textarea{font:inherit;color:inherit}button,input,textarea{border:1px solid var(--line);background:var(--surface)}button{padding:5px 8px}button:disabled{color:var(--dim)}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--text);outline-offset:2px}
+button,input,select,textarea{font:inherit;color:inherit}button,input,select,textarea{border:1px solid var(--line);background:var(--surface)}button{padding:5px 8px}button:disabled{color:var(--dim)}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--text);outline-offset:2px}
 header{display:flex;align-items:center;gap:8px;padding:0 10px;border-bottom:1px solid var(--line);letter-spacing:.03em}header .push{margin-left:auto;color:var(--dim)}
 main{min-height:0;display:grid;grid-template-columns:240px minmax(0,1fr)300px}.events,.review{min-height:0;overflow:auto}.events{border-right:1px solid var(--line)}.review{border-left:1px solid var(--line);padding:10px}.label{margin:0;padding:9px 10px;border-bottom:1px solid var(--line);font-size:11px;font-weight:500;letter-spacing:.12em}
 .event{width:100%;display:grid;grid-template-columns:54px 1fr;gap:7px;border:0;border-bottom:1px solid var(--line);background:transparent;padding:7px 10px;text-align:left}.event[aria-current=true],.event:hover{background:var(--surface)}.event time,.event small{color:var(--dim)}.event i{width:3px;height:9px;margin-top:3px;background:var(--signal)}
 .viewer{min-width:0;min-height:0;display:grid;place-items:center;padding:20px;background:#121418}.stage{position:relative;max-width:100%;max-height:100%}.stage video{display:block;max-width:100%;max-height:calc(100vh - 72px)}#semantic-box{position:absolute;border:2px solid var(--signal);pointer-events:none;animation:measure 120ms steps(4,end)}
-.review h2{margin:12px 0 6px;font-size:12px;font-weight:500;letter-spacing:.08em}.review h2:first-child{margin-top:0}.review p{margin:4px 0;color:var(--dim)}form{display:grid;gap:6px;margin:8px 0}input,textarea{width:100%;padding:6px}textarea{min-height:64px;resize:vertical}.state-actions{display:flex;flex-wrap:wrap;gap:5px}.state-actions button{font-size:11px}.comments{list-style:none;margin:0;padding:0}.comments li{padding:8px 0;border-bottom:1px solid var(--line)}.comments p{color:var(--text);white-space:pre-wrap}.comments small{color:var(--dim)}.error{color:var(--danger)}[hidden]{display:none!important}
+.review h2{margin:12px 0 6px;font-size:12px;font-weight:500;letter-spacing:.08em}.review h2:first-child{margin-top:0}.review p{margin:4px 0;color:var(--dim)}form{display:grid;gap:6px;margin:8px 0}input,select,textarea{width:100%;padding:6px}textarea{min-height:64px;resize:vertical}.state-actions{display:flex;flex-wrap:wrap;gap:5px}.state-actions button{font-size:11px}.comments,.members,.invitations{list-style:none;margin:0;padding:0}.comments li,.members li,.invitations li{padding:6px 0;border-bottom:1px solid var(--line)}.comments p{color:var(--text);white-space:pre-wrap}.comments small,.members small,.invitations small{color:var(--dim)}.invitations li{display:grid;grid-template-columns:1fr auto;gap:6px}.error{color:var(--danger)}[hidden]{display:none!important}
 @keyframes measure{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0)}}@media(prefers-reduced-motion:reduce){#semantic-box{animation:none}}
 `;
 
@@ -81,9 +81,23 @@ function renderReview(review){
   const current=review.members.find((member)=>member.id===review.currentMemberId);
   const mayComment=current&&current.role!=='viewer';
   const mayApprove=current&&(current.role==='owner'||current.role==='editor');
-  byId('comment-form').hidden=!mayComment;byId('state-actions').hidden=!mayApprove;
+  byId('comment-form').hidden=!mayComment;byId('state-actions').hidden=!mayApprove;byId('invitation-form').hidden=current?.role!=='owner';
   const active=review.presence.map((lease)=>review.members.find((member)=>member.id===lease.memberId)?.name).filter(Boolean);
   byId('presence').textContent=active.length?'Present: '+active.join(', '):'No other members present.';
+  const members=byId('member-list');members.replaceChildren();
+  for(const member of review.members){
+    const item=document.createElement('li');item.textContent=member.name+' · '+member.role+' · '+member.scope;members.append(item);
+  }
+  const invitations=byId('invitation-list');invitations.replaceChildren();
+  for(const invitation of review.invitations){
+    const item=document.createElement('li');const detail=document.createElement('span');detail.textContent=invitation.role+' · '+invitation.scope+' · '+invitation.status;item.append(detail);
+    if(invitation.status==='pending'){
+      const revoke=document.createElement('button');revoke.type='button';revoke.textContent='Revoke';revoke.addEventListener('click',async()=>{
+        clearError();try{await request('/invitations/'+encodeURIComponent(invitation.id),{method:'DELETE'});await loadReview();}catch(cause){showError(cause);}
+      });item.append(revoke);
+    }
+    invitations.append(item);
+  }
   const list=byId('comment-list');list.replaceChildren();
   for(const comment of review.comments){
     const item=document.createElement('li');const body=document.createElement('p');body.textContent=comment.event.body;
@@ -102,6 +116,14 @@ byId('join-form').addEventListener('submit',async(event)=>{
   try{
     const joined=await request('/join',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({invitationToken:invitation,name:byId('member-name').value})});
     token=joined.memberToken;invitation='';sessionStorage.setItem(key,token);byId('join-form').hidden=true;await refresh();
+  }catch(cause){showError(cause);}
+});
+
+byId('invitation-form').addEventListener('submit',async(event)=>{
+  event.preventDefault();clearError();
+  try{
+    const created=await request('/invitations',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({role:byId('invitation-role').value,scope:byId('invitation-scope').value})});
+    byId('invitation-link').value=location.origin+location.pathname+'#invite='+encodeURIComponent(created.invitationToken);await loadReview();
   }catch(cause){showError(cause);}
 });
 
@@ -132,6 +154,7 @@ export function reviewPage(id: string): string {
     `<section class="viewer"><div class="stage"><video id="review-video" controls playsinline src="/api/recordings/${encoded}/media.webm"></video><div id="semantic-box" hidden></div></div></section>` +
     `<aside class="review"><h2>TEAM</h2><p id="presence">View only.</p><p id="lock"></p>` +
     `<form id="join-form" hidden><label for="member-name">Display name</label><input id="member-name" maxlength="80" required><button type="submit">Join review</button></form>` +
+    `<ul id="member-list" class="members"></ul><form id="invitation-form" hidden><label for="invitation-role">Invite role</label><select id="invitation-role"><option value="editor">Editor</option><option value="commenter">Commenter</option><option value="viewer">Viewer</option></select><label for="invitation-scope">Access</label><select id="invitation-scope"><option value="team">Team member</option><option value="project">This project only</option></select><button type="submit">Create invitation</button><label for="invitation-link">Invitation link</label><input id="invitation-link" readonly></form><ul id="invitation-list" class="invitations"></ul>` +
     `<div id="state-actions" class="state-actions" hidden><button type="button" data-state="in_review">Request review</button><button type="button" data-state="changes_requested">Request changes</button><button type="button" data-state="approved">Approve</button><button type="button" data-state="published">Publish</button></div>` +
     `<h2>COMMENTS</h2><ul id="comment-list" class="comments"></ul>` +
     `<form id="comment-form" hidden><label for="comment-body">Comment on selected event</label><textarea id="comment-body" maxlength="2000" required></textarea><button type="submit">Add comment</button></form>` +

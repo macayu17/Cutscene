@@ -101,7 +101,12 @@ test('two team members preserve a semantic comment through a re-edit and approve
     owner.on('pageerror', (error) => ownerErrors.push(error.message));
     reviewer.on('pageerror', (error) => reviewerErrors.push(error.message));
     await owner.goto(`${base}/r/${created.id}#token=${created.ownerToken}`);
-    await reviewer.goto(`${base}/r/${created.id}#invite=${created.invitationToken}`);
+    await owner.getByLabel('Invite role').selectOption('editor');
+    await owner.getByLabel('Access').selectOption('team');
+    await owner.getByRole('button', { name: 'Create invitation' }).click();
+    const invitationUrl = await owner.getByLabel('Invitation link').inputValue();
+    expect(invitationUrl).toContain('#invite=');
+    await reviewer.goto(invitationUrl);
 
     await reviewer.getByLabel('Display name').fill('Reviewer');
     await reviewer.getByRole('button', { name: 'Join review' }).click();
@@ -117,7 +122,8 @@ test('two team members preserve a semantic comment through a re-edit and approve
 
     await expect(owner.locator('#comment-list')).toContainText('matched · 7.1s');
     await expect(reviewer.locator('#comment-list')).toContainText('matched · 7.1s');
-    await owner.getByRole('button', { name: 'Approve' }).click();
+    await owner.getByRole('button', { name: 'Request review' }).click();
+    await reviewer.getByRole('button', { name: 'Approve' }).click();
     await expect(owner.locator('#review-state')).toHaveText('approved');
     await expect(reviewer.locator('#review-state')).toHaveText('approved');
 
@@ -126,10 +132,13 @@ test('two team members preserve a semantic comment through a re-edit and approve
     });
     const review = await reviewResponse.json() as {
       state: string;
-      members: Array<{ id: string }>;
+      members: Array<{ id: string; name: string; role: string; scope: string }>;
       comments: Array<{ event: { anchor: { mediaTimeMs: number } }; resolution: { status: string } }>;
     };
     expect(review.members.map(({ id }) => id).filter((id, index, ids) => ids.indexOf(id) === index)).toHaveLength(2);
+    expect(review.members).toContainEqual(expect.objectContaining({
+      name: 'Reviewer', role: 'editor', scope: 'team',
+    }));
     expect(review).toMatchObject({
       state: 'approved',
       comments: [{ event: { anchor: { mediaTimeMs: 7_100 } }, resolution: { status: 'matched' } }],
