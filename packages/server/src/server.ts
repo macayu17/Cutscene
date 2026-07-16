@@ -8,6 +8,8 @@ import { fitMediaClock, mapBoxToCapture, parseRecordingMeta, parseTraceEvent, re
 import { authenticate, canApprove, canComment, createReviewDocument, joinReview, publicReview,
   type ReviewMember, type ReviewState } from './review.ts';
 import { reviewPage } from './review-page.ts';
+import { listTimelineVersions, MAX_TIMELINE_BYTES, mergeTimelineUpdate, readTimelineUpdate,
+  readTimelineVersion } from './timeline-store.ts';
 
 const MAX_BYTES = 250 * 1024 * 1024; // one bundle cannot exhaust disk
 const MAX_JSON_BYTES = 64 * 1024;
@@ -28,6 +30,11 @@ function html(res: ServerResponse, status: number, body: string): void {
   const payload = Buffer.from(body);
   res.writeHead(status, { 'content-type': 'text/html; charset=utf-8', 'content-length': payload.length });
   res.end(payload);
+}
+
+function binary(res: ServerResponse, status: number, body: Uint8Array): void {
+  res.writeHead(status, { 'content-type': 'application/octet-stream', 'content-length': body.length });
+  res.end(body);
 }
 
 function readBody(req: IncomingMessage, maximum = MAX_BYTES): Promise<Buffer | null> {
@@ -114,10 +121,44 @@ export async function handle(req: IncomingMessage, res: ServerResponse, root: st
     return json(res, 201, { id, ownerToken, invitationToken });
   }
 
+  if (parts.length === 5 && parts[0] === 'api' && parts[1] === 'recordings' && parts[3] === 'versions') {
+    const id = parts[2]!;
+    const version = Number(parts[4]);
+    if (!isValidId(id)) return json(res, 400, { error: 'invalid recording id' });
+    const member = await memberFor(req, root, id);
+    if (!member) return json(res, 401, { error: 'member token required' });
+    if (!canApprove(member.role)) return json(res, 403, { error: 'member cannot read timeline history' });
+    if (req.method !== 'GET') return json(res, 405, { error: 'method not allowed' });
+    const snapshot = await readTimelineVersion(root, id, version);
+    return snapshot ? binary(res, 200, snapshot) : json(res, 404, { error: 'timeline version not found' });
+  }
+
   if (parts.length === 4 && parts[0] === 'api' && parts[1] === 'recordings') {
     const id = parts[2]!;
     if (!isValidId(id)) return json(res, 400, { error: 'invalid recording id' });
     const action = parts[3]!;
+
+    if (action === 'timeline') {
+      const member = await memberFor(req, root, id);
+      if (!member) return json(res, 401, { error: 'member token required' });
+      if (!canApprove(member.role)) return json(res, 403, { error: 'member cannot access timeline edits' });
+      if (req.method === 'GET') return binary(res, 200, await readTimelineUpdate(root, id));
+      if (req.method !== 'POST') return json(res, 405, { error: 'method not allowed' });
+      const contentLength = Number(req.headers['content-length'] ?? 0);
+      if (contentLength > MAX_TIMELINE_BYTES) return json(res, 413, { error: 'timeline update is too large' });
+      const update = await readBody(req, MAX_TIMELINE_BYTES);
+      if (!update) return json(res, 413, { error: 'timeline update is too large or unreadable' });
+      const merged = await mergeTimelineUpdate(root, id, member.id, update, new Date().toISOString());
+      return merged.ok ? json(res, 200, merged.value) : json(res, 400, { error: merged.error });
+    }
+
+    if (action === 'versions') {
+      const member = await memberFor(req, root, id);
+      if (!member) return json(res, 401, { error: 'member token required' });
+      if (!canApprove(member.role)) return json(res, 403, { error: 'member cannot read timeline history' });
+      return req.method === 'GET' ? json(res, 200, await listTimelineVersions(root, id))
+        : json(res, 405, { error: 'method not allowed' });
+    }
 
     if (action === 'join' && req.method === 'POST') {
       const input = await readJson(req);

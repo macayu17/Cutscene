@@ -5,6 +5,7 @@ import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { handle } from './server.ts';
+import * as Y from 'yjs';
 
 const servers: Server[] = [];
 const roots: string[] = [];
@@ -78,6 +79,22 @@ async function joinReviewer(base: string, created: CreatedRecording): Promise<{ 
   });
   expect(response.status).toBe(201);
   return await response.json() as { memberId: string; memberToken: string };
+}
+
+function timelineUpdate(value: string): Uint8Array {
+  const document = new Y.Doc();
+  document.getArray<string>('timeline').push([value]);
+  const update = Y.encodeStateAsUpdate(document);
+  document.destroy();
+  return update;
+}
+
+async function timelineValues(response: Response): Promise<string[]> {
+  const document = new Y.Doc();
+  Y.applyUpdate(document, new Uint8Array(await response.arrayBuffer()));
+  const values = document.getArray<string>('timeline').toArray();
+  document.destroy();
+  return values;
 }
 
 it('permits editor POST and PUT requests across origins', async () => {
@@ -224,4 +241,36 @@ it('re-anchors an open comment when a replacement trace moves its event', async 
     method: 'PUT', headers: auth(created.ownerToken), body: JSON.stringify({ v: 1 }),
   })).status).toBe(400);
   expect(await (await fetch(`${base}/api/recordings/${created.id}/trace.jsonl`)).text()).toBe(movedTrace);
+});
+
+it('merges authenticated timeline updates and serves snapshot history', async () => {
+  const base = await startServer();
+  const created = await createRecording(base);
+  const reviewer = await joinReviewer(base, created);
+  const url = `${base}/api/recordings/${created.id}/timeline`;
+  const first = timelineUpdate('zoom_1');
+
+  expect((await fetch(url, { method: 'POST', body: first })).status).toBe(401);
+  expect((await fetch(url, { method: 'POST', headers: auth(reviewer.memberToken), body: first })).status).toBe(403);
+  const firstMerge = await fetch(url, { method: 'POST', headers: auth(created.ownerToken), body: first });
+  expect(firstMerge.status).toBe(200);
+  expect(await firstMerge.json()).toEqual({ changed: true, version: 1 });
+
+  const duplicate = await fetch(url, { method: 'POST', headers: auth(created.ownerToken), body: first });
+  expect(await duplicate.json()).toEqual({ changed: false, version: 1 });
+  const second = timelineUpdate('callout_1');
+  expect(await (await fetch(url, { method: 'POST', headers: auth(created.ownerToken), body: second })).json())
+    .toEqual({ changed: true, version: 2 });
+
+  const current = await fetch(url, { headers: auth(created.ownerToken) });
+  expect(current.headers.get('content-type')).toBe('application/octet-stream');
+  expect((await timelineValues(current)).sort()).toEqual(['callout_1', 'zoom_1']);
+  const versions = await fetch(`${base}/api/recordings/${created.id}/versions`, { headers: auth(created.ownerToken) });
+  expect((await versions.json()) as unknown[]).toHaveLength(2);
+  const versionOne = await fetch(`${base}/api/recordings/${created.id}/versions/1`, { headers: auth(created.ownerToken) });
+  expect(await timelineValues(versionOne)).toEqual(['zoom_1']);
+  expect((await fetch(`${base}/api/recordings/${created.id}/versions/99`, { headers: auth(created.ownerToken) })).status)
+    .toBe(404);
+  expect((await fetch(url, { method: 'POST', headers: auth(created.ownerToken), body: Uint8Array.from([255, 1]) })).status)
+    .toBe(400);
 });
