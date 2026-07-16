@@ -175,7 +175,7 @@ function reportRows(report: DriftReport, status: ActionResult['status']): string
     const locator = action?.locatorType === null || action?.locatorType === undefined
       ? null
       : `${action.locatorType}${action.locatorIndex === null ? '' : `[${action.locatorIndex}]`}`;
-    const detail = locator ?? action?.reason;
+    const detail = action?.reason ?? locator;
     return `  1 step ${status.padEnd(10)} ${step.label}${detail ? `  ${detail}` : ''}`;
   });
 }

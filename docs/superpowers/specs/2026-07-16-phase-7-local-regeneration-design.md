@@ -43,8 +43,9 @@ drift-report types live in `packages/trace`, where they can be tested without a
 browser and reused by later CI work.
 
 The command is `cutscene-regenerate --config demo.yml --dry-run`, with an
-optional `--demo <id>` filter. Relative trace, output, and report paths resolve
-from the directory containing `demo.yml`. The seed command also runs there.
+optional `--demo <id>` filter. Relative trace and report paths resolve from the
+directory containing `demo.yml`. Declared output paths are validated but are
+not used in a dry run. The seed command also runs beside `demo.yml`.
 
 The runner directly consumes parsed trace events. It does not generate and then
 parse a Playwright test. Direct execution keeps locator fallbacks and failure
@@ -56,13 +57,15 @@ Neither dependency enters the extension bundle.
 
 ## Replay planning
 
-Actionable trace events are `interaction.click` and `interaction.input` events
-with a target. Events are grouped by `stepId` in trace order.
+Actionable trace events are `interaction.click` and `interaction.input` events.
+Events are grouped by `stepId` in trace order. An event without a target is kept
+and becomes orphaned during locator resolution.
 
-- A step containing a click replays the click and ignores the paired checkbox
-  input event emitted by the browser.
-- A step containing only input events fills once, using the last input target
-  and the configured value for that step.
+- A checkbox or radio click ignores the paired input event emitted by the
+  browser.
+- Repeated inputs for one target collapse to the last sample. A configured
+  value for the step overrides the captured value.
+- A non-checkbox input and click in the same step keep their recorded order.
 - A masked input without a configured value is a configuration error.
 - Multiple distinct input targets in one step are unreplayable and fail before
   browser launch.
@@ -105,10 +108,11 @@ Neither report contains resolved input values.
 
 Exit codes are:
 
-- `0`: every evaluated step matched.
+- `0`: every planned step was evaluated and matched.
 - `1`: at least one step drifted or orphaned.
 - `2`: invalid configuration, missing environment value, invalid trace,
-  unsupported replay plan, seed failure, or browser failure.
+  unsupported replay plan, seed failure, browser failure, or report write
+  failure.
 
 Each report file is written through a sibling temporary file and rename. The
 versioned JSON report is written last and is the authoritative completion
@@ -133,8 +137,10 @@ stable report formatting, and exit-code selection.
 
 A Playwright test uses a local fixture page to prove all three locator outcomes
 and action execution without network access. A separate live TodoMVC dry-run
-uses the corrected reference trace to demonstrate honest reporting; it is not
-allowed to claim a full replay where the source trace omitted keyboard actions.
+uses the corrected reference trace to demonstrate honest failure reporting. It
+stops before browser launch because one masked input sample in `step_0000` has
+no locator set while the other samples do; the runner does not merge those
+targets by guessed geometry.
 
 ## Deferred work
 

@@ -39,6 +39,8 @@ right.
   skeleton, and imported SRT/VTT captions.
 - A minimal filesystem-backed server for uploading a bundle and sharing its
   video through a public link.
+- A local regeneration dry run that replays ranked locators and writes a drift
+  report without rendering assets or opening a pull request.
 
 ## Run locally
 
@@ -70,6 +72,51 @@ It stores bundles in `data/` and listens on port `4180`. After loading a
 recording in the editor, choose **Create share link** and enter the server URL.
 The editor uploads the original three files and shows the public link.
 
+## Check a recorded flow against a current build
+
+The Phase 7 runner has one local mode. It validates `demo.yml`, optionally runs
+a seed command, replays the stored trace in Chromium, and reports which ranked
+locator resolved each action. It does not capture new pixels, render the
+declared outputs, use hosted CI, or open a pull request.
+
+```yaml
+version: 1
+demos:
+  - id: todo-flow
+    trace: .cutscene/todo-flow.trace.jsonl
+    baseUrl: ${{ env.PREVIEW_URL }}
+    seed: pnpm run seed:demo
+    inputs:
+      step_0001: ${{ env.DEMO_TODO }}
+    outputs:
+      - type: gif
+        path: docs/assets/todo-flow.gif
+        width: 800
+```
+
+An environment reference must occupy the whole value. Input overrides are
+keyed by the recorded `stepId` and stay in memory; they are not written to the
+trace or reports.
+
+```powershell
+$env:PREVIEW_URL='http://127.0.0.1:4173'
+$env:DEMO_TODO='Recorded demo value'
+pnpm --filter @cutscene/runner regenerate -- --config demo.yml --dry-run
+```
+
+Add `--demo todo-flow` to run one configured demo. Reports are written to
+`.cutscene/reports/<demo-id>/drift-report.json` and `drift-report.txt` beside
+`demo.yml`.
+
+- Exit `0`: every planned step was evaluated and matched its first locator.
+- Exit `1`: at least one step drifted, became orphaned, or was not evaluated.
+- Exit `2`: the config, trace, replay plan, seed, browser, or report write
+  failed.
+
+Version 1 keypress events do not record the key value, so the runner rejects
+them instead of inventing an action such as Enter. A keyboard action absent
+from the trace can also cause a later locator to become orphaned.
+
 ## Record and edit
 
 1. Open a DOM-based page in Chrome.
@@ -90,7 +137,7 @@ zooms landed on the correct element; mean timing error was 0.258 frame and the
 maximum was 0.422 frame. The 800×450 README GIF was 2,352,555 bytes at 15fps.
 See [the evidence report](docs/phase-1-evidence.md) for the full measurements.
 
-Phase 5 is in progress. See [`STATUS.md`](STATUS.md) for implementation
+Phase 7 is in progress. See [`STATUS.md`](STATUS.md) for implementation
 evidence, measured artifacts, and gate history.
 
 ## Development
@@ -102,10 +149,11 @@ pnpm build
 pnpm e2e
 ```
 
-The repository has four active packages:
+The repository has five active packages:
 
 - `packages/extension` — Manifest V3 capture extension.
 - `packages/trace` — schema, privacy, locators, clock mapping, coordinates, and
   zoom generation.
 - `packages/editor` — local React editor and FFmpeg export pipeline.
 - `packages/server` — optional self-hosted public share links.
+- `packages/runner` — local `demo.yml` validation, replay, and drift reports.

@@ -1,5 +1,51 @@
 Phase: 7
 
+Phase 7 local dry-run progress (2026-07-16):
+  [x] strict version 1 `demo.yml` parser with exact environment references
+  [x] deterministic replay planning by `stepId`
+  [x] ranked Playwright locator resolution in local Chromium
+  [x] matched, drifted, and orphaned action and step classification
+  [x] deterministic JSON and text drift reports written atomically
+  [x] local CLI with demo filtering and exit codes 0, 1, and 2
+  [x] real CLI end-to-end proof against a local HTTP fixture
+  [ ] fresh trace and pixel capture
+  [ ] GIF, MP4, and documentation regeneration
+  [ ] hosted CI, automatic pull request, and auto-merge
+
+Local Chromium dry-run evidence:
+  planned / evaluated steps: 4 / 4
+  matched / drifted / orphaned: 2 / 1 / 1
+  chosen locator tiers: testId[0], role[1], label[0], none
+  abort point: step_4
+  CLI exit code: 1
+  injected input value occurrences in JSON, text, stdout, and stderr: 0
+  Playwright result: 1/1 passed in 2.1 s
+
+Corrected TodoMVC trace dry-run:
+  source: artifacts/phase6-human-reedit/trace.jsonl
+  trace SHA-256: 2010D010ADE064B439BCAAD4EC3E262F42EB53DC90A2D9C81E9BE25397419599
+  trace events: 77 (5 clicks, 13 inputs)
+  configured input override: step_0000 through environment
+  CLI exit code: 2
+  measured reason: step step_0000 contains multiple input targets
+  cause in source trace: seven input samples carry the ranked locator set and
+                         one masked sample carries no locators
+  browser launched: no; replay validation stopped first
+  workaround applied: no
+
+This is a local Phase 7 slice, not the Phase 7 exit. PRD.md requires an
+automatically opened pull request against a repository we do not control and a
+merge. No pull request or paid CI was used, so `Phase: 7` remains unchanged.
+
+Phase 7 local verification:
+  repository tests: 259 passed (76 trace, 25 server, 118 editor, 13 extension,
+                    27 runner) in 9.1 s
+  typecheck: 5/5 active packages passed in 8.5 s
+  root build: trace, editor, and extension build scripts passed in 9.2 s
+  Chromium E2E: 4/4 passed in 38.0 s
+    regeneration runner: 1/1 passed in 2.1 s
+    capture and collaboration: 3/3 passed in 31.6 s
+
 Phase 6 passed on 2026-07-16. Two actual people reviewed the corrected demo as
 members of the same team: Owner (owner) and Ayush - Editor (editor). The owner
 requested review and the editor approved it.
