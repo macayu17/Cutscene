@@ -13,6 +13,7 @@ until demanded.
 - Upload a recording bundle (`media.webm`, `trace.jsonl`, `meta.json`) to a
   self-hosted server.
 - Get back a public URL.
+- Create that upload and URL from the editor without manual HTTP commands.
 - Opening that URL plays the demo for anyone, signed in or not.
 
 Nothing else. No account, no login, no dashboard.
@@ -27,9 +28,9 @@ run. Node 22 strips TypeScript types natively and ships `node:http`, so:
   No database — a recording is a folder, a share link is its id.
 - `node:crypto` for the id.
 
-The one dependency already in the workspace, `@cutscene/trace`, validates the
-uploaded `meta.json` and `trace.jsonl` so a malformed bundle is rejected at the
-trust boundary rather than served later.
+The upload boundary checks JSON syntax, schema version and JSONL syntax without
+adding a server dependency. Full trace-schema validation can be added if the
+server later accepts bundles from producers other than the Cutscene editor.
 
 ## API
 
@@ -46,12 +47,24 @@ Plain PUTs, so there is no multipart parser to own. The id is opaque and
 unguessable (`crypto.randomUUID`), which is the only access control this wedge
 has — matching "public share link" and nothing more.
 
+The server answers browser preflight requests and returns CORS headers so the
+editor can call a separately hosted server.
+
+## Editor flow
+
+The editor retains the original three files after loading a recording. A
+`Create share link` button asks for the server URL, defaulting to
+`http://localhost:4180`, creates a recording, and uploads the files unchanged.
+The resulting public URL is shown beside the editor as a normal link. While the
+upload runs the button is disabled; a failed request states which operation
+failed and leaves the recording loaded.
+
 ## Trust boundary
 
 - `:id` is validated as a UUID; path traversal is impossible because the id can
   only be `[0-9a-f-]` and `:file` is one of three fixed names.
-- `meta.json` must parse with `parseRecordingMeta`; `trace.jsonl` lines must
-  parse with `parseTraceEvent`. A bundle that fails is rejected on upload.
+- `meta.json` must be JSON with `schemaVersion: 1`; every non-empty
+  `trace.jsonl` line must be JSON. A bundle that fails is rejected on upload.
 - Upload size is capped so a single request cannot exhaust disk.
 - No auth: the wedge only serves public links. Private links are deferred.
 
@@ -70,7 +83,8 @@ request; errors are values.
 
 ## Verification
 
-- Unit-test id validation, path-name allowlisting, and bundle rejection.
+- Unit-test id validation, path-name allowlisting, bundle rejection, browser
+  preflight, and the editor upload sequence.
 - Drive the running server over HTTP: create a recording, PUT the three real
   bundle files, GET `/r/:id`, and confirm the page loads and the video bytes are
   served with a video content-type and non-zero length. Report the id, the
