@@ -5,6 +5,7 @@ import {
   brandFontFamily,
   deleteBrandPreset,
   emptyBrandState,
+  parseBrandPresets,
   parseBrandState,
   selectBrandPreset,
   selectedBrandPreset,
@@ -76,6 +77,13 @@ it('rejects blank and duplicate preset ids', () => {
   const first = addBrandPreset(emptyBrandState(), 'same');
   expect(addBrandPreset(first, 'same')).toEqual(first);
   expect(addBrandPreset(first, '  ')).toEqual(first);
+});
+
+it('validates a standalone shared preset list', () => {
+  const preset = { id: 'shared', name: 'Shared', color: '#336699', font: 'mono', intro: '', outro: '', watermark: '' };
+  expect(parseBrandPresets([preset])).toEqual([preset]);
+  expect(parseBrandPresets([{ ...preset, color: 'blue' }])).toBeNull();
+  expect(parseBrandPresets([preset, preset])).toBeNull();
 });
 
 it('round trips valid state', () => {

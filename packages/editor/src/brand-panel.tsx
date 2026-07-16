@@ -8,6 +8,10 @@ export function BrandPanel() {
   const update = useEditorStore((state) => state.updateBrandPreset);
   const select = useEditorStore((state) => state.selectBrandPreset);
   const remove = useEditorStore((state) => state.deleteBrandPreset);
+  const shared = useEditorStore((state) => state.sharedReviewUrl !== null);
+  const kitStatus = useEditorStore((state) => state.brandKitStatus);
+  const reloadKit = useEditorStore((state) => state.reloadSharedBrandKit);
+  const saveKit = useEditorStore((state) => state.saveSharedBrandKit);
   const selected = presets.find(({ id }) => id === selectedId) ?? null;
   return <div className="brand-controls" aria-label="Brand presets">
     <strong>BRAND</strong>
@@ -17,6 +21,7 @@ export function BrandPanel() {
     </select>
     <button type="button" onClick={add}>New</button>
     <button type="button" disabled={!selected} onClick={() => { if (selected) remove(selected.id); }}>Delete</button>
+    {shared ? <><button type="button" onClick={() => void saveKit()}>Save team kit</button><button type="button" onClick={() => void reloadKit()}>Reload team kit</button><span>{kitStatus.state === 'error' ? kitStatus.error : `kit ${kitStatus.state}`}</span></> : null}
     {selected ? <>
       <input key={`${selected.id}-name`} aria-label="Preset name" defaultValue={selected.name} onChange={(event) => update(selected.id, { name: event.currentTarget.value })}/>
       <input aria-label="Brand colour" type="color" value={selected.color} onChange={(event) => update(selected.id, { color: event.currentTarget.value })}/>

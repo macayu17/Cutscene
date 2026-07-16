@@ -42,11 +42,9 @@ export function parseBrandState(raw: string | null): BrandState {
   if (raw === null) return emptyBrandState();
   try {
     const value: unknown = JSON.parse(raw);
-    if (!hasExactKeys(value, STATE_KEYS) || !Array.isArray(value.brandPresets)) return emptyBrandState();
-    const brandPresets = value.brandPresets.map(parsePreset);
-    if (brandPresets.some((preset) => preset === null)) return emptyBrandState();
-    const validPresets = brandPresets as BrandPreset[];
-    if (new Set(validPresets.map(({ id }) => id)).size !== validPresets.length) return emptyBrandState();
+    if (!hasExactKeys(value, STATE_KEYS)) return emptyBrandState();
+    const validPresets = parseBrandPresets(value.brandPresets);
+    if (validPresets === null) return emptyBrandState();
     const selectedBrandId = value.selectedBrandId;
     if (selectedBrandId !== null && (typeof selectedBrandId !== 'string' || !validPresets.some((preset) => preset.id === selectedBrandId))) {
       return emptyBrandState();
@@ -55,6 +53,14 @@ export function parseBrandState(raw: string | null): BrandState {
   } catch {
     return emptyBrandState();
   }
+}
+
+export function parseBrandPresets(value: unknown): BrandPreset[] | null {
+  if (!Array.isArray(value)) return null;
+  const presets = value.map(parsePreset);
+  if (presets.some((preset) => preset === null)) return null;
+  const valid = presets as BrandPreset[];
+  return new Set(valid.map(({ id }) => id)).size === valid.length ? valid : null;
 }
 
 export function serializeBrandState(state: BrandState): string {

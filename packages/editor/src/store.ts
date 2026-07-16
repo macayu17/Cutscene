@@ -15,6 +15,9 @@ import { DEFAULT_CURSOR_SETTINGS, updateCursorSettings as updateCursorSettingsEd
 import { parseCaptions, type CaptionCue } from '@cutscene/trace';
 import { createTimelineDocument, type TimelineDocument } from './timeline-document';
 import { connectTimelineSync, type TimelineConnection, type TimelineSyncStatus } from './timeline-sync';
+import { loadSharedBrandKit, saveSharedBrandKit as saveBrandKit } from './brand-kit-sync';
+
+export type BrandKitStatus = { state: 'idle' | 'syncing' | 'synced' } | { state: 'error'; error: string };
 
 export type EditorState = {
   bundle: BundleData | null;
@@ -40,6 +43,8 @@ export type EditorState = {
   timelineDocument: TimelineDocument | null;
   timelineConnection: TimelineConnection | null;
   timelineSyncStatus: TimelineSyncStatus;
+  sharedReviewUrl: string | null;
+  brandKitStatus: BrandKitStatus;
   loadCaptions: (text: string) => void;
   load: (bundle: BundleData, mediaUrl: string, media?: File) => void;
   releaseMedia: () => void;
@@ -65,6 +70,8 @@ export type EditorState = {
   updateCursorSettings: (patch: Partial<CursorSettings>) => void;
   connectSharedTimeline: (ownerUrl: string) => Promise<void>;
   disconnectSharedTimeline: () => void;
+  reloadSharedBrandKit: () => Promise<void>;
+  saveSharedBrandKit: () => Promise<void>;
 };
 
 const creator = (set: StoreApi<EditorState>['setState'], get: StoreApi<EditorState>['getState']): EditorState => ({
@@ -75,6 +82,7 @@ const creator = (set: StoreApi<EditorState>['setState'], get: StoreApi<EditorSta
   cursorSettings: DEFAULT_CURSOR_SETTINGS,
   captions: [], captionError: null,
   timelineDocument: null, timelineConnection: null, timelineSyncStatus: { state: 'idle' },
+  sharedReviewUrl: null, brandKitStatus: { state: 'idle' },
   loadCaptions: (text) => set(() => {
     const parsed = parseCaptions(text);
     return parsed.ok ? { captions: parsed.value, captionError: null } : { captions: [], captionError: parsed.error };
@@ -199,13 +207,37 @@ const creator = (set: StoreApi<EditorState>['setState'], get: StoreApi<EditorSta
       return;
     }
     const connection = connected.value;
-    set({ timelineConnection: { ...connection, stop: () => { connection.stop(); stopObserving(); } } });
+    set({ timelineConnection: { ...connection, stop: () => { connection.stop(); stopObserving(); } },
+      sharedReviewUrl: ownerUrl });
+    await get().reloadSharedBrandKit();
   },
   disconnectSharedTimeline: () => {
     const state = get();
     state.timelineConnection?.stop();
     state.timelineDocument?.destroy();
-    set({ timelineDocument: null, timelineConnection: null, timelineSyncStatus: { state: 'idle' } });
+    set({ timelineDocument: null, timelineConnection: null, timelineSyncStatus: { state: 'idle' },
+      sharedReviewUrl: null, brandKitStatus: { state: 'idle' } });
+  },
+  reloadSharedBrandKit: async () => {
+    const reviewUrl = get().sharedReviewUrl;
+    if (!reviewUrl) return;
+    set({ brandKitStatus: { state: 'syncing' } });
+    const loaded = await loadSharedBrandKit(reviewUrl);
+    if (!loaded.ok) { set({ brandKitStatus: { state: 'error', error: loaded.error } }); return; }
+    if (loaded.value.length > 0) {
+      const selectedBrandId = loaded.value.some(({ id }) => id === get().selectedBrandId)
+        ? get().selectedBrandId : loaded.value[0]?.id ?? null;
+      set({ ...persistBrandState({ brandPresets: loaded.value, selectedBrandId }), brandKitStatus: { state: 'synced' } });
+      return;
+    }
+    set({ brandKitStatus: { state: 'synced' } });
+  },
+  saveSharedBrandKit: async () => {
+    const state = get();
+    if (!state.sharedReviewUrl) return;
+    set({ brandKitStatus: { state: 'syncing' } });
+    const saved = await saveBrandKit(state.sharedReviewUrl, state.brandPresets);
+    set({ brandKitStatus: saved.ok ? { state: 'synced' } : { state: 'error', error: saved.error } });
   },
 });
 

@@ -13,7 +13,21 @@ const segment = {
 
 it('binds local editor actions and remote timeline updates without replacing the store', async () => {
   const server = new Y.Doc();
-  const request = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+  const sharedPreset = {
+    id: 'shared', name: 'Shared kit', color: '#336699', font: 'mono' as const,
+    intro: '', outro: '', watermark: 'ACME',
+  };
+  let savedBrandPresets: unknown = null;
+  const request = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (String(input).endsWith('/brand-kit')) {
+      if (init?.method === 'PUT') {
+        savedBrandPresets = JSON.parse(String(init.body));
+        return new Response('{}', { status: 200 });
+      }
+      return new Response(JSON.stringify({ brandPresets: [sharedPreset] }), {
+        status: 200, headers: { 'content-type': 'application/json' },
+      });
+    }
     if (init?.method === 'POST') {
       Y.applyUpdate(server, new Uint8Array(await new Response(init.body).arrayBuffer()));
       return new Response(JSON.stringify({ changed: true, version: 1 }), {
@@ -30,6 +44,11 @@ it('binds local editor actions and remote timeline updates without replacing the
   store.setState({ segments: [segment], callouts: [], redactions: [], selectedSegmentId: 'zoom_1' });
 
   await store.getState().connectSharedTimeline('https://share.example/r/123#token=secret');
+  expect(store.getState().brandPresets).toEqual([sharedPreset]);
+  expect(store.getState().brandKitStatus).toEqual({ state: 'synced' });
+  store.getState().updateBrandPreset('shared', { name: 'Updated kit' });
+  await store.getState().saveSharedBrandKit();
+  expect(savedBrandPresets).toEqual({ brandPresets: [{ ...sharedPreset, name: 'Updated kit' }] });
   store.getState().retimeSegment(900, 2_800);
   await store.getState().timelineConnection?.flush();
   const serverView = createTimelineDocument();
