@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { parseRecordingMeta, parseTraceEvent, type TraceEvent } from './schema';
+import { parseRecordingMeta, parseTraceEvent, type CalloutEvent, type TraceEvent } from './schema';
 
 const envelope = {
   v: 1,
@@ -49,6 +49,13 @@ describe('parseTraceEvent', () => {
     });
   });
 
+  it('rejects non-positive event geometry', () => {
+    expect(parseTraceEvent({ ...envelope, type: 'navigation', viewport: { ...envelope.viewport, width: 0 } }))
+      .toEqual({ ok: false, error: 'trace event coordinates are invalid' });
+    expect(parseTraceEvent({ ...envelope, type: 'navigation', viewport: { ...envelope.viewport, dpr: -1 } }))
+      .toEqual({ ok: false, error: 'trace event coordinates are invalid' });
+  });
+
   it('rejects target data on hover samples', () => {
     type HoverEvent = Extract<TraceEvent, { type: 'interaction.hover' }>;
     expectTypeOf<HoverEvent['target']>().toEqualTypeOf<undefined>();
@@ -96,6 +103,7 @@ describe('parseTraceEvent', () => {
   });
 
   it('parses only the v1 callout payload from the PRD', () => {
+    expectTypeOf<Extract<TraceEvent, { type: 'annotation.callout' }>>().toEqualTypeOf<CalloutEvent>();
     const callout = {
       ...envelope,
       type: 'annotation.callout',
@@ -129,6 +137,7 @@ describe('parseTraceEvent', () => {
     expect(parseTraceEvent({ ...visible, selector: '' })).toEqual({ ok: false, error: 'redaction sample is invalid' });
     expect(parseTraceEvent({ ...visible, visible: 'yes' })).toEqual({ ok: false, error: 'redaction sample is invalid' });
     expect(parseTraceEvent({ ...visible, box: { x: 1 } })).toEqual({ ok: false, error: 'redaction sample is invalid' });
+    expect(parseTraceEvent({ ...visible, box: { ...visible.box, height: 0 } })).toEqual({ ok: false, error: 'redaction sample is invalid' });
     expect(parseTraceEvent({ ...visible, target: {} })).toEqual({ ok: false, error: 'redaction sample is invalid' });
     expect(parseTraceEvent({ ...visible, text: 'secret' })).toEqual({ ok: false, error: 'redaction sample is invalid' });
     expect(parseTraceEvent({ ...visible, value: 'secret' })).toEqual({ ok: false, error: 'redaction sample is invalid' });

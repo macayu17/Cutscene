@@ -78,8 +78,8 @@ type NonCalloutTraceEvent = ClockSyncEvent | RedactionSampleEvent |
   (EventEnvelope & { type: Exclude<TraceEventType,
     'system.clockSync' | 'annotation.redaction' | 'annotation.callout' | 'interaction.hover' | 'interaction.click'> });
 
-export type TraceEvent = NonCalloutTraceEvent | (EventEnvelope & { type: 'annotation.callout' });
-export type ParsedTraceEvent = NonCalloutTraceEvent | CalloutEvent;
+export type TraceEvent = NonCalloutTraceEvent | CalloutEvent;
+export type ParsedTraceEvent = TraceEvent;
 
 export type RecordingMeta = {
   schemaVersion: 1;
@@ -127,8 +127,14 @@ function hasNumber(value: Record<string, unknown>, key: string): boolean {
   return typeof value[key] === 'number' && Number.isFinite(value[key]);
 }
 
+function hasPositiveNumber(value: Record<string, unknown>, key: string): boolean {
+  const number = value[key];
+  return typeof number === 'number' && Number.isFinite(number) && number > 0;
+}
+
 function isViewport(value: unknown): value is Viewport {
-  return isRecord(value) && hasNumber(value, 'width') && hasNumber(value, 'height') && hasNumber(value, 'dpr');
+  return isRecord(value) && hasPositiveNumber(value, 'width') &&
+    hasPositiveNumber(value, 'height') && hasPositiveNumber(value, 'dpr');
 }
 
 function isScroll(value: unknown): value is ScrollPosition {
@@ -137,7 +143,7 @@ function isScroll(value: unknown): value is ScrollPosition {
 
 function isBox(value: unknown): value is BoundingBox {
   return isRecord(value) && hasNumber(value, 'x') && hasNumber(value, 'y') &&
-    hasNumber(value, 'width') && hasNumber(value, 'height');
+    hasPositiveNumber(value, 'width') && hasPositiveNumber(value, 'height');
 }
 
 function isPointer(value: unknown): value is PointerPosition {

@@ -28,11 +28,11 @@ describe('sanitizeTarget', () => {
       value: secrets[2],
       sensitive: true,
       locators: [
-        { type: 'testId', value: 'submit-token', confidence: 1 },
+        { type: 'testId', value: 'secret-id-only', confidence: 1 },
         { type: 'role', role: 'button', name: secrets[0], confidence: 0.9 },
         { type: 'label', value: secrets[1], confidence: 0.8 },
         { type: 'text', value: secrets[2], confidence: 0.6 },
-        { type: 'css', value: '#submit-token', confidence: 0.2 },
+        { type: 'css', value: '#secret-id-only', confidence: 0.2 },
         { type: 'css', value: `#${secrets[1]}`, confidence: 0.1 },
       ],
     });
@@ -44,13 +44,11 @@ describe('sanitizeTarget', () => {
       tagName: 'INPUT',
       boundingBox: target.boundingBox,
       value: '[MASKED]',
-      locators: [
-        { type: 'testId', value: 'submit-token', confidence: 1 },
-        { type: 'css', value: '#submit-token', confidence: 0.2 },
-      ],
+      locators: [],
     });
     const serialized = JSON.stringify(sanitized);
     for (const secret of secrets) expect(serialized).not.toContain(secret);
+    expect(serialized).not.toContain('secret-id-only');
   });
 
   it('unmasks only an explicitly matched selector', () => {
