@@ -8,3 +8,4 @@ export * from './skeleton.ts';
 export * from './docs.ts';
 export * from './captions.ts';
 export * from './comments.ts';
+export * from './regeneration.ts';
