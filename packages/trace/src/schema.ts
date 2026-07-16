@@ -72,13 +72,21 @@ export type CalloutEvent = Omit<EventEnvelope, 'target'> & {
   target?: never;
 };
 
+export type CommentEvent = Omit<EventEnvelope, 'target'> & {
+  type: 'annotation.comment';
+  anchor: { stepId: string; locators: Locator[]; mediaTimeMs: number };
+  body: string;
+  target?: never;
+};
+
 type NonCalloutTraceEvent = ClockSyncEvent | RedactionSampleEvent |
   (Omit<EventEnvelope, 'target'> & { type: 'interaction.hover'; pointer: PointerPosition; target?: never }) |
   (EventEnvelope & { type: 'interaction.click'; pointer?: PointerPosition }) |
   (EventEnvelope & { type: Exclude<TraceEventType,
-    'system.clockSync' | 'annotation.redaction' | 'annotation.callout' | 'interaction.hover' | 'interaction.click'> });
+    'system.clockSync' | 'annotation.redaction' | 'annotation.callout' | 'annotation.comment' |
+    'interaction.hover' | 'interaction.click'> });
 
-export type TraceEvent = NonCalloutTraceEvent | CalloutEvent;
+export type TraceEvent = NonCalloutTraceEvent | CalloutEvent | CommentEvent;
 export type ParsedTraceEvent = TraceEvent;
 
 export type RecordingMeta = {
@@ -111,9 +119,12 @@ const redactionKeys = new Set(['v', 'id', 't', 'type', 'stepId', 'route', 'viewp
 const targetKeys = new Set(['role', 'accessibleName', 'text', 'tagName', 'boundingBox', 'locators', 'value']);
 const calloutKeys = new Set(['v', 'id', 't', 'type', 'stepId', 'route', 'viewport', 'scroll',
   'anchor', 'text', 'placement']);
+const commentKeys = new Set(['v', 'id', 't', 'type', 'stepId', 'route', 'viewport', 'scroll',
+  'anchor', 'body']);
 const locatorValueKeys = new Set(['type', 'value', 'confidence']);
 const locatorRoleKeys = new Set(['type', 'role', 'name', 'confidence']);
 const anchorKeys = new Set(['stepId', 'locators']);
+const commentAnchorKeys = new Set(['stepId', 'locators', 'mediaTimeMs']);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -184,6 +195,15 @@ function isCallout(value: Record<string, unknown>): boolean {
     hasOnlyKeys(value, calloutKeys);
 }
 
+function isComment(value: Record<string, unknown>): boolean {
+  const anchor = value.anchor;
+  return isRecord(anchor) && typeof anchor.stepId === 'string' && anchor.stepId.length > 0 &&
+    isLocators(anchor.locators) && typeof anchor.mediaTimeMs === 'number' && Number.isFinite(anchor.mediaTimeMs) &&
+    anchor.mediaTimeMs >= 0 &&
+    hasOnlyKeys(anchor, commentAnchorKeys) && typeof value.body === 'string' && value.body.trim().length > 0 &&
+    hasOnlyKeys(value, commentKeys);
+}
+
 function isPositiveDimensions(value: unknown, keys: readonly string[]): value is Record<string, number> {
   if (!isRecord(value)) return false;
   return keys.every((key) => {
@@ -236,6 +256,9 @@ export function parseTraceEvent(input: unknown): Result<ParsedTraceEvent> {
   if (input.type === 'interaction.hover' && 'target' in input) return { ok: false, error: 'hover sample is invalid' };
   if (input.type === 'annotation.callout' && !isCallout(input)) {
     return { ok: false, error: 'callout annotation is invalid' };
+  }
+  if (input.type === 'annotation.comment' && !isComment(input)) {
+    return { ok: false, error: 'comment annotation is invalid' };
   }
   if (input.type === 'system.clockSync' &&
       (!hasNumber(input, 'contentClockMs') || !hasNumber(input, 'workerClockMs') || !hasNumber(input, 'mediaTimeMs'))) {

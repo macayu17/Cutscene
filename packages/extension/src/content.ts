@@ -78,7 +78,8 @@ function target(element: Element): TargetDescriptor | null {
   return sanitizeTarget(observation);
 }
 
-function emit(type: Exclude<TraceEventType, 'system.clockSync' | 'annotation.redaction' | 'annotation.callout'>,
+function emit(type: Exclude<TraceEventType,
+  'system.clockSync' | 'annotation.redaction' | 'annotation.callout' | 'annotation.comment'>,
   targetDescriptor?: TargetDescriptor,
   pointer?: PointerPosition): void {
   if (sessionEpoch === null || !captureReady) return;

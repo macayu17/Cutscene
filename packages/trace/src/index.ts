@@ -7,3 +7,4 @@ export * from './zoom';
 export * from './skeleton';
 export * from './docs';
 export * from './captions';
+export * from './comments';

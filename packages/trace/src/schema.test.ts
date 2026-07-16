@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { parseRecordingMeta, parseTraceEvent, type CalloutEvent, type TraceEvent } from './schema';
+import { parseRecordingMeta, parseTraceEvent, type CalloutEvent, type CommentEvent, type TraceEvent } from './schema';
 
 const envelope = {
   v: 1,
@@ -124,6 +124,32 @@ describe('parseTraceEvent', () => {
       { ...callout, target: {} },
     ]) {
       expect(parseTraceEvent(malformed)).toEqual({ ok: false, error: 'callout annotation is invalid' });
+    }
+  });
+
+  it('parses only the v1 element-comment payload from the PRD', () => {
+    expectTypeOf<Extract<TraceEvent, { type: 'annotation.comment' }>>().toEqualTypeOf<CommentEvent>();
+    const comment = {
+      ...envelope,
+      type: 'annotation.comment',
+      anchor: {
+        stepId: 'step_3',
+        locators: [{ type: 'testId', value: 'export-pdf', confidence: 1 }],
+        mediaTimeMs: 4_200,
+      },
+      body: 'Mention PDF export.',
+    };
+    expect(parseTraceEvent(comment)).toEqual({ ok: true, value: comment });
+    for (const malformed of [
+      { ...comment, body: '   ' },
+      { ...comment, anchor: { ...comment.anchor, mediaTimeMs: -1 } },
+      { ...comment, anchor: { ...comment.anchor, mediaTimeMs: Number.NaN } },
+      { ...comment, anchor: { ...comment.anchor, stepId: '' } },
+      { ...comment, anchor: { ...comment.anchor, locators: {} } },
+      { ...comment, extra: true },
+      { ...comment, target: {} },
+    ]) {
+      expect(parseTraceEvent(malformed)).toEqual({ ok: false, error: 'comment annotation is invalid' });
     }
   });
 
