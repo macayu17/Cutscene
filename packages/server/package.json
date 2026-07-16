@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@cutscene/trace": "workspace:*"
+    "@cutscene/trace": "workspace:*",
+    "yjs": "^13.6.31"
   },
   "devDependencies": {
     "@types/node": "^22.10.0"
