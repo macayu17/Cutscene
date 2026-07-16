@@ -44,7 +44,7 @@ export type ReviewDocument = {
   presence: PresenceLease[];
 };
 
-export type ReviewView = Omit<ReviewDocument, 'members' | 'invitations'> & {
+export type ReviewView = Omit<ReviewDocument, 'members' | 'invitations' | 'brandKit'> & {
   currentMemberId: string;
   members: Array<Omit<ReviewMember, 'tokenHash'>>;
   invitations: Array<Pick<ReviewInvitation, 'id' | 'role' | 'scope'> & {
@@ -172,7 +172,6 @@ export function publicReview(review: ReviewDocument, currentMemberId: string, no
     invitations: current?.role === 'owner' ? review.invitations.map(({ id, role, scope, usedAt, revokedAt }) => ({
       id, role, scope, status: revokedAt ? 'revoked' : usedAt ? 'used' : 'pending',
     })) : [],
-    brandKit: review.brandKit,
     comments: review.comments,
     presence: review.presence.filter((lease) => lease.expiresAt > now),
   };
