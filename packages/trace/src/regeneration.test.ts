@@ -1,5 +1,10 @@
 import { expect, it } from 'vitest';
-import { planReplay } from './regeneration.ts';
+import {
+  buildDriftReport,
+  formatDriftReport,
+  planReplay,
+  reportExitCode,
+} from './regeneration.ts';
 import type { TargetDescriptor, TraceEvent } from './schema.ts';
 
 const box = { x: 1, y: 2, width: 30, height: 20 };
@@ -141,4 +146,102 @@ it('rejects a recorded keypress because version 1 has no key detail', () => {
     ok: false,
     error: 'step step_1 contains an unsupported keypress event',
   });
+});
+
+it('aggregates action outcomes and formats the drift summary', () => {
+  const report = buildDriftReport({
+    demoId: 'todo-flow',
+    trace: '.cutscene/todo.trace.jsonl',
+    baseUrl: 'http://127.0.0.1:4173',
+    plannedSteps: 3,
+    abortedAfterStepId: 'step_3',
+    steps: [
+      {
+        stepId: 'step_1',
+        label: 'Save',
+        actions: [{ eventId: 'a', kind: 'click', status: 'matched', locatorType: 'testId', locatorIndex: 0, reason: null }],
+      },
+      {
+        stepId: 'step_2',
+        label: 'Export',
+        actions: [{ eventId: 'b', kind: 'click', status: 'drifted', locatorType: 'role', locatorIndex: 1, reason: null }],
+      },
+      {
+        stepId: 'step_3',
+        label: 'Removed',
+        actions: [{ eventId: 'c', kind: 'click', status: 'orphaned', locatorType: null, locatorIndex: null,
+          reason: 'no locator resolved' }],
+      },
+    ],
+  });
+
+  expect(report).toMatchObject({
+    v: 1,
+    counts: { matched: 1, drifted: 1, orphaned: 1 },
+    plannedSteps: 3,
+    evaluatedSteps: 3,
+    abortedAfterStepId: 'step_3',
+  });
+  expect(formatDriftReport(report)).toContain('1 step drifted    Export');
+  expect(reportExitCode(report)).toBe(1);
+});
+
+it('returns success only when every planned step matched', () => {
+  const report = buildDriftReport({
+    demoId: 'todo-flow',
+    trace: 'trace.jsonl',
+    baseUrl: 'http://127.0.0.1:4173',
+    plannedSteps: 1,
+    abortedAfterStepId: null,
+    steps: [{
+      stepId: 'step_1',
+      label: 'Save',
+      actions: [{ eventId: 'a', kind: 'click', status: 'matched', locatorType: 'testId', locatorIndex: 0, reason: null }],
+    }],
+  });
+
+  expect(reportExitCode(report)).toBe(0);
+  expect(formatDriftReport(report)).toBe(
+    'todo-flow regenerated against http://127.0.0.1:4173\n\n  1 step matched\n',
+  );
+});
+
+it('fails an incomplete report even when every evaluated step matched', () => {
+  const report = buildDriftReport({
+    demoId: 'todo-flow',
+    trace: 'trace.jsonl',
+    baseUrl: 'http://127.0.0.1:4173',
+    plannedSteps: 2,
+    abortedAfterStepId: 'step_1',
+    steps: [{
+      stepId: 'step_1',
+      label: 'Save',
+      actions: [{ eventId: 'a', kind: 'click', status: 'matched', locatorType: 'testId', locatorIndex: 0, reason: null }],
+    }],
+  });
+
+  expect(reportExitCode(report)).toBe(1);
+});
+
+it('copies only report fields and never an action input value', () => {
+  const action = {
+    eventId: 'input',
+    kind: 'fill' as const,
+    status: 'matched' as const,
+    locatorType: 'label' as const,
+    locatorIndex: 0,
+    reason: null,
+    value: 'do-not-print-this',
+  };
+  const report = buildDriftReport({
+    demoId: 'todo-flow',
+    trace: 'trace.jsonl',
+    baseUrl: 'http://127.0.0.1:4173',
+    plannedSteps: 1,
+    abortedAfterStepId: null,
+    steps: [{ stepId: 'step_1', label: 'Email', actions: [action] }],
+  });
+
+  expect(JSON.stringify(report)).not.toContain('do-not-print-this');
+  expect(formatDriftReport(report)).not.toContain('do-not-print-this');
 });
