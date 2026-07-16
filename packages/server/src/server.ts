@@ -3,9 +3,11 @@ import { BUNDLE_FILES, createId, ensureRecording, isBundleFile, isValidId, readB
   readReview, recordingExists, recordingReady, saveBundleFile, updateReview, validateBundleFile,
   writeReview, type BundleFile } from './store.ts';
 import { randomUUID } from 'node:crypto';
-import { fitMediaClock, parseTraceEvent, reanchorComments, type MediaClockFit, type TraceEvent } from '@cutscene/trace';
+import { fitMediaClock, mapBoxToCapture, parseRecordingMeta, parseTraceEvent, reanchorComments,
+  type MediaClockFit, type TraceEvent } from '@cutscene/trace';
 import { authenticate, canApprove, canComment, createReviewDocument, joinReview, publicReview,
   type ReviewMember, type ReviewState } from './review.ts';
+import { reviewPage } from './review-page.ts';
 
 const MAX_BYTES = 250 * 1024 * 1024; // one bundle cannot exhaust disk
 const MAX_JSON_BYTES = 64 * 1024;
@@ -26,14 +28,6 @@ function html(res: ServerResponse, status: number, body: string): void {
   const payload = Buffer.from(body);
   res.writeHead(status, { 'content-type': 'text/html; charset=utf-8', 'content-length': payload.length });
   res.end(payload);
-}
-
-function sharePage(id: string): string {
-  return `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
-    `<title>Cutscene demo</title>` +
-    `<style>html,body{margin:0;height:100%;background:#16181C;display:grid;place-items:center}` +
-    `video{max-width:100%;max-height:100%}</style>` +
-    `<video controls autoplay playsinline src="/api/recordings/${id}/media.webm"></video>`;
 }
 
 function readBody(req: IncomingMessage, maximum = MAX_BYTES): Promise<Buffer | null> {
@@ -115,7 +109,7 @@ export async function handle(req: IncomingMessage, res: ServerResponse, root: st
     await ensureRecording(root, id);
     await writeReview(root, id, createReviewDocument({
       teamId: randomUUID(), ownerId: randomUUID(), ownerName: 'Owner', ownerToken,
-      invitationId: randomUUID(), invitationToken, now: new Date().toISOString(),
+      invitationToken,
     }));
     return json(res, 201, { id, ownerToken, invitationToken });
   }
@@ -160,15 +154,20 @@ export async function handle(req: IncomingMessage, res: ServerResponse, root: st
     if (action === 'events' && req.method === 'GET') {
       const trace = await traceData(root, id);
       if (!trace.ok) return json(res, 404, { error: trace.error });
-      return json(res, 200, trace.events.flatMap((event) => event.target ? [{
+      const metaData = await readBundleFile(root, id, 'meta.json');
+      let metaInput: unknown;
+      try { metaInput = metaData ? JSON.parse(metaData.toString('utf8')) : null; } catch { metaInput = null; }
+      const meta = parseRecordingMeta(metaInput);
+      if (!meta.ok) return json(res, 404, { error: 'recording metadata not found' });
+      return json(res, 200, { capture: { width: meta.value.capture.width, height: meta.value.capture.height },
+        events: trace.events.flatMap((event) => event.target ? [{
         id: event.id,
         type: event.type,
         stepId: event.stepId,
         mediaTimeMs: trace.clock.toMediaTime(event.t),
         name: event.target.accessibleName || event.target.role || event.target.tagName.toLowerCase(),
-        box: event.target.boundingBox,
-        viewport: event.viewport,
-      }] : []));
+        box: mapBoxToCapture(event.target.boundingBox, event.viewport, meta.value.capture),
+      }] : []) });
     }
 
     if (action === 'comments' && req.method === 'POST') {
@@ -291,7 +290,7 @@ export async function handle(req: IncomingMessage, res: ServerResponse, root: st
   if (req.method === 'GET' && parts.length === 2 && parts[0] === 'r') {
     const id = parts[1]!;
     if (!isValidId(id) || !(await recordingReady(root, id))) return html(res, 404, '<!doctype html><title>Not found</title><h1>Demo not found</h1>');
-    return html(res, 200, sharePage(id));
+    return html(res, 200, reviewPage(id));
   }
 
   return json(res, 404, { error: 'not found' });

@@ -3,7 +3,7 @@ import { authenticate, canApprove, canComment, createReviewDocument, joinReview,
 
 const seeded = () => createReviewDocument({
   teamId: 'team_1', ownerId: 'member_owner', ownerName: 'Owner', ownerToken: 'owner-secret',
-  invitationId: 'invite_1', invitationToken: 'invite-secret', now: '2026-07-16T10:00:00.000Z',
+  invitationToken: 'invite-secret',
 });
 
 describe('review document', () => {

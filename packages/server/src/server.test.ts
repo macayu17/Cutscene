@@ -135,7 +135,12 @@ it('constructs semantic comments, retains concurrent writes, and enforces approv
 
   const eventsResponse = await fetch(`${base}/api/recordings/${created.id}/events`);
   expect(eventsResponse.status).toBe(200);
-  const events = await eventsResponse.json() as Array<{ id: string; mediaTimeMs: number }>;
+  const eventPayload = await eventsResponse.json() as {
+    capture: { width: number; height: number };
+    events: Array<{ id: string; mediaTimeMs: number; box: { x: number; y: number; width: number; height: number } }>;
+  };
+  expect(eventPayload.capture).toEqual({ width: 1920, height: 1080 });
+  const events = eventPayload.events;
   expect(events).toContainEqual(expect.objectContaining({ id: 'click_export', mediaTimeMs: 4_200 }));
 
   const responses = await Promise.all(['Mention PDF export.', 'Check the label.'].map((body) =>

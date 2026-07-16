@@ -27,7 +27,6 @@ type ReviewDocument = {
     tokenHash: string;
   }>;
   invitations: Array<{
-    id: string;
     role: 'commenter' | 'viewer';
     tokenHash: string;
     usedAt: string | null;

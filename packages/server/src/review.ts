@@ -6,7 +6,6 @@ export type ReviewState = 'draft' | 'in_review' | 'changes_requested' | 'approve
 
 export type ReviewMember = { id: string; name: string; role: MemberRole; tokenHash: string };
 export type ReviewInvitation = {
-  id: string;
   role: 'commenter' | 'viewer';
   tokenHash: string;
   usedAt: string | null;
@@ -44,16 +43,14 @@ export function createReviewDocument(input: {
   ownerId: string;
   ownerName: string;
   ownerToken: string;
-  invitationId: string;
   invitationToken: string;
-  now: string;
 }): ReviewDocument {
   return {
     v: 1,
     teamId: input.teamId,
     state: 'draft',
     members: [{ id: input.ownerId, name: input.ownerName, role: 'owner', tokenHash: hashToken(input.ownerToken) }],
-    invitations: [{ id: input.invitationId, role: 'commenter', tokenHash: hashToken(input.invitationToken), usedAt: null }],
+    invitations: [{ role: 'commenter', tokenHash: hashToken(input.invitationToken), usedAt: null }],
     comments: [],
     presence: [],
   };
@@ -89,7 +86,7 @@ export function joinReview(review: ReviewDocument, input: {
         tokenHash: hashToken(input.memberToken),
       }],
       invitations: review.invitations.map((candidate) =>
-        candidate.id === invitation.id ? { ...candidate, usedAt: input.now } : candidate),
+        candidate.tokenHash === invitationHash ? { ...candidate, usedAt: input.now } : candidate),
     },
   };
 }
@@ -124,7 +121,7 @@ function member(value: unknown): value is ReviewMember {
 }
 
 function invitation(value: unknown): value is ReviewInvitation {
-  return record(value) && typeof value.id === 'string' && ['commenter', 'viewer'].includes(String(value.role)) &&
+  return record(value) && ['commenter', 'viewer'].includes(String(value.role)) &&
     typeof value.tokenHash === 'string' && (value.usedAt === null || typeof value.usedAt === 'string');
 }
 
