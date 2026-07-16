@@ -110,6 +110,7 @@ test('two team members preserve a semantic comment through a re-edit and approve
 
     await reviewer.getByLabel('Display name').fill('Reviewer');
     await reviewer.getByRole('button', { name: 'Join review' }).click();
+    await expect(reviewer.getByLabel('Member editor link')).toHaveValue(/#token=/);
     await reviewer.getByRole('button', { name: /Export PDF/ }).click();
     await reviewer.getByLabel('Comment on selected event').fill('Mention PDF export.');
     await reviewer.getByRole('button', { name: 'Add comment' }).click();

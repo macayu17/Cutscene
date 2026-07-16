@@ -134,6 +134,17 @@ test('two editors converge concurrent timeline edits and retain versions', async
     Y.applyUpdate(restored, first);
     expect(restored.getArray('timeline').length).toBe(2);
     restored.destroy();
+
+    const leftBrand = left.locator('.brand-controls');
+    const rightBrand = right.locator('.brand-controls');
+    await leftBrand.getByRole('button', { name: 'New' }).click();
+    await leftBrand.getByLabel('Preset name').fill('Launch kit');
+    await leftBrand.getByLabel('Watermark text').fill('ACME');
+    await leftBrand.getByRole('button', { name: 'Save team kit' }).click();
+    await expect(leftBrand).toContainText('kit synced');
+    await rightBrand.getByRole('button', { name: 'Reload team kit' }).click();
+    await expect(rightBrand.getByRole('option', { name: 'Launch kit' })).toHaveCount(1);
+    await expect(rightBrand.getByLabel('Watermark text')).toHaveValue('ACME');
     expect(leftErrors).toEqual([]);
     expect(rightErrors).toEqual([]);
   } finally {
