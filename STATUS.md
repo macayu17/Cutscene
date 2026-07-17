@@ -56,7 +56,7 @@ Phase 8 verification:
 
 Requested cleanup:
   attachment `b0f5fd31-2135-4527-9aae-1761db805124/image-1.png`: removed
-  live GitHub contributors API: macayu17 only, 139 contributions
+  live GitHub contributors API: macayu17 only
   Claude contributor entry: absent
 
 Phase 7 passed locally on 2026-07-18. The hosted pull-request gate was replaced
