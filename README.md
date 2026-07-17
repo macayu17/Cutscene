@@ -113,9 +113,9 @@ Add `--demo todo-flow` to run one configured demo. Reports are written to
 - Exit `2`: the config, trace, replay plan, seed, browser, or report write
   failed.
 
-Version 1 keypress events do not record the key value, so the runner rejects
-them instead of inventing an action such as Enter. A keyboard action absent
-from the trace can also cause a later locator to become orphaned.
+Version 1 records and replays only `Enter`. Printable keys, modifiers, and all
+other control keys are omitted. A step with more than one recorded Enter is
+rejected as ambiguous instead of guessing an action sequence.
 
 ## Record and edit
 

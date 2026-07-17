@@ -3,6 +3,7 @@ Phase: 7
 Phase 7 local dry-run progress (2026-07-16):
   [x] strict version 1 `demo.yml` parser with exact environment references
   [x] deterministic replay planning by `stepId`
+  [x] privacy-safe Enter capture and replay
   [x] ranked Playwright locator resolution in local Chromium
   [x] matched, drifted, and orphaned action and step classification
   [x] deterministic JSON and text drift reports written atomically
@@ -53,18 +54,37 @@ Clean TodoMVC trace dry-run:
   injected input value occurrences in JSON and text reports: 0
   heuristic Enter or locator workaround applied: no
 
+Enter-enabled TodoMVC trace dry-run (2026-07-17):
+  source: artifacts/phase7-enter-bundle/5461e858-ecc8-4efb-b4b5-2e513554026f
+  recording: rec_7c9d3270-42a9-48cf-9933-d47ced0986f5
+  duration: 3.8951 s
+  video: 312,233 bytes
+  trace: 12,176 bytes, 31 events (1 click, 3 inputs, 1 Enter)
+  metadata: 874 bytes
+  video SHA-256: 6F7C964CFEB2997C864852DE7201595E1AE66B82FFC8F7A0FD3350A48EDBA83D
+  trace SHA-256: 21E1D79FB0B8A707E545DAFCDE76027D533D2BA3686AF2F5A08568032288FB93
+  metadata SHA-256: D2E25D7242B82C0548158BD7F5DDE3320EC84F79380F7963451D66398ABE2E12
+  planned / evaluated steps: 2 / 2
+  matched / drifted / orphaned: 2 / 0 / 0
+  chosen locator tiers: fill testId[0], Enter testId[0], click testId[0]
+  abort point: none
+  CLI exit code: 0
+  injected input value occurrences in JSON and text reports: 0
+  captured printable keypresses: 0
+  heuristic keyboard or locator workaround applied: no
+
 This is a local Phase 7 slice, not the Phase 7 exit. PRD.md requires an
 automatically opened pull request against a repository we do not control and a
 merge. No pull request or paid CI was used, so `Phase: 7` remains unchanged.
 
 Phase 7 local verification:
-  repository tests: 259 passed (76 trace, 25 server, 118 editor, 13 extension,
-                    27 runner) in 9.1 s
-  typecheck: 5/5 active packages passed in 8.5 s
-  root build: trace, editor, and extension build scripts passed in 9.2 s
-  Chromium E2E: 4/4 passed in 38.0 s
+  repository tests: 262 passed (78 trace, 25 server, 118 editor, 13 extension,
+                    28 runner) in 8.7 s
+  typecheck: 5/5 active packages passed in 7.7 s
+  root build: trace, editor, and extension build scripts passed in 7.5 s
+  Chromium E2E: 4/4 passed in 44.6 s
     regeneration runner: 1/1 passed in 2.1 s
-    capture and collaboration: 3/3 passed in 31.6 s
+    capture and collaboration: 3/3 passed in 38.0 s
 
 Phase 6 passed on 2026-07-16. Two actual people reviewed the corrected demo as
 members of the same team: Owner (owner) and Ayush - Editor (editor). The owner

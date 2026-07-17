@@ -56,3 +56,11 @@ value.
 Other control keys, modifiers, composition, and repeated Enter sequences within
 one step are not implemented. Add a safe key only when a real recorded flow
 requires it.
+
+## Measured result
+
+The clean TodoMVC bundle recorded one Enter and one checkbox click in 3.8951 s.
+The trace contained 31 events and no printable keypress. Live replay evaluated
+both planned steps: 2 matched, 0 drifted, 0 orphaned. Fill, Enter, and click all
+resolved through their first-ranked `testId` locator. The runner exited 0 and
+the injected input value appeared zero times in its JSON and text reports.
