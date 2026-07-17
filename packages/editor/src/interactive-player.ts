@@ -86,7 +86,7 @@ export function renderInteractivePlayer(manifest: InteractiveManifest): string {
     hotspot.addEventListener('click',(event)=>{
       event.stopPropagation();hideTarget();index+=1;setStatus();
       if(index<manifest.steps.length){void playToStep();return}
-      prompt.textContent='Finishing demo';finishing=true;const token=++run;
+      prompt.textContent='Finishing demo';finishing=true;run+=1;
       video.play().catch(()=>showError('Playback could not start. Select Restart.'));
     });
     stage.addEventListener('click',()=>{

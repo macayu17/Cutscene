@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "test": "vitest run",
+    "test": "vitest run src",
     "e2e": "playwright test",
     "typecheck": "tsc --noEmit"
   },
