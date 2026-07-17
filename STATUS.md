@@ -78,13 +78,13 @@ automatically opened pull request against a repository we do not control and a
 merge. No pull request or paid CI was used, so `Phase: 7` remains unchanged.
 
 Phase 7 local verification:
-  repository tests: 262 passed (78 trace, 25 server, 118 editor, 13 extension,
-                    28 runner) in 8.7 s
-  typecheck: 5/5 active packages passed in 7.7 s
-  root build: trace, editor, and extension build scripts passed in 7.5 s
-  Chromium E2E: 4/4 passed in 44.6 s
+  repository tests: 263 passed (79 trace, 25 server, 118 editor, 13 extension,
+                    28 runner) in 8.9 s
+  typecheck: 5/5 active packages passed in 7.4 s
+  root build: trace, editor, and extension build scripts passed in 6.0 s
+  Chromium E2E: 4/4 passed in 45.8 s
     regeneration runner: 1/1 passed in 2.1 s
-    capture and collaboration: 3/3 passed in 38.0 s
+    capture and collaboration: 3/3 passed in 39.2 s
 
 Phase 6 passed on 2026-07-16. Two actual people reviewed the corrected demo as
 members of the same team: Owner (owner) and Ayush - Editor (editor). The owner
