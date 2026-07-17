@@ -16,6 +16,7 @@ Interactive demo implementation:
 
 Real TodoMVC interactive-export evidence:
   source: artifacts/phase6-human-reedit
+  output: artifacts/phase8-interactive-final
   recording: rec_a6e39c89-73f1-40ce-845a-1b6bb5615131
   trace events / target clicks: 77 / 5
   exported player steps: 5
@@ -26,11 +27,11 @@ Real TodoMVC interactive-export evidence:
   maximum hotspot edge error: 0.014435 rendered px
   player page / console errors: 0 / 0
   video: H.264, 1920x1080, 60 fps, yuv420p, 15.566667 s
-  ZIP: 12,940,993 bytes
-  index.html: 8,749 bytes
+  ZIP: 12,941,022 bytes
+  index.html: 8,778 bytes
   demo.mp4: 12,932,034 bytes
-  ZIP SHA-256: 2986AB1D57A27C0CF1807DFBB1850E9600109B7FD7B8EE800B0E7CB858E40186
-  HTML SHA-256: 6895BCB111B89E99E567247F19B349AED224CD136A6881B2EEC5571D8C2E657E
+  ZIP SHA-256: 873EBA95DCADD45DD89E0FCE53116393D507F972DEB99905C9C96D4E53BC4FC9
+  HTML SHA-256: 87A5DDF22ED357D9D2726FBACAA86DDFEC3E1A265161724F9244DABF032B6A0E
   MP4 SHA-256: C4494D236235F2487187FCE51424DA84AF592C2634AB152F2CF5FAB5AC6E6327
 
 Interactive manifest privacy evidence:
