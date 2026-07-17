@@ -1,6 +1,63 @@
 Phase: 8
 
-Phase 8 implementation has not started.
+Phase 8's linear interactive-demo slice passed locally on 2026-07-18. The other
+long-tail items in PRD.md section 14 remain deferred; there is no Phase 9 status
+advance.
+
+Interactive demo implementation:
+  [x] one editor action renders the existing MP4 and downloads a static ZIP
+  [x] version 1 click-only manifest with no raw trace or locator payload
+  [x] shared media-clock, coordinate, camera, zoom, and privacy-safe label logic
+  [x] Start, every hotspot, wrong-click handling, Restart, Replay, and keyboard
+      operation
+  [x] native video-frame timing with a timeupdate fallback
+  [x] reduced-motion handling and visible keyboard focus
+  [x] no backend, hosted service, paid credit, or new runtime dependency
+
+Real TodoMVC interactive-export evidence:
+  source: artifacts/phase6-human-reedit
+  recording: rec_a6e39c89-73f1-40ce-845a-1b6bb5615131
+  trace events / target clicks: 77 / 5
+  exported player steps: 5
+  hotspots activated in order: 5 / 5
+  wrong click advanced the flow: no
+  completion state: COMPLETE
+  Replay result: STEP 01 / 05
+  maximum hotspot edge error: 0.014435 rendered px
+  player page / console errors: 0 / 0
+  video: H.264, 1920x1080, 60 fps, yuv420p, 15.566667 s
+  ZIP: 12,940,993 bytes
+  index.html: 8,749 bytes
+  demo.mp4: 12,932,034 bytes
+  ZIP SHA-256: 2986AB1D57A27C0CF1807DFBB1850E9600109B7FD7B8EE800B0E7CB858E40186
+  HTML SHA-256: 6895BCB111B89E99E567247F19B349AED224CD136A6881B2EEC5571D8C2E657E
+  MP4 SHA-256: C4494D236235F2487187FCE51424DA84AF592C2634AB152F2CF5FAB5AC6E6327
+
+Interactive manifest privacy evidence:
+  top-level keys: v, recordingId, width, height, steps
+  step keys: eventId, timeMs, label, box
+  box keys: x, y, width, height
+  source unmasked input values: 0
+  input-value occurrences in index.html: 0
+  locator, comment, raw trace, `[MASKED]`, and `raw-nested-secret`
+    occurrences in index.html: 0
+
+Phase 8 verification:
+  repository tests: 298 passed (84 trace, 25 server, 126 editor,
+                    13 extension, 50 runner)
+  typecheck: 5/5 active packages passed
+  production build: trace, editor, and extension passed
+  Chromium E2E: 6/6 passed
+    interactive player: 1/1
+    regeneration runner: 2/2
+    capture and collaboration: 3/3 on clean rerun
+  note: the first combined run retried the existing invitation test once; the
+        dedicated extension rerun passed 3/3 without a retry
+
+Requested cleanup:
+  attachment `b0f5fd31-2135-4527-9aae-1761db805124/image-1.png`: removed
+  live GitHub contributors API: macayu17 only, 139 contributions
+  Claude contributor entry: absent
 
 Phase 7 passed locally on 2026-07-18. The hosted pull-request gate was replaced
 with the owner-approved local gate in PRD.md §13. No hosted CI, pull request,
