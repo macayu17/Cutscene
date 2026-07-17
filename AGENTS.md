@@ -10,6 +10,11 @@ Instructions for any coding agent working in this repository. Read this fully be
 
 **Phases are gated.** A phase begins only when the previous phase's exit criteria in `PRD.md` are met and reported. The current phase is recorded in `STATUS.md` at the repo root. Read it before you start. If it says Phase 0, you may only write Phase 0 code.
 
+**Phase 7 is completed locally.** Its gate is the measured normal regeneration
+in `PRD.md` §13. Do not open a pull request, spend hosted CI credits, or enable
+auto-merge to satisfy it. Those integrations require separate, explicit owner
+authorisation.
+
 **Phase 0 is blocking and may fail.** If the spike does not meet its exit criteria, report the measured numbers and stop. Do not paper over a mis-anchored bounding box with a heuristic offset and continue. A spike that "runs" while silently mis-anchoring is the worst possible outcome.
 
 **Capture everything, build almost nothing.** The trace format in `PRD.md` §3 is implemented in full during Phase 1, including every field that only Phases 4, 6 and 7 read: `stepId`, ranked `locators`, `scroll`, `app`. Phase 1 code uses almost none of them. Capture them anyway. A field not captured forces every existing user to re-record.

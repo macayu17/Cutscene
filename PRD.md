@@ -555,7 +555,9 @@ Two people on the same team review and approve a demo, and at least one comment 
 
 ## 13. Phase 7 — demo-as-code
 
-The moat. It sits at the end because it requires a seeded demo environment, CI budget, and enough trust to open PRs against a user's repository. As an acquisition strategy it fails completely. As retention, once users exist and their demos are rotting, it is the reason they never leave.
+The moat. It sits at the end because it requires a seeded demo environment and
+stable recorded flows. It runs locally first. Hosted CI and repository write
+access are optional integrations, not requirements for regeneration.
 
 ### Goal
 
@@ -585,9 +587,7 @@ demos:
 **The regeneration loop.**
 
 ```
-merge to main
-    ↓
-GitHub Action starts the preview environment
+start the current build or preview environment
     ↓
 seed the demo account and fixture data
     ↓
@@ -599,8 +599,12 @@ diff the new trace against the stored one
     ↓
 render the outputs
     ↓
-open a PR with the updated assets and a drift report
+replace the declared assets and write local reports
 ```
+
+A team may run the same command in hosted CI and open a pull request with the
+result. Cutscene does not require or automatically perform that repository
+write.
 
 **Locator recovery and the drift report.** The interesting engineering. Each step resolves through its ranked locators in order.
 
@@ -613,13 +617,24 @@ Analytics Overview regenerated against a1b3f9c
   2 screenshots changed
 ```
 
-Drifted and orphaned steps block auto-merge. A fully matched regeneration may auto-merge if the user opts in.
+Drifted and orphaned steps fail regeneration before outputs are replaced.
 
 **Staleness detection.** A demo whose recording predates the current build by more than N commits touching the relevant routes is marked outdated.
 
 ### Exit criteria
 
-A demo asset in a repository we do not control is updated by an automatically opened PR, and merged.
+A normal, non-dry run against a real third-party DOM application must:
+
+1. replay every planned step without drift or orphaning;
+2. capture a playable fresh WebM and a privacy-safe fresh trace;
+3. write a semantic trace diff and a Git staleness result;
+4. replace declared GIF, MP4, and documentation outputs; and
+5. contain none of the configured input values in the trace, reports, or
+   generated documentation.
+
+The measured files, counts, locator tiers, privacy scan, tests, build, and
+browser end-to-end result are recorded in `STATUS.md`. Hosted CI, pull requests,
+and auto-merge are optional and are not part of this gate.
 
 ---
 

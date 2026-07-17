@@ -1,5 +1,8 @@
 # Phase 7 Local Regeneration Design
 
+> Historical dry-run slice. The completed local regeneration contract is in
+> [2026-07-17-phase7-local-regeneration-completion-design.md](2026-07-17-phase7-local-regeneration-completion-design.md).
+
 ## Goal
 
 Build the smallest honest Phase 7 slice: a local command that reads `demo.yml`,

@@ -39,8 +39,9 @@ right.
   skeleton, and imported SRT/VTT captions.
 - A minimal filesystem-backed server for uploading a bundle and sharing its
   video through a public link.
-- A local regeneration dry run that replays ranked locators and writes a drift
-  report without rendering assets or opening a pull request.
+- Local demo regeneration that replays ranked locators, records fresh pixels
+  and trace data, compares the trace, and rebuilds GIF, MP4, and documentation
+  outputs without opening a pull request.
 
 ## Run locally
 
@@ -74,10 +75,10 @@ The editor uploads the original three files and shows the public link.
 
 ## Check a recorded flow against a current build
 
-The Phase 7 runner has one local mode. It validates `demo.yml`, optionally runs
-a seed command, replays the stored trace in Chromium, and reports which ranked
-locator resolved each action. It does not capture new pixels, render the
-declared outputs, use hosted CI, or open a pull request.
+The Phase 7 runner validates `demo.yml`, optionally runs a seed command, and
+replays the stored trace in Chromium. A normal run records a fresh WebM and
+trace, compares the semantic actions, and rebuilds every declared output. Add
+`--dry-run` to check locator drift without recording or rendering.
 
 ```yaml
 version: 1
@@ -88,6 +89,9 @@ demos:
     seed: pnpm run seed:demo
     inputs:
       step_0001: ${{ env.DEMO_TODO }}
+    watch:
+      - packages/app/src/routes/reports/**
+    staleAfterCommits: 10
     outputs:
       - type: gif
         path: docs/assets/todo-flow.gif
@@ -104,14 +108,17 @@ $env:DEMO_TODO='Recorded demo value'
 pnpm --filter @cutscene/runner regenerate -- --config demo.yml --dry-run
 ```
 
-Add `--demo todo-flow` to run one configured demo. Reports are written to
-`.cutscene/reports/<demo-id>/drift-report.json` and `drift-report.txt` beside
-`demo.yml`.
+Remove `--dry-run` to rebuild the declared outputs. Add `--demo todo-flow` to
+run one configured demo. Fresh bundles are written under
+`.cutscene/runs/<demo-id>/`; drift, trace-diff, and staleness reports are under
+`.cutscene/reports/<demo-id>/`. `watch` and `staleAfterCommits` are optional,
+but must be provided together.
 
-- Exit `0`: every planned step was evaluated and matched its first locator.
-- Exit `1`: at least one step drifted, became orphaned, or was not evaluated.
-- Exit `2`: the config, trace, replay plan, seed, browser, or report write
-  failed.
+- Exit `0`: every planned step matched; a normal run also wrote the fresh
+  bundle, reports, and all declared outputs.
+- Exit `1`: at least one step drifted, became orphaned, or was not evaluated;
+  a normal run leaves the declared outputs unchanged.
+- Exit `2`: configuration, seed, capture, report, or rendering failed.
 
 Version 1 records and replays only `Enter`. Printable keys, modifiers, and all
 other control keys are omitted. A step with more than one recorded Enter is
@@ -137,8 +144,8 @@ zooms landed on the correct element; mean timing error was 0.258 frame and the
 maximum was 0.422 frame. The 800×450 README GIF was 2,352,555 bytes at 15fps.
 See [the evidence report](docs/phase-1-evidence.md) for the full measurements.
 
-Phase 7 is in progress. See [`STATUS.md`](STATUS.md) for implementation
-evidence, measured artifacts, and gate history.
+Phase 7 is complete locally. See [`STATUS.md`](STATUS.md) for the measured
+TodoMVC regeneration and full verification record. Phase 8 is not implemented.
 
 ## Development
 
