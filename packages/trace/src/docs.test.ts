@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { deriveDocSteps, renderDocMarkdown } from './docs';
+import { deriveDocSteps, renderDocMarkdown, targetLabel } from './docs';
 import type { Locator, TargetDescriptor, TraceEvent } from './schema';
 
 const meta = { recordingId: 'rec_01H8XK', url: 'https://app.example.com/dashboard' };
@@ -55,6 +55,11 @@ it('falls back to text then role when the accessible name is empty', () => {
   const byRole = deriveDocSteps([event({ type: 'interaction.click', target: target({ accessibleName: '', text: '', role: 'checkbox' }) })]);
   expect(byText[0]?.action).toBe('Click **Go**.');
   expect(byRole[0]?.action).toBe('Click **checkbox**.');
+});
+
+it('exposes the same privacy-safe target label for other trace artifacts', () => {
+  expect(targetLabel(target({ accessibleName: 'Save', text: 'ignored' }))).toBe('Save');
+  expect(targetLabel(target({ accessibleName: '[MASKED]', text: '[MASKED]', role: 'textbox' }))).toBe('textbox');
 });
 
 it('names one screenshot per step with a target box and none for navigation', () => {

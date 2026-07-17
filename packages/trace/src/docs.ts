@@ -20,7 +20,7 @@ const DOCUMENTED = new Set<TraceEvent['type']>(['navigation', 'interaction.click
 
 // A masked field never leaks its accessible name into the doc; fall back to a
 // structural label so the sentence stays truthful without exposing a secret.
-function labelOf(target: TargetDescriptor): string {
+export function targetLabel(target: TargetDescriptor): string {
   const accessibleName = target.accessibleName.trim();
   if (accessibleName && accessibleName !== '[MASKED]') return accessibleName;
   const text = target.text.trim();
@@ -36,7 +36,7 @@ function actionText(event: TraceEvent): string {
   if (event.type === 'navigation') return `Open \`${event.route}\`.`;
   const target = event.target;
   if (!target) return event.type === 'interaction.click' ? 'Click the target element.' : 'Enter a value.';
-  const label = labelOf(target);
+  const label = targetLabel(target);
   if (event.type === 'interaction.click') return `Click **${label}**.`;
   const value = target.value;
   return value && value !== '[MASKED]' ? `Enter \`${value}\` into **${label}**.` : `Fill in **${label}**.`;
