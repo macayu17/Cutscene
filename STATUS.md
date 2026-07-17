@@ -1,6 +1,35 @@
-Phase: 7
+Phase: 8
 
-Phase 7 local dry-run progress (2026-07-16):
+Phase 8 implementation has not started.
+
+Phase 7 passed locally on 2026-07-18. The hosted pull-request gate was replaced
+with the owner-approved local gate in PRD.md §13. No hosted CI, pull request,
+auto-merge, or paid service was used.
+
+Final TodoMVC normal-regeneration evidence:
+  target: https://todomvc.com/examples/react/dist/
+  source trace: artifacts/phase7-enter-bundle/5461e858-ecc8-4efb-b4b5-2e513554026f
+  config: artifacts/phase7-local-completion/demo.yml
+  CLI exit code: 0
+  planned / evaluated steps: 2 / 2
+  matched / drifted / orphaned: 2 / 0 / 0
+  action locator indexes: 0, 0, 0
+  fresh recording: 3.880 s, 1280x800 at 25 fps, 160,748 bytes
+  fresh events: 12 total, 3 actions, 4 redaction samples
+  app commit: bee630c34037bbd055ceed01728da9800d1189c6
+  trace diff unchanged / changed / added / removed: 0 / 3 / 0 / 2
+  diff note: the stored trace has two duplicate/noise input events that the
+             deterministic replay plan intentionally does not regenerate
+  staleness: unavailable (watch paths are not configured)
+  configured input occurrences in trace, reports, and docs: 0
+  media.webm SHA-256: 48D1344136D128FED06C8B39DCCCC9492864C78694167808AC2C6289D425CB78
+  trace.jsonl SHA-256: AC49A524F32CC7265C00B86476029B3EBEEE04A4B5ABAD8B672DC1E3AA9ABC28
+  meta.json SHA-256: 4561D936A63896E37D27576C7B294422D82EAFE7774E9B48A48F2407EAB7984E
+  GIF: 792,267 bytes, SHA-256 31D5148FCA85EF20D259599D1EDABE7F350B8FA408F459AA9B53ACA0363AA134
+  MP4: 1,528,818 bytes, SHA-256 D89F4B30147CD272090B1E39E2454B8787CC6389A4EAC0ACD1D70BCFE826B2EA
+  docs: 314 bytes plus 2 PNG screenshots (32,372 and 6,491 bytes)
+
+Phase 7 implementation:
   [x] strict version 1 `demo.yml` parser with exact environment references
   [x] deterministic replay planning by `stepId`
   [x] privacy-safe Enter capture and replay
@@ -9,9 +38,11 @@ Phase 7 local dry-run progress (2026-07-16):
   [x] deterministic JSON and text drift reports written atomically
   [x] local CLI with demo filtering and exit codes 0, 1, and 2
   [x] real CLI end-to-end proof against a local HTTP fixture
-  [ ] fresh trace and pixel capture
-  [ ] GIF, MP4, and documentation regeneration
-  [ ] hosted CI, automatic pull request, and auto-merge
+  [x] fresh trace and pixel capture
+  [x] semantic trace diff and optional Git staleness measurement
+  [x] GIF, MP4, and documentation regeneration
+  [x] staged output replacement with failure preservation
+  [x] local normal-regeneration exit gate
 
 Local Chromium dry-run evidence:
   planned / evaluated steps: 4 / 4
@@ -73,18 +104,14 @@ Enter-enabled TodoMVC trace dry-run (2026-07-17):
   captured printable keypresses: 0
   heuristic keyboard or locator workaround applied: no
 
-This is a local Phase 7 slice, not the Phase 7 exit. PRD.md requires an
-automatically opened pull request against a repository we do not control and a
-merge. No pull request or paid CI was used, so `Phase: 7` remains unchanged.
-
-Phase 7 local verification:
-  repository tests: 263 passed (79 trace, 25 server, 118 editor, 13 extension,
-                    28 runner) in 8.9 s
-  typecheck: 5/5 active packages passed in 7.4 s
-  root build: trace, editor, and extension build scripts passed in 6.0 s
-  Chromium E2E: 4/4 passed in 45.8 s
-    regeneration runner: 1/1 passed in 2.1 s
-    capture and collaboration: 3/3 passed in 39.2 s
+Phase 7 final verification:
+  repository tests: 293 passed (83 trace, 25 server, 122 editor, 13 extension,
+                    50 runner) in 14.1 s
+  typecheck: 5/5 active packages passed in 10.5 s
+  root build: trace, editor, and extension build scripts passed in 7.5 s
+  Chromium E2E: 5/5 passed in 49.0 s
+    regeneration runner: 2/2 passed in 10.3 s
+    capture and collaboration: 3/3 passed in 34.0 s
 
 Phase 6 passed on 2026-07-16. Two actual people reviewed the corrected demo as
 members of the same team: Owner (owner) and Ayush - Editor (editor). The owner
