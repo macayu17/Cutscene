@@ -58,7 +58,7 @@ export function renderInteractivePlayer(manifest: InteractiveManifest): string {
       hotspot.style.left=box.x/manifest.width*100+'%';hotspot.style.top=box.y/manifest.height*100+'%';
       hotspot.style.width=box.width/manifest.width*100+'%';hotspot.style.height=box.height/manifest.height*100+'%';
       hotspot.setAttribute('aria-label','Click '+step.label);label.textContent='CLICK '+step.label.toUpperCase();
-      prompt.textContent='Click '+step.label+' to continue';hotspot.hidden=false;hotspot.focus();
+      prompt.textContent='Click '+step.label+' to continue';hotspot.hidden=false;hotspot.focus({preventScroll:true});
     };
     const watch=(token)=>{
       if(token!==run||video.paused)return;
@@ -91,7 +91,7 @@ export function renderInteractivePlayer(manifest: InteractiveManifest): string {
     });
     stage.addEventListener('click',()=>{
       if(hotspot.hidden)return;
-      hotspot.focus();
+      hotspot.focus({preventScroll:true});
       if(!matchMedia('(prefers-reduced-motion: reduce)').matches)hotspot.animate([{outlineColor:'transparent'},{outlineColor:'#f2a63b'}],{duration:120});
     });
     video.addEventListener('timeupdate',()=>{if(!('requestVideoFrameCallback' in video))watch(run)});
