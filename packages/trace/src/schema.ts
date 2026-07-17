@@ -4,6 +4,7 @@ export type Viewport = { width: number; height: number; dpr: number };
 export type ScrollPosition = { x: number; y: number };
 export type BoundingBox = { x: number; y: number; width: number; height: number };
 export type PointerPosition = { x: number; y: number };
+export type ControlKey = 'Enter';
 
 export type Locator =
   | { type: 'testId'; value: string; confidence: number }
@@ -79,12 +80,17 @@ export type CommentEvent = Omit<EventEnvelope, 'target'> & {
   target?: never;
 };
 
-type NonCalloutTraceEvent = ClockSyncEvent | RedactionSampleEvent |
+export type KeypressEvent = EventEnvelope & {
+  type: 'interaction.keypress';
+  key: ControlKey;
+};
+
+type NonCalloutTraceEvent = ClockSyncEvent | RedactionSampleEvent | KeypressEvent |
   (Omit<EventEnvelope, 'target'> & { type: 'interaction.hover'; pointer: PointerPosition; target?: never }) |
   (EventEnvelope & { type: 'interaction.click'; pointer?: PointerPosition }) |
   (EventEnvelope & { type: Exclude<TraceEventType,
     'system.clockSync' | 'annotation.redaction' | 'annotation.callout' | 'annotation.comment' |
-    'interaction.hover' | 'interaction.click'> });
+    'interaction.hover' | 'interaction.click' | 'interaction.keypress'> });
 
 export type TraceEvent = NonCalloutTraceEvent | CalloutEvent | CommentEvent;
 export type ParsedTraceEvent = TraceEvent;
@@ -121,6 +127,8 @@ const calloutKeys = new Set(['v', 'id', 't', 'type', 'stepId', 'route', 'viewpor
   'anchor', 'text', 'placement']);
 const commentKeys = new Set(['v', 'id', 't', 'type', 'stepId', 'route', 'viewport', 'scroll',
   'anchor', 'body']);
+const keypressKeys = new Set(['v', 'id', 't', 'type', 'stepId', 'route', 'viewport', 'scroll',
+  'target', 'key']);
 const locatorValueKeys = new Set(['type', 'value', 'confidence']);
 const locatorRoleKeys = new Set(['type', 'role', 'name', 'confidence']);
 const anchorKeys = new Set(['stepId', 'locators']);
@@ -259,6 +267,10 @@ export function parseTraceEvent(input: unknown): Result<ParsedTraceEvent> {
   }
   if (input.type === 'annotation.comment' && !isComment(input)) {
     return { ok: false, error: 'comment annotation is invalid' };
+  }
+  if (input.type === 'interaction.keypress' &&
+      (input.key !== 'Enter' || !hasOnlyKeys(input, keypressKeys))) {
+    return { ok: false, error: 'keypress event is invalid' };
   }
   if (input.type === 'system.clockSync' &&
       (!hasNumber(input, 'contentClockMs') || !hasNumber(input, 'workerClockMs') || !hasNumber(input, 'mediaTimeMs'))) {

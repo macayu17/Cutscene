@@ -1,5 +1,12 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { parseRecordingMeta, parseTraceEvent, type CalloutEvent, type CommentEvent, type TraceEvent } from './schema';
+import {
+  parseRecordingMeta,
+  parseTraceEvent,
+  type CalloutEvent,
+  type CommentEvent,
+  type KeypressEvent,
+  type TraceEvent,
+} from './schema';
 
 const envelope = {
   v: 1,
@@ -71,6 +78,26 @@ describe('parseTraceEvent', () => {
     expect(parseTraceEvent({ ...click, pointer: { x: Number.NaN, y: 2 } })).toEqual({
       ok: false,
       error: 'pointer sample is invalid',
+    });
+  });
+
+  it('accepts only an Enter keypress payload', () => {
+    expectTypeOf<Extract<TraceEvent, { type: 'interaction.keypress' }>>()
+      .toEqualTypeOf<KeypressEvent>();
+    const keypress = { ...envelope, type: 'interaction.keypress', key: 'Enter' };
+
+    expect(parseTraceEvent(keypress)).toEqual({ ok: true, value: keypress });
+    expect(parseTraceEvent({ ...envelope, type: 'interaction.keypress' })).toEqual({
+      ok: false,
+      error: 'keypress event is invalid',
+    });
+    expect(parseTraceEvent({ ...keypress, key: 'a' })).toEqual({
+      ok: false,
+      error: 'keypress event is invalid',
+    });
+    expect(parseTraceEvent({ ...keypress, code: 'Enter' })).toEqual({
+      ok: false,
+      error: 'keypress event is invalid',
     });
   });
 

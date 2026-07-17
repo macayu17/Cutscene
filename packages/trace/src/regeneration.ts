@@ -1,8 +1,9 @@
-import type { Locator, Result, TargetDescriptor, TraceEvent } from './schema.ts';
+import type { ControlKey, Locator, Result, TargetDescriptor, TraceEvent } from './schema.ts';
 
 export type ReplayAction =
   | { eventId: string; kind: 'click'; target: TargetDescriptor | null }
-  | { eventId: string; kind: 'fill'; target: TargetDescriptor | null; value: string };
+  | { eventId: string; kind: 'fill'; target: TargetDescriptor | null; value: string }
+  | { eventId: string; kind: 'press'; target: TargetDescriptor | null; key: ControlKey };
 
 export type ReplayStep = {
   stepId: string;
@@ -51,9 +52,11 @@ export function planReplay(
 
   const steps: ReplayStep[] = [];
   for (const [stepId, group] of grouped) {
-    if (group.some((event) => event.type === 'interaction.keypress')) {
-      return { ok: false, error: `step ${stepId} contains an unsupported keypress event` };
+    const keypresses = group.filter((event) => event.type === 'interaction.keypress');
+    if (keypresses.length > 1) {
+      return { ok: false, error: `step ${stepId} contains multiple keypress events` };
     }
+    const keypress = keypresses[0];
 
     const clicks = group.filter((event) => event.type === 'interaction.click');
     if (clicks.length > 1) {
@@ -92,13 +95,15 @@ export function planReplay(
         actions.push({ eventId: event.id, kind: 'click', target: event.target ?? null });
       } else if (event === input && fillValue !== undefined) {
         actions.push({ eventId: event.id, kind: 'fill', target: event.target ?? null, value: fillValue });
+      } else if (event === keypress) {
+        actions.push({ eventId: event.id, kind: 'press', target: event.target ?? null, key: event.key });
       }
     }
 
     if (actions.length > 0) {
       steps.push({
         stepId,
-        label: stepLabel(click?.target ?? input?.target, stepId),
+        label: stepLabel(click?.target ?? keypress?.target ?? input?.target, stepId),
         actions,
       });
     }

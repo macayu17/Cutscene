@@ -40,6 +40,21 @@ function event(
   } as TraceEvent;
 }
 
+function keypress(id: string, stepId: string, eventTarget: TargetDescriptor): TraceEvent {
+  return {
+    v: 1,
+    id,
+    t: 1,
+    type: 'interaction.keypress',
+    key: 'Enter',
+    stepId,
+    route: '/',
+    viewport: { width: 100, height: 100, dpr: 1 },
+    scroll: { x: 0, y: 0 },
+    target: eventTarget,
+  } as TraceEvent;
+}
+
 it('plans a primary click and ignores non-replay events', () => {
   const result = planReplay([
     event('nav', 'step_0', 'navigation'),
@@ -141,10 +156,34 @@ it('rejects two click events assigned to one step', () => {
   ], {})).toEqual({ ok: false, error: 'step step_1 contains multiple click events' });
 });
 
-it('rejects a recorded keypress because version 1 has no key detail', () => {
-  expect(planReplay([event('key', 'step_1', 'interaction.keypress')], {})).toEqual({
+it('fills the last input sample before pressing Enter', () => {
+  const textbox = target('New todo', 'Recorded title', 'textbox');
+  expect(planReplay([
+    event('input-1', 'step_1', 'interaction.input', target('New todo', 'Recorded', 'textbox')),
+    event('input-2', 'step_1', 'interaction.input', textbox),
+    keypress('key', 'step_1', textbox),
+  ], {})).toMatchObject({
+    ok: true,
+    value: {
+      steps: [{
+        label: 'New todo',
+        actions: [
+          { eventId: 'input-2', kind: 'fill', value: 'Recorded title' },
+          { eventId: 'key', kind: 'press', key: 'Enter' },
+        ],
+      }],
+    },
+  });
+});
+
+it('rejects two keypress events assigned to one step', () => {
+  const textbox = target('New todo', 'Recorded title', 'textbox');
+  expect(planReplay([
+    keypress('first', 'step_1', textbox),
+    keypress('second', 'step_1', textbox),
+  ], {})).toEqual({
     ok: false,
-    error: 'step step_1 contains an unsupported keypress event',
+    error: 'step step_1 contains multiple keypress events',
   });
 });
 
