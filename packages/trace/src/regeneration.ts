@@ -66,7 +66,8 @@ export function planReplay(
     const clickIdentity = targetIdentity(click?.target);
 
     const inputsByTarget = new Map<string, TraceEvent>();
-    for (const input of group) {
+    const inputEvents = keypress === undefined ? group : group.slice(0, group.indexOf(keypress));
+    for (const input of inputEvents) {
       if (input.type !== 'interaction.input') {
         continue;
       }

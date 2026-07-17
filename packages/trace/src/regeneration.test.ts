@@ -176,6 +176,26 @@ it('fills the last input sample before pressing Enter', () => {
   });
 });
 
+it('does not let a later input displace the sample submitted by Enter', () => {
+  const before = target('New todo', 'Submitted title', 'textbox');
+  const after = target('New todo', 'Later draft', 'textbox');
+  expect(planReplay([
+    event('input-before', 'step_1', 'interaction.input', before),
+    keypress('key', 'step_1', before),
+    event('input-after', 'step_1', 'interaction.input', after),
+  ], {})).toMatchObject({
+    ok: true,
+    value: {
+      steps: [{
+        actions: [
+          { eventId: 'input-before', kind: 'fill', value: 'Submitted title' },
+          { eventId: 'key', kind: 'press', key: 'Enter' },
+        ],
+      }],
+    },
+  });
+});
+
 it('rejects two keypress events assigned to one step', () => {
   const textbox = target('New todo', 'Recorded title', 'textbox');
   expect(planReplay([
