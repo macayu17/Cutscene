@@ -36,7 +36,8 @@ it('retargets to a recorded event box', () => {
 
 const clock: MediaClockFit = { slope: 1, intercept: 0, toMediaTime: (value: number) => value };
 const traceEvent = (type: Exclude<TraceEventType,
-  'system.clockSync' | 'annotation.redaction' | 'annotation.callout' | 'annotation.comment' | 'interaction.hover'>, t: number,
+  'system.clockSync' | 'annotation.redaction' | 'annotation.callout' | 'annotation.comment' | 'interaction.hover' |
+  'interaction.keypress'>, t: number,
   viewport = { width: 1_280, height: 800, dpr: 1 }): TraceEvent => {
   const event = { v: 1 as const, id: `${type}_${t}`, type, t, stepId: 'step_1', route: '/', viewport, scroll: { x: 0, y: 0 } };
   return type === 'interaction.click' ? { ...event, target: { role: 'button', accessibleName: 'save', text: 'save', tagName: 'BUTTON',
