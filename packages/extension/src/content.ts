@@ -1,4 +1,4 @@
-import { rankLocators, sanitizeTarget, type BoundingBox, type PointerPosition, type RedactionSampleEvent,
+import { rankLocators, sanitizeTarget, type BoundingBox, type ControlKey, type PointerPosition, type RedactionSampleEvent,
   type TargetDescriptor, type TraceEvent, type TraceEventType } from '@cutscene/trace';
 import type { Result } from './messages';
 import { shouldSamplePointer } from './pointer';
@@ -81,7 +81,8 @@ function target(element: Element): TargetDescriptor | null {
 function emit(type: Exclude<TraceEventType,
   'system.clockSync' | 'annotation.redaction' | 'annotation.callout' | 'annotation.comment'>,
   targetDescriptor?: TargetDescriptor,
-  pointer?: PointerPosition): void {
+  pointer?: PointerPosition,
+  key?: ControlKey): void {
   if (sessionEpoch === null || !captureReady) return;
   const eventStep = nextStep(step, type);
   step = eventStep.current;
@@ -95,6 +96,9 @@ function emit(type: Exclude<TraceEventType,
     event = { ...envelope, type, pointer };
   } else if (type === 'interaction.click') {
     event = { ...envelope, type, ...(targetDescriptor ? { target: targetDescriptor } : {}), ...(pointer ? { pointer } : {}) };
+  } else if (type === 'interaction.keypress') {
+    if (!key) return;
+    event = { ...envelope, type, key, ...(targetDescriptor ? { target: targetDescriptor } : {}) };
   } else {
     event = { ...envelope, type, ...(targetDescriptor ? { target: targetDescriptor } : {}) };
   }
@@ -154,6 +158,14 @@ function disableCapture(): void {
 document.addEventListener('click', (event) => { const element = actionable(event.target); if (element) { const safe = target(element);
   if (safe) emit('interaction.click', safe, { x: event.clientX, y: event.clientY }); } }, true);
 document.addEventListener('input', (event) => { const element = actionable(event.target); if (element) { const safe = target(element); if (safe) emit('interaction.input', safe); } }, true);
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter') return;
+  const element = actionable(event.target);
+  if (element) {
+    const safe = target(element);
+    if (safe) emit('interaction.keypress', safe, undefined, 'Enter');
+  }
+}, true);
 addEventListener('pointermove', (event) => {
   if (event.pointerType !== 'mouse' || sessionEpoch === null || !captureReady) return;
   const sampledAt = now();

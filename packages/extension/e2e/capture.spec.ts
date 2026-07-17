@@ -79,6 +79,7 @@ test('captures a playable, complete, masked recording bundle', async () => {
     }, tabId)).toBe(true);
     for (let index = 0; clickMode === 'toggle' && index < requestedClicks; index += 1) {
       await page.locator('.new-todo').fill(`Post-navigation target ${index + 1}`);
+      await page.locator('.new-todo').press('a');
       await page.locator('.new-todo').press('Enter');
     }
 
@@ -169,11 +170,19 @@ test('captures a playable, complete, masked recording bundle', async () => {
     }
     const types = new Set(events.map((event) => event.type));
     for (const type of ['system.recordingStart', 'system.recordingStop', 'system.clockSync', 'navigation',
-      'interaction.click', 'interaction.input', 'interaction.scroll', 'viewport.resize', 'annotation.redaction']) expect(types.has(type)).toBe(true);
+      'interaction.click', 'interaction.input', 'interaction.keypress', 'interaction.scroll', 'viewport.resize',
+      'annotation.redaction']) expect(types.has(type)).toBe(true);
     expect(traceText).not.toContain('raw-secret-value');
     expect(traceText).not.toContain('raw-nested-secret');
     expect(traceText).not.toContain('raw-nested-label');
     expect(events.filter((event) => event.type === 'interaction.click')).toHaveLength(requestedClicks);
+    const keypresses = events.filter((event) => event.type === 'interaction.keypress');
+    expect(keypresses).toHaveLength(requestedClicks);
+    for (const keypress of keypresses) {
+      expect(keypress).toMatchObject({ key: 'Enter', stepId: 'step_0000' });
+      expect(keypress).not.toHaveProperty('code');
+      expect(keypress).not.toHaveProperty('modifiers');
+    }
     const hoverSamples = events.filter((event) => event.type === 'interaction.hover');
     expect(hoverSamples.length).toBeGreaterThanOrEqual(5);
     for (const sample of hoverSamples) {
