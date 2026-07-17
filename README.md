@@ -35,6 +35,8 @@ right.
 - Cursor smoothing, click ripple, idle hiding, local brand presets, and 9:16
   crop export.
 - README GIF export with one global palette, plus 1080p H.264 MP4 export.
+- Linear interactive-demo export that pauses the rendered video at every
+  recorded click and continues through element-aligned hotspots.
 - Step documentation, cropped screenshots, per-step GIFs, a Playwright flow
   skeleton, and imported SRT/VTT captions.
 - A minimal filesystem-backed server for uploading a bundle and sharing its
@@ -132,8 +134,10 @@ rejected as ambiguous instead of guessing an action sequence.
 3. Stop recording. Chrome downloads `media.webm`, `trace.jsonl`, and `meta.json`
    into one `cutscene-<recording-id>` folder.
 4. Choose that folder in the editor.
-5. Inspect the trace, adjust the edit, then export video, documentation,
-   screenshots, step GIFs, a Playwright skeleton, or captions.
+5. Inspect the trace, adjust the edit, then export video, an interactive demo,
+   documentation, screenshots, step GIFs, a Playwright skeleton, or captions.
+   Extract an interactive ZIP and keep `index.html` beside `demo.mp4`; open the
+   HTML file to run the click-through locally.
 6. To share the recording, start the optional server and choose **Create share
    link** in the editor.
 
@@ -145,7 +149,8 @@ maximum was 0.422 frame. The 800×450 README GIF was 2,352,555 bytes at 15fps.
 See [the evidence report](docs/phase-1-evidence.md) for the full measurements.
 
 Phase 7 is complete locally. See [`STATUS.md`](STATUS.md) for the measured
-TodoMVC regeneration and full verification record. Phase 8 is not implemented.
+TodoMVC regeneration and full verification record. Phase 8's linear interactive
+demo is implemented; the unrelated long-tail items remain deferred.
 
 ## Development
 
