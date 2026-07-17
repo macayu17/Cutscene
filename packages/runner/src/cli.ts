@@ -4,28 +4,28 @@ import { pathToFileURL } from 'node:url';
 import { parseRunnerConfig } from './config.ts';
 import { runDemo } from './run.ts';
 
-const USAGE = 'Usage: cutscene-regenerate --config <demo.yml> --dry-run [--demo <id>]';
+const USAGE = 'Usage: cutscene-regenerate --config <demo.yml> [--dry-run] [--demo <id>]';
 
-type Arguments = { configPath: string; demoId: string | null };
+type Arguments = { configPath: string; demoId: string | null; dryRun: boolean };
 
 function parseArguments(args: readonly string[]): Arguments | null {
-  if (args.length !== 3 && args.length !== 5) {
-    return null;
-  }
-  if (args[0] !== '--config' || args[2] !== '--dry-run') {
-    return null;
-  }
+  if (args[0] !== '--config') return null;
   const configPath = args[1];
-  if (!configPath || configPath.startsWith('--')) {
-    return null;
+  if (!configPath || configPath.startsWith('--')) return null;
+  let index = 2;
+  let dryRun = false;
+  if (args[index] === '--dry-run') {
+    dryRun = true;
+    index += 1;
   }
-  if (args.length === 3) {
-    return { configPath, demoId: null };
+  let demoId: string | null = null;
+  if (args[index] === '--demo') {
+    const value = args[index + 1];
+    if (!value || value.startsWith('--')) return null;
+    demoId = value;
+    index += 2;
   }
-  const demoId = args[4];
-  return args[3] === '--demo' && demoId && !demoId.startsWith('--')
-    ? { configPath, demoId }
-    : null;
+  return index === args.length ? { configPath, demoId, dryRun } : null;
 }
 
 export async function main(
@@ -63,7 +63,7 @@ export async function main(
 
   let exitCode: 0 | 1 | 2 = 0;
   for (const demo of demos) {
-    const result = await runDemo(demo, config.value.configDir);
+    const result = await runDemo(demo, config.value.configDir, { dryRun: parsedArguments.dryRun });
     if (result > exitCode) {
       exitCode = result;
     }

@@ -33,9 +33,41 @@ it('parses version 1 and resolves exact environment references', () => {
       baseUrl: 'http://127.0.0.1:4173',
       seed: 'pnpm run seed:demo',
       inputs: { step_0001: 'private value' },
-      outputs: [{ type: 'gif', path: 'docs/assets/todo.gif', width: 800 }],
+      watch: [],
+      staleAfterCommits: null,
+      outputs: [{ type: 'gif', path: resolve('C:/repo/docs/assets/todo.gif'), width: 800 }],
     }],
   } });
+});
+
+it('parses paired staleness fields', () => {
+  const source = valid.replace('    outputs:', `    watch:
+      - packages/app/src/routes/analytics/**
+    staleAfterCommits: 10
+    outputs:`);
+
+  expect(parseRunnerConfig(source, 'C:/repo/demo.yml', environment)).toMatchObject({
+    ok: true,
+    value: { demos: [{
+      watch: ['packages/app/src/routes/analytics/**'],
+      staleAfterCommits: 10,
+    }] },
+  });
+});
+
+it.each([
+  [valid.replace('    outputs:', '    staleAfterCommits: 10\n    outputs:'),
+    'demos[0].watch and staleAfterCommits must be provided together'],
+  [valid.replace('    outputs:', '    watch: []\n    staleAfterCommits: 10\n    outputs:'),
+    'demos[0].watch must be a non-empty array of repository-relative paths'],
+  [valid.replace('    outputs:', '    watch:\n      - ../app/**\n    staleAfterCommits: 10\n    outputs:'),
+    'demos[0].watch must be a non-empty array of repository-relative paths'],
+  [valid.replace('    outputs:', '    watch:\n      - packages/app/**\n    staleAfterCommits: 0\n    outputs:'),
+    'demos[0].staleAfterCommits must be a positive integer'],
+  [valid.replace('docs/assets/todo.gif', '../todo.gif'),
+    'demos[0].outputs[0].path must stay within config directory'],
+])('rejects invalid local-regeneration configuration', (source, message) => {
+  expect(parseRunnerConfig(source, 'C:/repo/demo.yml', environment)).toEqual({ ok: false, error: message });
 });
 
 it('rejects unknown keys', () => {

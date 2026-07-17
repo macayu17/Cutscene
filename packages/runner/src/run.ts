@@ -6,7 +6,10 @@ import { replay } from './replay.ts';
 import { runSeed } from './process.ts';
 import { writeReports } from './report-files.ts';
 
-export async function runDemo(demo: DemoConfig, configDir: string): Promise<0 | 1 | 2> {
+export type RunOptions = { dryRun: boolean };
+
+export async function runDemo(demo: DemoConfig, configDir: string,
+  _options: RunOptions = { dryRun: true }): Promise<0 | 1 | 2> {
   const trace = await readTraceFile(demo.tracePath);
   if (!trace.ok) {
     console.error(`${demo.id}: ${trace.error}`);

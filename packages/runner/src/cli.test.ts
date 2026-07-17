@@ -77,12 +77,23 @@ it('runs every demo sequentially and returns the highest status', async () => {
     await expect(main(['--config', path, '--dry-run'], {})).resolves.toBe(2);
 
     expect(mocks.runDemo.mock.calls.map(([demo]) => demo.id)).toEqual(['matched', 'drifted', 'failed']);
+    expect(mocks.runDemo.mock.calls.map(([, , options]) => options)).toEqual([
+      { dryRun: true }, { dryRun: true }, { dryRun: true },
+    ]);
   });
 });
 
-it('rejects a missing dry-run flag', async () => {
-  await expect(main(['--config', 'demo.yml'], {})).resolves.toBe(2);
-  expect(mocks.runDemo).not.toHaveBeenCalled();
+it('runs full regeneration when dry-run is omitted', async () => {
+  await withConfig(async (path) => {
+    mocks.runDemo.mockResolvedValue(0);
+
+    await expect(main(['--config', path, '--demo', 'matched'], {})).resolves.toBe(0);
+    expect(mocks.runDemo).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'matched' }),
+      expect.any(String),
+      { dryRun: false },
+    );
+  });
 });
 
 it('rejects unknown flags and missing option values', async () => {

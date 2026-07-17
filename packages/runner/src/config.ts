@@ -1,4 +1,4 @@
-import { dirname, resolve } from 'node:path';
+import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import type { Result } from '@cutscene/trace';
 import { parse } from 'yaml';
 
@@ -14,6 +14,8 @@ export type DemoConfig = {
   baseUrl: string;
   seed: string | null;
   inputs: Readonly<Record<string, string>>;
+  watch: readonly string[];
+  staleAfterCommits: number | null;
   outputs: readonly DemoOutput[];
 };
 
@@ -24,7 +26,7 @@ export type RunnerConfig = {
 };
 
 const TOP_KEYS = new Set(['version', 'demos']);
-const DEMO_KEYS = new Set(['id', 'trace', 'baseUrl', 'seed', 'inputs', 'outputs']);
+const DEMO_KEYS = new Set(['id', 'trace', 'baseUrl', 'seed', 'inputs', 'watch', 'staleAfterCommits', 'outputs']);
 const OUTPUT_KEYS = new Set(['type', 'path', 'width']);
 const ENV_REFERENCE = /^\$\{\{\s*env\.([A-Za-z_][A-Za-z0-9_]*)\s*\}\}$/;
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/;
@@ -78,7 +80,7 @@ function validateHttpUrl(value: string, field: string): Result<string> {
   return { ok: false, error: `${field} must use HTTP or HTTPS` };
 }
 
-function parseOutputs(value: unknown, field: string): Result<readonly DemoOutput[]> {
+function parseOutputs(value: unknown, field: string, configDir: string): Result<readonly DemoOutput[]> {
   if (!Array.isArray(value) || value.length === 0) {
     return { ok: false, error: `${field} must be a non-empty array` };
   }
@@ -99,14 +101,19 @@ function parseOutputs(value: unknown, field: string): Result<readonly DemoOutput
     if (typeof rawOutput.path !== 'string' || rawOutput.path.length === 0) {
       return { ok: false, error: `${outputField}.path must be a path` };
     }
+    const path = resolve(configDir, rawOutput.path);
+    const relativePath = relative(configDir, path);
+    if (relativePath === '..' || relativePath.startsWith(`..${sep}`) || isAbsolute(relativePath)) {
+      return { ok: false, error: `${outputField}.path must stay within config directory` };
+    }
     if (rawOutput.width !== undefined
       && (!Number.isInteger(rawOutput.width) || (rawOutput.width as number) <= 0)) {
       return { ok: false, error: `${outputField}.width must be a positive integer` };
     }
 
     outputs.push(rawOutput.width === undefined
-      ? { type: rawOutput.type, path: rawOutput.path }
-      : { type: rawOutput.type, path: rawOutput.path, width: rawOutput.width as number });
+      ? { type: rawOutput.type, path }
+      : { type: rawOutput.type, path, width: rawOutput.width as number });
   }
   return { ok: true, value: outputs };
 }
@@ -189,7 +196,27 @@ export function parseRunnerConfig(
       }
     }
 
-    const outputs = parseOutputs(rawDemo.outputs, `${field}.outputs`);
+    const hasWatch = rawDemo.watch !== undefined;
+    const hasThreshold = rawDemo.staleAfterCommits !== undefined;
+    if (hasWatch !== hasThreshold) {
+      return { ok: false, error: `${field}.watch and staleAfterCommits must be provided together` };
+    }
+    let watch: string[] = [];
+    let staleAfterCommits: number | null = null;
+    if (hasWatch) {
+      if (!Array.isArray(rawDemo.watch) || rawDemo.watch.length === 0 ||
+          !rawDemo.watch.every((path) => typeof path === 'string' && path.length > 0 && !isAbsolute(path) &&
+            !path.split(/[\\/]/).includes('..'))) {
+        return { ok: false, error: `${field}.watch must be a non-empty array of repository-relative paths` };
+      }
+      if (!Number.isInteger(rawDemo.staleAfterCommits) || (rawDemo.staleAfterCommits as number) <= 0) {
+        return { ok: false, error: `${field}.staleAfterCommits must be a positive integer` };
+      }
+      watch = [...rawDemo.watch] as string[];
+      staleAfterCommits = rawDemo.staleAfterCommits as number;
+    }
+
+    const outputs = parseOutputs(rawDemo.outputs, `${field}.outputs`, configDir);
     if (!outputs.ok) {
       return outputs;
     }
@@ -199,6 +226,8 @@ export function parseRunnerConfig(
       baseUrl: baseUrl.value,
       seed: typeof rawDemo.seed === 'string' && rawDemo.seed.length > 0 ? rawDemo.seed : null,
       inputs,
+      watch,
+      staleAfterCommits,
       outputs: outputs.value,
     });
   }
