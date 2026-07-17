@@ -51,8 +51,10 @@ async function execute(page: Page, action: ReplayAction): Promise<ActionResult> 
     try {
       if (action.kind === 'click') {
         await match.click();
-      } else {
+      } else if (action.kind === 'fill') {
         await match.fill(action.value);
+      } else {
+        await match.press(action.key);
       }
       return {
         eventId: action.eventId,

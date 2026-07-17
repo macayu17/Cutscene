@@ -14,7 +14,7 @@ const box = { x: 10, y: 10, width: 100, height: 30 };
 function event(
   id: string,
   stepId: string,
-  type: 'interaction.click' | 'interaction.input',
+  type: 'interaction.click' | 'interaction.input' | 'interaction.keypress',
   name: string,
   locators: Locator[],
   value?: string,
@@ -29,14 +29,15 @@ function event(
     viewport: { width: 800, height: 600, dpr: 1 },
     scroll: { x: 0, y: 0 },
     target: {
-      role: type === 'interaction.input' ? 'textbox' : 'button',
+      role: type === 'interaction.click' ? 'button' : 'textbox',
       accessibleName: name,
       text: name,
-      tagName: type === 'interaction.input' ? 'INPUT' : 'BUTTON',
+      tagName: type === 'interaction.click' ? 'BUTTON' : 'INPUT',
       boundingBox: box,
       locators,
       ...(value === undefined ? {} : { value }),
     },
+    ...(type === 'interaction.keypress' ? { key: 'Enter' } : {}),
   });
 }
 
@@ -90,6 +91,9 @@ test('the real CLI reports matched, drifted, and orphaned steps without input va
       event('private', 'step_3', 'interaction.input', 'Private value', [
         { type: 'label', value: 'Private value', confidence: 1 },
       ], '[MASKED]'),
+      event('submit-private', 'step_3', 'interaction.keypress', 'Private value', [
+        { type: 'label', value: 'Private value', confidence: 1 },
+      ]),
       event('removed', 'step_4', 'interaction.click', 'Removed', [
         { type: 'testId', value: 'removed', confidence: 1 },
       ]),
@@ -128,6 +132,10 @@ demos:
       { locatorType: 'role', locatorIndex: 1 },
       { locatorType: 'label', locatorIndex: 0 },
       { locatorType: null, locatorIndex: null },
+    ]);
+    expect(report.steps[2]?.actions).toMatchObject([
+      { kind: 'fill', locatorType: 'label', locatorIndex: 0 },
+      { kind: 'press', locatorType: 'label', locatorIndex: 0 },
     ]);
     expect(`${json}\n${text}\n${result.stdout}\n${result.stderr}`).not.toContain(secret);
   } finally {

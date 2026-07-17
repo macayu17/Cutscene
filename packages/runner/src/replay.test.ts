@@ -138,3 +138,21 @@ it('fills with the in-memory value but omits it from the result', async () => {
     expect(JSON.stringify(run)).not.toContain('do-not-print-this');
   });
 });
+
+it('presses Enter through the same ranked locator after filling', async () => {
+  await withPage(`<label>New todo <input onkeydown="
+    if (event.key === 'Enter') this.dataset.submitted = this.value
+  "></label>`, async (page) => {
+    const textbox = target('New todo', [{ type: 'label', value: 'New todo', confidence: 1 }]);
+    const run = await replay(page, plan([
+      { eventId: 'input', kind: 'fill', target: textbox, value: 'Recorded title' },
+      { eventId: 'key', kind: 'press', target: textbox, key: 'Enter' },
+    ]));
+
+    await expect(page.getByLabel('New todo').getAttribute('data-submitted')).resolves.toBe('Recorded title');
+    expect(run.steps[0]?.actions).toMatchObject([
+      { eventId: 'input', kind: 'fill', status: 'matched', locatorType: 'label', locatorIndex: 0 },
+      { eventId: 'key', kind: 'press', status: 'matched', locatorType: 'label', locatorIndex: 0 },
+    ]);
+  });
+});
