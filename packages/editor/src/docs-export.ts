@@ -1,5 +1,6 @@
 import { deriveDocSteps, mapBoxToCapture, renderDocMarkdown, type BoundingBox, type DocStep,
   type RecordingMeta, type TraceEvent } from '@cutscene/trace';
+import { deriveRedactionIntervals, redactionBoxesAt, type RedactionBox } from './redactions';
 import { zipStore, type ZipEntry } from './zip';
 
 // One cropped, 2x screenshot per documented step, grabbed from the loaded video
@@ -22,7 +23,7 @@ function seek(video: HTMLVideoElement, timeSeconds: number): Promise<void> {
 }
 
 async function renderShot(video: HTMLVideoElement, mediaTimeMs: number, box: BoundingBox,
-  meta: Pick<RecordingMeta, 'viewport'>): Promise<Uint8Array> {
+  meta: Pick<RecordingMeta, 'viewport'>, redactions: readonly RedactionBox[]): Promise<Uint8Array> {
   await seek(video, Math.max(0, mediaTimeMs / 1_000));
   const capture = { width: video.videoWidth, height: video.videoHeight };
   const region = mapBoxToCapture(box, meta.viewport, capture);
@@ -37,6 +38,12 @@ async function renderShot(video: HTMLVideoElement, mediaTimeMs: number, box: Bou
   const context = canvas.getContext('2d');
   if (!context) throw new Error('2D canvas is unavailable');
   context.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  context.fillStyle = '#16181C';
+  for (const redaction of redactions) {
+    const painted = mapBoxToCapture(redaction.box, redaction.viewport, capture);
+    context.fillRect((painted.x - sx) * canvas.width / sw, (painted.y - sy) * canvas.height / sh,
+      painted.width * canvas.width / sw, painted.height * canvas.height / sh);
+  }
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
   if (!blob) throw new Error('screenshot encoding failed');
   return new Uint8Array(await blob.arrayBuffer());
@@ -48,9 +55,12 @@ export async function renderStepShots(video: HTMLVideoElement, events: readonly 
   meta: Pick<RecordingMeta, 'viewport'>, toMediaTime: (t: number) => number): Promise<RenderedSteps> {
   const steps = deriveDocSteps(events);
   const shots: ZipEntry[] = [];
+  const boxes = deriveRedactionIntervals(events, { slope: 1, intercept: 0, toMediaTime }, Infinity);
+  const redactions = [...new Set(boxes.map(({ selector }) => selector))].map((selector) => ({ selector, enabled: true }));
   for (const step of steps) {
     if (!step.box || !step.screenshot) continue;
-    const png = await renderShot(video, toMediaTime(step.t), step.box, meta);
+    const mediaTimeMs = toMediaTime(step.t);
+    const png = await renderShot(video, mediaTimeMs, step.box, meta, redactionBoxesAt(boxes, redactions, mediaTimeMs));
     shots.push({ name: step.screenshot, data: png });
   }
   return { steps, shots };

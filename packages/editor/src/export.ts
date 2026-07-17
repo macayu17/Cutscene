@@ -54,18 +54,19 @@ export type ExportWindow = { startSeconds: number; endSeconds: number };
 
 export function buildExportPlan(format: ExportFormat, segments: readonly EditableSegment[], meta: ExportMeta,
   overlays: readonly ExportOverlay[] = [], redactions: readonly CompiledRedaction[] = [],
-  cards: BrandExportCards = { introSeconds: 0, outroSeconds: 0 }, window?: ExportWindow): ExportPlan {
+  cards: BrandExportCards = { introSeconds: 0, outroSeconds: 0 }, window?: ExportWindow, gifWidth = 800): ExportPlan {
   const intro = cards.introFilename && cards.introSeconds > 0 ? cards.introFilename : undefined;
   const outro = cards.outroFilename && cards.outroSeconds > 0 ? cards.outroFilename : undefined;
   if (intro || outro) return buildBrandedExportPlan(format, segments, meta, overlays, redactions, {
     ...(intro ? { introFilename: intro } : {}), ...(outro ? { outroFilename: outro } : {}),
     introSeconds: intro ? cards.introSeconds : 0, outroSeconds: outro ? cards.outroSeconds : 0,
-  });
+  }, gifWidth);
   const inputs = ['-i', 'input.webm', ...overlays.flatMap(({ filename }) => ['-i', filename])];
   const source = redactionChain(redactions);
   const sourceFilters = source.filters.length ? `${source.filters.join(';')};` : '';
   if (format === 'gif') {
-    const zoom = zoomPanFilter(segments, meta, 800, 450, 15);
+    const height = Math.round(gifWidth * meta.capture.height / meta.capture.width);
+    const zoom = zoomPanFilter(segments, meta, gifWidth, height, 15);
     const chain = overlayChain(overlays);
     const overlayFilters = chain.filters.length ? `;${chain.filters.join(';')}` : '';
     // Trim after the camera and overlays so their absolute-time expressions stay
@@ -99,9 +100,11 @@ export function buildExportPlan(format: ExportFormat, segments: readonly Editabl
 }
 
 function buildBrandedExportPlan(format: ExportFormat, segments: readonly EditableSegment[], meta: ExportMeta,
-  overlays: readonly ExportOverlay[], redactions: readonly CompiledRedaction[], cards: BrandExportCards): ExportPlan {
-  const width = format === 'gif' ? 800 : format === 'vertical' ? 1_080 : 1_920;
-  const height = format === 'gif' ? 450 : format === 'vertical' ? 1_920 : 1_080;
+  overlays: readonly ExportOverlay[], redactions: readonly CompiledRedaction[], cards: BrandExportCards,
+  gifWidth: number): ExportPlan {
+  const width = format === 'gif' ? gifWidth : format === 'vertical' ? 1_080 : 1_920;
+  const height = format === 'gif' ? Math.round(gifWidth * meta.capture.height / meta.capture.width) :
+    format === 'vertical' ? 1_920 : 1_080;
   const fps = format === 'gif' ? 15 : 60;
   const cardInputs: string[] = [];
   if (cards.introFilename) cardInputs.push('-loop', '1', '-t', String(cards.introSeconds), '-i', cards.introFilename);
@@ -160,13 +163,13 @@ export async function exportRecording(media: Blob, format: ExportFormat, segment
   callouts: readonly EditableCallout[], events: readonly TraceEvent[], clock: MediaClockFit,
   redactions: readonly EditableRedaction[], redactionBoxes: readonly RedactionBox[],
   brand: BrandPreset | null, cursorSettings: CursorSettings,
-  progress: (value: number) => void, window?: ExportWindow): Promise<Blob> {
+  progress: (value: number) => void, window?: ExportWindow, gifWidth = 800): Promise<Blob> {
   const engine = await ffmpeg();
   const runFiles = new Set<string>();
   const listener = ({ progress: value }: { progress: number }) => progress(value);
   engine.on('progress', listener);
   try {
-    const outputSize = format === 'gif' ? { width: 800, height: 450 } :
+    const outputSize = format === 'gif' ? { width: gifWidth, height: Math.round(gifWidth * meta.capture.height / meta.capture.width) } :
       format === 'vertical' ? { width: 1_080, height: 1_920 } : { width: 1_920, height: 1_080 };
     const cursorTrack = cursorSettings.enabled
       ? prepareCursorTrack(deriveCursorSamples(events, clock, meta.capture), cursorSettings) : null;
@@ -197,7 +200,7 @@ export async function exportRecording(media: Blob, format: ExportFormat, segment
       compileRedactions(redactionBoxes, redactions, meta.capture), {
         ...(intro ? { introFilename: intro.filename } : {}), ...(outro ? { outroFilename: outro.filename } : {}),
         introSeconds: intro ? 1.5 : 0, outroSeconds: outro ? 1.5 : 0,
-      }, window);
+      }, window, gifWidth);
     ['input.webm', plan.output, ...prepared.map(({ filename }) => filename),
       ...(watermark ? [watermark.filename] : []), ...(intro ? [intro.filename] : []), ...(outro ? [outro.filename] : []),
       ...cursorAssets.map(({ filename }) => filename)].forEach((filename) => runFiles.add(filename));

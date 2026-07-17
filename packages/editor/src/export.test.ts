@@ -30,6 +30,16 @@ it('builds one global-palette 800px README GIF', () => {
   expect(plan.args.join(' ').match(/palettegen/g)).toHaveLength(1);
 });
 
+it('builds a GIF at the requested width while preserving the capture aspect ratio', () => {
+  const plan = buildExportPlan('gif', segments, meta, [], [], { introSeconds: 0, outroSeconds: 0 }, undefined, 640);
+  expect(plan.args.join(' ')).toContain('s=640x360');
+});
+
+it('keeps MP4 at 1080p when a GIF width is supplied', () => {
+  const plan = buildExportPlan('mp4', segments, meta, [], [], { introSeconds: 0, outroSeconds: 0 }, undefined, 640);
+  expect(plan.args.join(' ')).toContain('s=1920x1080:fps=60');
+});
+
 it('trims a per-step GIF to its window after the camera and before one palette', () => {
   const command = buildExportPlan('gif', segments, meta, [], [], { introSeconds: 0, outroSeconds: 0 },
     { startSeconds: 0.35, endSeconds: 2.65 }).args.join(' ');
