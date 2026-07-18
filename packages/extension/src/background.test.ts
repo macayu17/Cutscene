@@ -2,6 +2,34 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 type Listener = (message: unknown, sender: unknown, respond: (result: unknown) => void) => boolean;
 
+describe('recording start', () => {
+  beforeEach(() => { vi.resetModules(); vi.unstubAllGlobals(); });
+
+  it('explains when the active tab has no content script', async () => {
+    let listener: Listener | undefined;
+    const tabsSend = vi.fn(async () => { throw new Error('Could not establish connection. Receiving end does not exist.'); });
+    vi.stubGlobal('chrome', {
+      runtime: {
+        ContextType: { OFFSCREEN_DOCUMENT: 'OFFSCREEN_DOCUMENT' },
+        getURL: vi.fn(() => 'chrome-extension://cutscene/offscreen.html'),
+        getContexts: vi.fn(async () => [{}]),
+        sendMessage: vi.fn(),
+        onMessage: { addListener: vi.fn((value: Listener) => { listener = value; }) },
+      },
+      tabs: { sendMessage: tabsSend },
+      storage: { session: { get: vi.fn(), set: vi.fn(), remove: vi.fn() } },
+    });
+    await import('./background');
+    if (!listener) throw new Error('Background listener was not registered.');
+    const responses: unknown[] = [];
+
+    expect(listener({ type: 'recording.start', tabId: 7, includeMic: false, redactSelectors: [] }, {},
+      (response) => responses.push(response))).toBe(true);
+    await vi.waitFor(() => expect(responses).toEqual([{ ok: false,
+      error: 'This tab cannot be recorded. Open or reload an http or https page.' }]));
+  });
+});
+
 describe('recording stop', () => {
   beforeEach(() => { vi.resetModules(); vi.unstubAllGlobals(); });
 

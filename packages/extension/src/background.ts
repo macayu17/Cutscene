@@ -59,7 +59,9 @@ async function start(tabId: number, includeMic: boolean, redactSelectors: readon
   } catch (error: unknown) {
     if (offscreenStarted) await chrome.runtime.sendMessage({ type: 'offscreen.cancel' }).catch(() => undefined);
     if (sessionStarted) await chrome.tabs.sendMessage(tabId, { type: 'session.stop' }).catch(() => undefined);
-    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    const message = error instanceof Error ? error.message : String(error);
+    return { ok: false, error: message.includes('Receiving end does not exist')
+      ? 'This tab cannot be recorded. Open or reload an http or https page.' : message };
   }
 }
 
