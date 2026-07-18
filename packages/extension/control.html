@@ -1,3 +1,44 @@
 <!doctype html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width"><link rel="stylesheet" href="/src/style.css"><title>Cutscene</title></head>
-<body><main><strong>CUTSCENE</strong><label><input id="mic" type="checkbox"> microphone</label><label>blur selectors<textarea id="redact" rows="3" placeholder=".customer-email"></textarea></label><button id="start" type="button">Record tab</button><button id="stop" type="button">Stop and save</button><output id="status">idle</output></main><script type="module" src="/src/control.ts"></script></body></html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width">
+    <link rel="stylesheet" href="/src/style.css">
+    <title>Cutscene</title>
+  </head>
+  <body>
+    <main class="popup">
+      <header class="masthead">
+        <div>
+          <h1>Cutscene</h1>
+          <p>tab capture</p>
+        </div>
+        <output id="status" data-state="idle" role="status" aria-live="polite">idle</output>
+      </header>
+
+      <section class="settings" aria-labelledby="capture-heading">
+        <h2 id="capture-heading">Capture</h2>
+        <label class="check-row" for="mic">
+          <input id="mic" type="checkbox">
+          <span>Include microphone</span>
+        </label>
+      </section>
+
+      <section class="settings" aria-labelledby="privacy-heading">
+        <div class="section-heading">
+          <h2 id="privacy-heading">Privacy</h2>
+          <span>one per line</span>
+        </div>
+        <label class="field-label" for="redact">Blur selectors</label>
+        <textarea id="redact" rows="3" placeholder=".customer-email" aria-describedby="redact-help" spellcheck="false"></textarea>
+        <p id="redact-help">Matched elements are blurred in the recording.</p>
+      </section>
+
+      <footer class="actions">
+        <button id="start" type="button">Record tab</button>
+        <button id="stop" type="button">Stop and save</button>
+      </footer>
+    </main>
+    <script type="module" src="/src/control.ts"></script>
+  </body>
+</html>

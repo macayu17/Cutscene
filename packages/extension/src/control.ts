@@ -20,14 +20,18 @@ async function tabId(): Promise<number | null> {
 
 function render(result: Result<RecorderStatus>): void {
   if (!result.ok) {
+    output.dataset.state = 'error';
     output.value = result.error;
     start.disabled = false;
     stop.disabled = true;
     return;
   }
-  output.value = result.value.recording ? `recording · ${result.value.clickCount} clicks` : result.value.clickCount ? `saved · ${result.value.clickCount} clicks` : 'idle';
+  const state = result.value.recording ? 'recording' : result.value.clickCount ? 'saved' : 'idle';
+  output.dataset.state = state;
+  output.value = state === 'idle' ? state : `${state} · ${result.value.clickCount} clicks`;
   start.disabled = result.value.recording;
   stop.disabled = !result.value.recording;
+  mic.disabled = result.value.recording;
   redact.disabled = result.value.recording;
 }
 
