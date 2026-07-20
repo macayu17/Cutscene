@@ -1,6 +1,8 @@
 import { expect, it } from 'vitest';
+import type { TraceEvent } from '@cutscene/trace';
 import { createEditorStore } from './store';
-import { hasMeaningfulTraceEvents, isHumanEvent, isTimelineShortcutTarget, isTraceEvent, seekForKey, tickRow } from './timeline';
+import { hasMeaningfulTraceEvents, isHumanEvent, isTimelineShortcutTarget, isTraceEvent, seekForKey,
+  semanticSummary, tickRow } from './timeline';
 
 it('selects, seeks, and sets bounds without a second playback clock', () => {
   const store = createEditorStore();
@@ -42,4 +44,15 @@ it('keeps pointer samples out of human event lanes', () => {
   expect(isHumanEvent({ type: 'interaction.hover' })).toBe(false);
   expect(isTraceEvent({ type: 'system.clockSync' })).toBe(true);
   expect(isTraceEvent({ type: 'interaction.hover' })).toBe(false);
+});
+
+it('summarizes human steps, boxed clicks, and generated zooms', () => {
+  const events = [
+    { type: 'navigation', stepId: 'step_0' },
+    { type: 'interaction.click', stepId: 'step_1', target: { boundingBox: {} } },
+    { type: 'interaction.input', stepId: 'step_1', target: { boundingBox: {} } },
+    { type: 'interaction.hover', stepId: 'step_1', target: { boundingBox: {} } },
+  ] as unknown as TraceEvent[];
+
+  expect(semanticSummary(events, 3)).toEqual({ events: 3, steps: 2, targets: 1, zooms: 3 });
 });

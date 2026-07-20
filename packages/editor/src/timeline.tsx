@@ -1,4 +1,5 @@
 import type { RefObject } from 'react';
+import type { TraceEvent } from '@cutscene/trace';
 import { useEditorStore } from './store';
 import { SegmentsPanel } from './segments-panel';
 import { CalloutsPanel } from './callouts-panel';
@@ -23,6 +24,18 @@ export function isHumanEvent(event: { type: string }): boolean {
 export function isTraceEvent(event: { type: string }): boolean { return event.type !== 'interaction.hover'; }
 export function hasMeaningfulTraceEvents(events: readonly { type: string }[]): boolean {
   return events.some((event) => event.type.startsWith('interaction.') && event.type !== 'interaction.hover');
+}
+
+export type SemanticSummary = { events: number; steps: number; targets: number; zooms: number };
+
+export function semanticSummary(events: readonly TraceEvent[], zooms: number): SemanticSummary {
+  const human = events.filter(isHumanEvent);
+  return {
+    events: human.length,
+    steps: new Set(human.map(({ stepId }) => stepId)).size,
+    targets: human.filter((event) => event.type === 'interaction.click' && event.target).length,
+    zooms,
+  };
 }
 
 export function Timeline({ video }: { video: RefObject<HTMLVideoElement | null> }) {
