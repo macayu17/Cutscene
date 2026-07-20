@@ -112,6 +112,7 @@ test('two editors converge concurrent timeline edits and retain versions', async
       await page.goto(`http://127.0.0.1:${editorPort}`);
       await page.locator('input[webkitdirectory]').setInputFiles(bundle);
       await expect(page.locator('.topbar')).toContainText('rec_timeline_e2e');
+      await page.getByText('Share', { exact: true }).click();
       page.once('dialog', (dialog) => dialog.accept(ownerUrl));
       await page.getByRole('button', { name: 'Update shared demo' }).click();
       await expect(page.locator('.timeline-sync')).toHaveText('timeline synced');
