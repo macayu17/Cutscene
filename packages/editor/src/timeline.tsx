@@ -26,7 +26,7 @@ export function hasMeaningfulTraceEvents(events: readonly { type: string }[]): b
   return events.some((event) => event.type.startsWith('interaction.') && event.type !== 'interaction.hover');
 }
 
-export type SemanticSummary = { events: number; steps: number; targets: number; zooms: number };
+type SemanticSummary = { events: number; steps: number; targets: number; zooms: number };
 
 export function semanticSummary(events: readonly TraceEvent[], zooms: number): SemanticSummary {
   const human = events.filter(isHumanEvent);

@@ -10,7 +10,7 @@ import type { EditableRedaction, RedactionBox } from './redactions';
 import type { EditableSegment } from './segments';
 import { zipStore } from './zip';
 
-export type DemoKitInput = {
+type DemoKitInput = {
   media: Blob;
   video: HTMLVideoElement;
   meta: RecordingMeta;
@@ -25,7 +25,7 @@ export type DemoKitInput = {
   progress: (value: number) => void;
 };
 
-export type DemoKitArchiveInput = {
+type DemoKitArchiveInput = {
   mp4: Blob;
   gif: Blob;
   manifest: InteractiveManifest;
