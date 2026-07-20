@@ -156,7 +156,8 @@ test('captures a playable, complete, masked recording bundle', async () => {
     if (!traceItem || !metaItem || !mediaItem) throw new Error('Bundle files missing.');
     const traceText = await readFile(traceItem.filename, 'utf8');
     const events = traceText.trim().split(/\r?\n/).map((line) => JSON.parse(line) as Record<string, unknown>);
-    if (cleanDemo) {
+    // The multi-click fixture repeats one locator, so only its single-click form is replayable.
+    if (cleanDemo && requestedClicks === 1) {
       const traceEvents: TraceEvent[] = [];
       for (const event of events) {
         const parsed = parseTraceEvent(event);

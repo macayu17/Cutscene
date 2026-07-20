@@ -41,9 +41,10 @@ $env:CUTSCENE_ARTIFACT_DIR=$capture
 pnpm --filter @cutscene/extension exec playwright test e2e/capture.spec.ts
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 New-Item -ItemType Directory -Force artifacts/submission/clean-recording | Out-Null
-Copy-Item -LiteralPath (Join-Path $capture 'media.webm') -Destination artifacts/submission/clean-recording/media.webm
-Copy-Item -LiteralPath (Join-Path $capture 'trace.jsonl') -Destination artifacts/submission/clean-recording/trace.jsonl
-Copy-Item -LiteralPath (Join-Path $capture 'meta.json') -Destination artifacts/submission/clean-recording/meta.json
+$downloads = Get-ChildItem -LiteralPath $capture | Sort-Object LastWriteTime
+Copy-Item -LiteralPath (($downloads | Where-Object Extension -eq '.webm' | Select-Object -Last 1).FullName) -Destination artifacts/submission/clean-recording/media.webm
+Copy-Item -LiteralPath (($downloads | Where-Object Extension -eq '.jsonl' | Select-Object -Last 1).FullName) -Destination artifacts/submission/clean-recording/trace.jsonl
+Copy-Item -LiteralPath (($downloads | Where-Object Extension -eq '.json' | Select-Object -Last 1).FullName) -Destination artifacts/submission/clean-recording/meta.json
 ```
 
 Expected: the focused Chromium capture passes and the three bundle files exist.
