@@ -55,6 +55,34 @@ Phase 8 verification:
   note: the first combined run retried the existing invitation test once; the
         dedicated extension rerun passed 3/3 without a retry
 
+Semantic Demo Kit evidence (2026-07-20):
+  source: artifacts/phase6-human-reedit
+  recording: rec_a6e39c89-73f1-40ce-845a-1b6bb5615131
+  browser: Chromium, http://127.0.0.1:4176, 1440x900
+  editor horizontal overflow: 0 px
+  editor page / console errors: 0 / 0
+  build time: 82.1 s
+  ZIP: 24,230,907 bytes
+  ZIP SHA-256: C33BEEBED5B477F63EF01CBE6770F1E80D7CB4D5566BDA0C4E6D8BC8FD157346
+  extracted files / bytes: 23 / 24,228,207
+  MP4: 12,932,034 bytes, `ftypisom`
+  GIF: 11,000,126 bytes, `GIF89a`
+  docs / screenshots / Playwright actions: 20 / 18 / 18
+  interactive hotspots completed: 5 / 5
+  maximum hotspot edge error: 0.027 rendered px
+  extracted player page / console errors: 0 / 0
+  raw input, raw trace, ranked-locator JSON, comment, and collaboration
+    credential occurrences in text artifacts: 0
+  native Windows Expand-Archive: passed
+  screenshot: artifacts/screenshots/semantic-demo-kit-editor.png
+  player screenshot: artifacts/screenshots/semantic-demo-kit-player.png
+  repository tests: 301 passed (84 trace, 25 server, 128 editor,
+                    14 extension, 50 runner)
+  typecheck: 5/5 active packages passed
+  production build: trace, editor, and extension passed
+  Chromium E2E: 6/6 passed in 58.5 s
+  hosted CI / paid credits / new runtime dependencies: none
+
 Requested cleanup:
   attachment `b0f5fd31-2135-4527-9aae-1761db805124/image-1.png`: removed
   live GitHub contributors API: macayu17 only
