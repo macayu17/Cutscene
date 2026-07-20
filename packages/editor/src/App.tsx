@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { readBundleFiles, type BundleFiles } from './bundle';
 import { eventById, useEditorStore } from './store';
-import { hasMeaningfulTraceEvents, isHumanEvent, Timeline } from './timeline';
+import { hasMeaningfulTraceEvents, isHumanEvent, semanticSummary, Timeline } from './timeline';
 import { VideoView } from './video';
 import { exportRecording, type ExportFormat } from './export';
 import { selectedBrandPreset } from './brand';
-import { generatePlaywrightSkeleton, serializeSrt, serializeVtt, type Result } from '@cutscene/trace';
+import { generatePlaywrightSkeleton, serializeSrt, serializeVtt, targetLabel, type Result } from '@cutscene/trace';
 import { docsArchive, renderStepShots, screenshotsArchive } from './docs-export';
 import { exportStepGifs } from './gif-export';
 import { createShareLink, updateSharedRecording, type ShareLinks } from './share';
 import { deriveInteractiveManifest, interactiveArchive } from './interactive';
+import { buildDemoKit } from './demo-kit';
 
 export default function App() {
   const video = useRef<HTMLVideoElement>(null);
@@ -63,6 +64,9 @@ export default function App() {
     {error ? <output className="error">{error}</output> : null}
   </main>;
   const selected = eventById(bundle.events, selectedEventId);
+  const summary = semanticSummary(bundle.events, segments.length);
+  const selectedTarget = selected?.target;
+  const selectedLocator = selectedTarget?.locators[0];
   const download = (blob: Blob, name: string) => {
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob); link.download = name; link.click();
@@ -120,6 +124,28 @@ export default function App() {
       setExport(null);
     } catch (cause: unknown) { setExport(null, cause instanceof Error ? cause.message : String(cause)); }
   };
+  const runDemoKit = async () => {
+    if (!media || !video.current) return;
+    setExport(0);
+    try {
+      const archive = await buildDemoKit({
+        media,
+        video: video.current,
+        meta: bundle.meta,
+        events: bundle.events,
+        clock: bundle.clock,
+        segments,
+        callouts,
+        redactions,
+        redactionBoxes,
+        brand,
+        cursorSettings,
+        progress: (value) => setExport(value),
+      });
+      zip(archive, `${bundle.meta.recordingId}-demo-kit.zip`);
+      setExport(null);
+    } catch (cause: unknown) { setExport(null, cause instanceof Error ? cause.message : String(cause)); }
+  };
   const share = async () => {
     if (!bundleFiles) return;
     const server = window.prompt('Share server URL', 'http://localhost:4180');
@@ -143,8 +169,50 @@ export default function App() {
     setSharing(false);
   };
   return <main className="instrument">
-    <header className="topbar"><span>{bundle.meta.recordingId}</span><span>·</span><span>{new URL(bundle.meta.url).host}</span><span>·</span><span>{bundle.meta.capture.width}×{bundle.meta.capture.height}</span><span>·</span><span>{(bundle.meta.media.durationMs / 1_000).toFixed(1)}s</span>{timelineSyncStatus.state !== 'idle' ? <span className={timelineSyncStatus.state === 'error' ? 'timeline-sync error' : 'timeline-sync'}>{timelineSyncStatus.state === 'error' ? timelineSyncStatus.error : `timeline ${timelineSyncStatus.state}`}</span> : null}<span className="push">{input('Load another recording')}</span><button disabled={sharing || !bundleFiles} onClick={() => void share()}>{sharing ? 'Publishing...' : 'Create share link'}</button><button disabled={sharing || !bundleFiles} onClick={() => void updateShare()}>Update shared demo</button><button disabled={exportProgress !== null} onClick={() => void runExport('gif')}>Export GIF</button><button disabled={exportProgress !== null} onClick={() => void runExport('mp4')}>Export MP4</button><button disabled={exportProgress !== null} onClick={() => void runInteractive()}>Export interactive demo</button><button disabled={exportProgress !== null} onClick={() => void runExport('vertical')}>Export 9:16 MP4</button><button disabled={exportProgress !== null || segments.length === 0} onClick={() => void runStepGifs()}>Export step GIFs</button><button disabled={exportProgress !== null} onClick={exportSkeleton}>Export Playwright skeleton</button><button disabled={exportProgress !== null} onClick={() => void runArtifacts('docs')}>Export docs</button><button disabled={exportProgress !== null} onClick={() => void runArtifacts('screenshots')}>Export screenshots</button><label className="file-label">Import captions<input type="file" accept=".srt,.vtt,.txt" onChange={(event) => { const file = event.currentTarget.files?.[0]; if (file) void file.text().then(loadCaptions); }}/></label><button disabled={captions.length === 0} onClick={() => exportCaptions('srt')}>Export SRT</button><button disabled={captions.length === 0} onClick={() => exportCaptions('vtt')}>Export VTT</button>{exportProgress !== null ? <span className="export-progress" style={{ width: `${exportProgress * 100}%` }}/> : null}</header>
-    <aside className="events"><h2>EVENTS</h2>{hasMeaningfulTraceEvents(bundle.events) ? bundle.events.filter(isHumanEvent).map((event) => { const time = Math.max(0, bundle.clock.toMediaTime(event.t)); return <button className="event" key={event.id} aria-current={selected?.id === event.id} onClick={() => { selectEvent(event.id, time); if (video.current) video.current.currentTime = time / 1_000; }}><time>{(time / 1_000).toFixed(1)}s</time><span>{event.type}<br/><small>{event.target?.accessibleName || event.route}</small></span></button>; }) : <p className="no-events">No trace events captured. The page may render to a canvas, which cannot be traced.</p>}</aside>
+    <header className="topbar">
+      <div className="recording-meta"><span>{bundle.meta.recordingId}</span><span>·</span>
+        <span>{new URL(bundle.meta.url).host}</span><span>·</span>
+        <span>{bundle.meta.capture.width}×{bundle.meta.capture.height}</span><span>·</span>
+        <span>{(bundle.meta.media.durationMs / 1_000).toFixed(1)}s</span>
+        {timelineSyncStatus.state !== 'idle' ? <span className={timelineSyncStatus.state === 'error' ? 'timeline-sync error' : 'timeline-sync'}>{timelineSyncStatus.state === 'error' ? timelineSyncStatus.error : `timeline ${timelineSyncStatus.state}`}</span> : null}
+      </div>
+      <div className="topbar-actions">
+        {input('Load recording')}
+        <details className="action-menu"><summary>Share</summary><div>
+          <button disabled={sharing || !bundleFiles} onClick={() => void share()}>{sharing ? 'Publishing...' : 'Create share link'}</button>
+          <button disabled={sharing || !bundleFiles} onClick={() => void updateShare()}>Update shared demo</button>
+        </div></details>
+        <details className="action-menu"><summary>Export</summary><div>
+          <button disabled={exportProgress !== null} onClick={() => void runExport('gif')}>Export GIF</button>
+          <button disabled={exportProgress !== null} onClick={() => void runExport('mp4')}>Export MP4</button>
+          <button disabled={exportProgress !== null} onClick={() => void runInteractive()}>Export interactive demo</button>
+          <button disabled={exportProgress !== null} onClick={() => void runExport('vertical')}>Export 9:16 MP4</button>
+          <button disabled={exportProgress !== null || segments.length === 0} onClick={() => void runStepGifs()}>Export step GIFs</button>
+          <button disabled={exportProgress !== null} onClick={exportSkeleton}>Export Playwright skeleton</button>
+          <button disabled={exportProgress !== null} onClick={() => void runArtifacts('docs')}>Export docs</button>
+          <button disabled={exportProgress !== null} onClick={() => void runArtifacts('screenshots')}>Export screenshots</button>
+          <label className="file-label">Import captions<input type="file" accept=".srt,.vtt,.txt" onChange={(event) => { const file = event.currentTarget.files?.[0]; if (file) void file.text().then(loadCaptions); }}/></label>
+          <button disabled={captions.length === 0} onClick={() => exportCaptions('srt')}>Export SRT</button>
+          <button disabled={captions.length === 0} onClick={() => exportCaptions('vtt')}>Export VTT</button>
+        </div></details>
+        <button className="primary-action" disabled={exportProgress !== null}
+          onClick={() => void runDemoKit()}>Build demo kit</button>
+      </div>
+      {exportProgress !== null ? <span className="export-progress" role="progressbar" aria-label="Export progress"
+        aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(exportProgress * 100)}
+        style={{ width: `${exportProgress * 100}%` }}/> : null}
+    </header>
+    <aside className="events"><h2>SEMANTIC TRACE</h2>
+      <p className="semantic-summary"><span>{summary.events} events</span><span>{summary.steps} steps</span>
+        <span>{summary.targets} targets</span><span>{summary.zooms} zooms</span></p>
+      {selectedTarget ? <dl className="event-detail">
+        <div><dt>STEP</dt><dd>{selected?.stepId}</dd></div>
+        <div><dt>ELEMENT</dt><dd>{selectedTarget.role ?? selectedTarget.tagName.toLowerCase()}</dd></div>
+        <div><dt>BOX CSS PX</dt><dd>{[selectedTarget.boundingBox.x, selectedTarget.boundingBox.y,
+          selectedTarget.boundingBox.width, selectedTarget.boundingBox.height].map(Math.round).join(', ')}</dd></div>
+        {selectedLocator ? <div><dt>LOCATOR</dt><dd>{selectedLocator.type} · {Math.round(selectedLocator.confidence * 100)}%</dd></div> : null}
+      </dl> : null}
+      {hasMeaningfulTraceEvents(bundle.events) ? bundle.events.filter(isHumanEvent).map((event) => { const time = Math.max(0, bundle.clock.toMediaTime(event.t)); return <button className="event" key={event.id} aria-current={selected?.id === event.id} onClick={() => { selectEvent(event.id, time); if (video.current) video.current.currentTime = time / 1_000; }}><time>{(time / 1_000).toFixed(1)}s</time><span>{event.type}<br/><small>{event.target ? targetLabel(event.target) : event.route}</small></span></button>; }) : <p className="no-events">No trace events captured. The page may render to a canvas, which cannot be traced.</p>}</aside>
     <section className="viewer" aria-label="Video preview"><VideoView video={video}/></section>
     <Timeline video={video}/>
     {captionError ? <output className="export-error">{captionError}</output> : null}
