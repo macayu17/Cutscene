@@ -93,11 +93,11 @@ playwright.spec.ts
 - `docs.md` and `screenshots/` come from one shared `renderStepShots` pass.
 - `playwright.spec.ts` comes from the existing deterministic skeleton generator.
 
-The archive deliberately excludes the original WebM, raw trace, metadata,
-locators, comments, collaboration credentials, and regeneration configuration.
-Those are maintenance inputs and may contain internal application structure;
-the demo kit is safe to publish. Local regeneration remains documented and
-uses the separately retained recording bundle.
+The archive deliberately excludes the original WebM, raw trace, metadata, full
+ranked locator arrays, comments, collaboration credentials, and regeneration
+configuration. The generated Playwright skeleton contains only the one selected
+locator required for each emitted action; masked input values remain masked.
+Local regeneration uses the separately retained recording bundle.
 
 ## Data flow
 
@@ -149,7 +149,8 @@ redaction behavior are reused unchanged.
 The feature is complete only when all of the following pass:
 
 1. A unit test opens the ZIP directory and verifies the six required artifact
-   groups and the absence of trace, locator, comment, and raw-value payloads.
+   groups and the absence of raw trace, ranked-locator JSON, comments, and raw
+   input values. Selected locators may appear only inside `playwright.spec.ts`.
 2. The MP4 and GIF signatures, interactive manifest, Markdown step count,
    screenshot count, and Playwright action count match their existing standalone
    exporters for the same fixture.
