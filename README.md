@@ -152,6 +152,40 @@ Phase 7 is complete locally. See [`STATUS.md`](STATUS.md) for the measured
 TodoMVC regeneration and full verification record. Phase 8's linear interactive
 demo is implemented; the unrelated long-tail items remain deferred.
 
+## How Codex and GPT-5.6 were used
+
+Cutscene was built with Codex CLI running `gpt-5.6-sol` at high reasoning
+effort. Codex wrote the implementation; the phase gates, the schema decisions,
+and every acceptance number were owner-reviewed before a phase advanced.
+
+The working method was constraint, not prompting. [`PRD.md`](PRD.md) defines the
+whole product as eight gated phases with measurable exit criteria.
+[`AGENTS.md`](AGENTS.md) makes those gates binding: a phase may not begin until
+the previous phase's numbers are reported in [`STATUS.md`](STATUS.md), and Phase
+0 is allowed to fail. Given "build the recorder", a capable agent builds all
+eight phases badly. Given "Phase 0 exit criteria are these three numbers, and
+you may not proceed until you report them", it builds one phase well and stops.
+
+Where GPT-5.6's reasoning did the load-bearing work:
+
+- **Ranked locator generation and drift detection** in `packages/trace` — the
+  ranking strategy and the rule that a drifted or orphaned step exits `1` rather
+  than clicking the wrong element.
+- **Clock alignment** between the video clock and the DOM event clock, measured
+  down to a 0.258-frame mean error across ten sampled zooms.
+- **The privacy boundary on the interactive export** — reducing the shipped
+  manifest to `v`, `recordingId`, `width`, `height`, `steps`, then verifying zero
+  locators, zero raw trace, and zero input values in `index.html`.
+- **The `demo.yml` replay and trace-diff runner** in `packages/runner`.
+
+Codex also ran the verification loop it was measured against: 301 unit tests,
+5/5 typecheck, production builds, and 6/6 Chromium E2E, all local. No pull
+request, hosted CI, paid credit, or subagent was used at any point.
+
+Design and plan documents for each slice are under
+[`docs/superpowers/`](docs/superpowers/), written before the corresponding
+implementation.
+
 ## Development
 
 ```sh
