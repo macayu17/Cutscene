@@ -2,15 +2,15 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a local Microsoft David voiceover to the existing Cutscene submission video, explicitly covering the product, Codex usage, and GPT-5.6 usage while staying under three minutes.
+**Goal:** Add a local Windows voiceover to the existing Cutscene submission video, explicitly covering the product, Codex usage, and ChatGPT 5.6 usage while staying under three minutes.
 
-**Architecture:** Keep the source MP4 unchanged. Save the narration as plain Markdown, synthesize it with Windows `System.Speech`, then use FFmpeg to copy the existing H.264 video and replace its audio with AAC narration.
+**Architecture:** Keep the source MP4 unchanged. Save the narration as plain Markdown, synthesize it with the enabled Microsoft Zira voice through Windows `System.Speech`, then use FFmpeg to copy the existing H.264 video and replace its audio with AAC narration. Microsoft David is skipped because its local package is disabled and incomplete.
 
 **Tech Stack:** Windows System.Speech, PowerShell, FFmpeg, FFprobe, Markdown.
 
 ---
 
-### Task 1: Write and synthesize the narration
+### Task 1: Write and synthesize the narration locally
 
 **Files:**
 - Create: `artifacts/submission/ai-voiceover-script.md`
@@ -33,12 +33,12 @@ Cutscene can also replay the ranked locators against a newer build. If a locator
 
 I used Codex as the hands-on engineering agent throughout the build. Codex read the product requirements and phase gates, implemented the TypeScript packages, diagnosed clock, geometry, ordering, and playback bugs, wrote focused Vitest and Playwright checks, and verified the real recordings and exported artifacts. I reviewed the results and made the final product decisions.
 
-I used GPT-5.6 for product reasoning and communication: comparing feature directions, simplifying the scope, challenging overcomplicated solutions, structuring the demo, and refining the README and submission story. It helped turn the engineering evidence into an explanation judges can follow without changing what the product actually does.
+I used ChatGPT 5.6 for product reasoning and communication: comparing feature directions, simplifying the scope, challenging overcomplicated solutions, structuring the demo, and refining the README and submission story. It helped turn the engineering evidence into an explanation judges can follow without changing what the product actually does.
 
 That is the difference with Cutscene. Record the workflow once, then keep the video, guide, documentation, screenshots, and test flow together as the interface changes.
 ```
 
-- [ ] **Step 2: Render Microsoft David locally**
+- [ ] **Step 2: Render Microsoft Zira locally**
 
 Run with Windows PowerShell so the installed .NET speech assembly is available:
 
@@ -46,13 +46,13 @@ Run with Windows PowerShell so the installed .NET speech assembly is available:
 powershell.exe -NoProfile -Command @'
 Add-Type -AssemblyName System.Speech
 $synth = New-Object System.Speech.Synthesis.SpeechSynthesizer
-$synth.SelectVoice('Microsoft David Desktop')
-$synth.Rate = 0
+$synth.SelectVoice('Microsoft Zira Desktop')
+$synth.Rate = 1
 $synth.Volume = 100
 $prompt = New-Object System.Speech.Synthesis.PromptBuilder
 (Get-Content 'F:\Cutscene\artifacts\submission\ai-voiceover-script.md' -Raw) -split "`r?`n`r?`n" | ForEach-Object {
   $prompt.AppendText($_.Trim())
-  $prompt.AppendBreak([TimeSpan]::FromMilliseconds(300))
+  $prompt.AppendBreak([TimeSpan]::FromMilliseconds(250))
 }
 $synth.SetOutputToWaveFile('F:\Cutscene\artifacts\submission\ai-voiceover.wav')
 $synth.Speak($prompt)
@@ -68,7 +68,7 @@ Run:
 ffprobe -v error -show_entries format=duration -of default=nw=1 artifacts/submission/ai-voiceover.wav
 ```
 
-Expected: duration below 145 seconds. If it exceeds 145 seconds, rerender once with `$synth.Rate = 1`.
+Expected: duration below 145 seconds.
 
 ### Task 2: Mux and verify the final video
 
@@ -90,7 +90,7 @@ Run:
 ```powershell
 ffprobe -v error -show_entries format=duration,size -show_entries stream=codec_name,codec_type,width,height,r_frame_rate -of json artifacts/submission/cutscene-demo-ai-voice.mp4
 $script = Get-Content artifacts/submission/ai-voiceover-script.md -Raw
-if ($script -notmatch 'Cutscene' -or $script -notmatch 'Codex' -or $script -notmatch 'GPT-5\.6') { throw 'Required narration topic missing.' }
+if ($script -notmatch 'Cutscene' -or $script -notmatch 'Codex' -or $script -notmatch 'ChatGPT 5\.6') { throw 'Required narration topic missing.' }
 ```
 
 Expected: H.264 video, AAC audio, 1920x1080, duration below 180 seconds, and no exception.
