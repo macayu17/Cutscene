@@ -10,3 +10,5 @@ export * from './captions.ts';
 export * from './comments.ts';
 export * from './regeneration.ts';
 export * from './trace-diff.ts';
+export * from './quality.ts';
+export * from './heal.ts';

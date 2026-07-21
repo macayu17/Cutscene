@@ -4,9 +4,9 @@ import { pathToFileURL } from 'node:url';
 import { parseRunnerConfig } from './config.ts';
 import { runDemo } from './run.ts';
 
-const USAGE = 'Usage: cutscene-regenerate --config <demo.yml> [--dry-run] [--demo <id>]';
+const USAGE = 'Usage: cutscene-regenerate --config <demo.yml> [--dry-run] [--heal] [--demo <id>]';
 
-type Arguments = { configPath: string; demoId: string | null; dryRun: boolean };
+type Arguments = { configPath: string; demoId: string | null; dryRun: boolean; heal: boolean };
 
 function parseArguments(args: readonly string[]): Arguments | null {
   if (args[0] !== '--config') return null;
@@ -18,6 +18,11 @@ function parseArguments(args: readonly string[]): Arguments | null {
     dryRun = true;
     index += 1;
   }
+  let heal = false;
+  if (args[index] === '--heal') {
+    heal = true;
+    index += 1;
+  }
   let demoId: string | null = null;
   if (args[index] === '--demo') {
     const value = args[index + 1];
@@ -25,7 +30,7 @@ function parseArguments(args: readonly string[]): Arguments | null {
     demoId = value;
     index += 2;
   }
-  return index === args.length ? { configPath, demoId, dryRun } : null;
+  return index === args.length ? { configPath, demoId, dryRun, heal } : null;
 }
 
 export async function main(
@@ -63,7 +68,8 @@ export async function main(
 
   let exitCode: 0 | 1 | 2 = 0;
   for (const demo of demos) {
-    const result = await runDemo(demo, config.value.configDir, { dryRun: parsedArguments.dryRun });
+    const result = await runDemo(demo, config.value.configDir,
+      { dryRun: parsedArguments.dryRun, heal: parsedArguments.heal });
     if (result > exitCode) {
       exitCode = result;
     }

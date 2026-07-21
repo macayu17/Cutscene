@@ -78,7 +78,7 @@ it('runs every demo sequentially and returns the highest status', async () => {
 
     expect(mocks.runDemo.mock.calls.map(([demo]) => demo.id)).toEqual(['matched', 'drifted', 'failed']);
     expect(mocks.runDemo.mock.calls.map(([, , options]) => options)).toEqual([
-      { dryRun: true }, { dryRun: true }, { dryRun: true },
+      { dryRun: true, heal: false }, { dryRun: true, heal: false }, { dryRun: true, heal: false },
     ]);
   });
 });
@@ -91,7 +91,7 @@ it('runs full regeneration when dry-run is omitted', async () => {
     expect(mocks.runDemo).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'matched' }),
       expect.any(String),
-      { dryRun: false },
+      { dryRun: false, heal: false },
     );
   });
 });
@@ -107,5 +107,18 @@ it('rejects a demo id that is not configured', async () => {
     await expect(main(['--config', path, '--dry-run', '--demo', 'missing'], {})).resolves.toBe(2);
     expect(error).toHaveBeenCalledWith('demo "missing" is not configured');
     expect(mocks.runDemo).not.toHaveBeenCalled();
+  });
+});
+
+it('passes the heal flag through to the runner', async () => {
+  await withConfig(async (path) => {
+    mocks.runDemo.mockResolvedValue(0);
+
+    await expect(main(['--config', path, '--dry-run', '--heal', '--demo', 'matched'], {})).resolves.toBe(0);
+    expect(mocks.runDemo).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'matched' }),
+      expect.any(String),
+      { dryRun: true, heal: true },
+    );
   });
 });

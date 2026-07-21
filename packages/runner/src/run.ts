@@ -1,10 +1,12 @@
-import { mkdir, rm } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type BrowserContext } from '@playwright/test';
 import {
   buildDriftReport,
   diffTraces,
+  healTrace,
+  serializeTrace,
   planReplay,
   reportExitCode,
   type RecordingMeta,
@@ -19,7 +21,7 @@ import { writeReports } from './report-files.ts';
 import { detectStaleness, readGitHead, type StalenessResult } from './staleness.ts';
 import { renderOutputs } from './render.ts';
 
-export type RunOptions = { dryRun: boolean };
+export type RunOptions = { dryRun: boolean; heal?: boolean };
 
 function route(url: string): string {
   const parsed = new URL(url);
@@ -113,6 +115,20 @@ export async function runDemo(demo: DemoConfig, configDir: string,
           return 2;
         }
         console.log(`${demo.id}: ${written.value}`);
+        if (options.heal) {
+          const { events, healed } = healTrace(trace.value, report);
+          if (healed.length > 0) {
+            await writeFile(demo.tracePath, serializeTrace(events), 'utf8');
+            for (const step of healed) {
+              console.log(`${demo.id}: healed ${step.stepId} ${step.from} -> ${step.to}`);
+            }
+          }
+          // Orphaned steps have no locator left to promote, so a heal run only
+          // clears the gate when every drifted step was actually repaired.
+          return report.counts.orphaned === 0 && healed.length === report.counts.drifted
+            ? 0
+            : reportExitCode(report);
+        }
         return reportExitCode(report);
       }
 
