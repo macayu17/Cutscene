@@ -4,6 +4,27 @@ Phase 8's linear interactive-demo slice passed locally on 2026-07-18. The other
 long-tail items in PRD.md section 14 remain deferred; there is no Phase 9 status
 advance.
 
+Trace-derived quality report and drift healing (2026-07-21):
+  quality report: interactions on elements with no accessible name or role, and
+                  steps whose strongest ranked locator falls below 0.8
+                  confidence, derived from the trace with no page re-inspection
+  shipped in the demo kit as quality.md
+  measured on the clean TodoMVC capture: 5 findings, one per recorded step,
+                  all five checkboxes exposing no accessible name
+  drift healing: `--heal` promotes the ranked locator that actually resolved
+                  and rewrites the trace, so a renamed test id stops drifting
+  measured on the local drift fixture:
+    before heal: 2 matched / 1 drifted / 1 orphaned, exit 1
+    heal:        healed step_3 testId -> role
+    after heal:  3 matched / 0 drifted / 1 orphaned, exit 1
+  an orphaned step has no locator left to promote, so the gate stays closed
+
+  repository tests: 315 passed (97 trace, 25 server, 128 editor,
+                    14 extension, 51 runner)
+  typecheck: 5/5 active packages passed
+  production build: trace, editor, and extension passed
+  hosted CI / paid credits / new runtime dependencies: none
+
 Interactive demo implementation:
   [x] one editor action renders the existing MP4 and downloads a static ZIP
   [x] version 1 click-only manifest with no raw trace or locator payload
