@@ -39,6 +39,9 @@ right.
   recorded click and continues through element-aligned hotspots.
 - Step documentation, cropped screenshots, per-step GIFs, a Playwright flow
   skeleton, and imported SRT/VTT captions.
+- A recording quality report derived from the trace alone: interactions on
+  elements with no accessible name or role, and steps whose strongest locator
+  is one an ordinary edit breaks.
 - A minimal filesystem-backed server for uploading a bundle and sharing its
   video through a public link.
 - Local demo regeneration that replays ranked locators, records fresh pixels
@@ -122,6 +125,21 @@ but must be provided together.
   a normal run leaves the declared outputs unchanged.
 - Exit `2`: configuration, seed, capture, report, or rendering failed.
 
+### Repair recoverable drift
+
+A step drifts when its strongest locator stops resolving but a lower-ranked one
+still finds the element. Add `--heal` to promote the locator that actually
+resolved and write the trace back, so the next run matches instead of drifting
+again.
+
+```powershell
+pnpm --filter @cutscene/runner regenerate -- --config demo.yml --dry-run --heal
+```
+
+Healing never invents a locator. An orphaned step has nothing left to promote,
+so it stays orphaned and the run still exits `1`. `--heal` repairs what is
+recoverable and refuses to hide what is not.
+
 Version 1 records and replays only `Enter`. Printable keys, modifiers, and all
 other control keys are omitted. A step with more than one recorded Enter is
 rejected as ambiguous instead of guessing an action sequence.
@@ -178,7 +196,7 @@ Where GPT-5.6's reasoning did the load-bearing work:
   locators, zero raw trace, and zero input values in `index.html`.
 - **The `demo.yml` replay and trace-diff runner** in `packages/runner`.
 
-Codex also ran the verification loop it was measured against: 301 unit tests,
+Codex also ran the verification loop it was measured against: 315 unit tests,
 5/5 typecheck, production builds, and 6/6 Chromium E2E, all local. No pull
 request, hosted CI, paid credit, or subagent was used at any point.
 
