@@ -37,11 +37,12 @@ it('packages publishable artifacts without raw recording data', async () => {
     },
     meta: { recordingId: 'rec_kit', url: 'https://example.com/' },
     skeleton: "await page.getByRole('button', { name: 'Save' }).click();",
+    quality: '# Recording quality report\n',
   });
 
   expect(names(archive)).toEqual([
     'index.html', 'demo.mp4', 'demo.gif', 'docs.md',
-    'screenshots/step-01.png', 'playwright.spec.ts',
+    'screenshots/step-01.png', 'playwright.spec.ts', 'quality.md',
   ]);
   const text = new TextDecoder().decode(archive);
   expect(text).toContain('GIF89a');

@@ -1,5 +1,5 @@
-import { deriveDocSteps, generatePlaywrightSkeleton, renderDocMarkdown, type MediaClockFit,
-  type RecordingMeta, type TraceEvent } from '@cutscene/trace';
+import { analyzeQuality, deriveDocSteps, generatePlaywrightSkeleton, renderDocMarkdown,
+  renderQualityReport, type MediaClockFit, type RecordingMeta, type TraceEvent } from '@cutscene/trace';
 import type { BrandPreset } from './brand';
 import type { EditableCallout } from './callouts';
 import type { CursorSettings } from './cursor';
@@ -32,6 +32,7 @@ type DemoKitArchiveInput = {
   rendered: RenderedSteps;
   meta: Pick<RecordingMeta, 'recordingId' | 'url'>;
   skeleton: string;
+  quality: string;
 };
 
 export async function demoKitArchive(input: DemoKitArchiveInput): Promise<Uint8Array> {
@@ -43,6 +44,7 @@ export async function demoKitArchive(input: DemoKitArchiveInput): Promise<Uint8A
     { name: 'docs.md', data: encoder.encode(renderDocMarkdown(input.rendered.steps, input.meta)) },
     ...input.rendered.shots,
     { name: 'playwright.spec.ts', data: encoder.encode(input.skeleton) },
+    { name: 'quality.md', data: encoder.encode(input.quality) },
   ]);
 }
 
@@ -79,6 +81,7 @@ export async function buildDemoKit(input: DemoKitInput): Promise<Uint8Array> {
     rendered,
     meta: input.meta,
     skeleton: generatePlaywrightSkeleton({ meta: input.meta, events: input.events }),
+    quality: renderQualityReport(analyzeQuality(input.events)),
   });
   input.progress(1);
   return archive;
