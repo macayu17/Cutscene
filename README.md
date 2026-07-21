@@ -4,6 +4,13 @@ Cutscene records a Chrome tab and the DOM events behind it. The editor uses
 recorded element bounds to frame clicks instead of guessing from cursor
 coordinates.
 
+**[Click through a live demo](https://cutscene-editor-sandy.vercel.app/demo)**
+· [what it is](https://cutscene-editor-sandy.vercel.app)
+
+The demo is a static file exported by the editor from the recording below. It
+pauses the video at every recorded click and waits for you to hit the real
+element. No install and no account.
+
 ![Cursor-position zoom on the left and element-locked zoom on the right](docs/assets/element-locked-comparison.gif)
 
 Same recording. Cursor-position zoom on the left; recorded-element zoom on the
