@@ -3,189 +3,223 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cutscene — a screen recorder that records the DOM</title>
+<title>Cutscene — it knows what you clicked</title>
 <meta name="description" content="Cutscene records a Chrome tab and the DOM events behind it. Zooms lock onto the real element, and the demo fails like a test when the app changes.">
 <meta property="og:title" content="Cutscene">
 <meta property="og:description" content="A screen recorder that also records the page's DOM, so zooms land on the real element and the demo fails like a test when the app changes.">
 <meta property="og:type" content="website">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
 
-<nav class="rail" aria-label="Section">
-  <a href="#capture"><i></i>Capture</a>
-  <a href="#artifacts"><i></i>Artifacts</a>
-  <a href="#audit"><i></i>Audit</a>
-  <a href="#drift"><i></i>Drift</a>
-  <a class="rail-cta" href="demo/">Demo</a>
-</nav>
+<div class="scrub" aria-hidden="true"><i></i></div>
+
+<aside class="gutter" aria-hidden="true">
+  <span class="gutter-id">step_0000</span>
+  <span class="gutter-t">00.0s</span>
+</aside>
 
 <main id="main">
 
-<!-- 01 ............................................................. HERO -->
-<section class="hero">
+<!-- ═══ 00 ═══════════════════════════════════════════════════ HERO ═══ -->
+<section class="hero" data-step="step_0000" data-t="00.0s">
   <header class="masthead">
     <span class="wordmark">Cutscene</span>
-    <span class="meta">Chrome&nbsp;MV3 · MIT · local&#8209;first</span>
+    <nav><a href="demo/">Demo</a><a href="https://github.com/macayu17/Cutscene">Source</a></nav>
   </header>
 
-  <h1 class="display">
-    <span class="line">It records</span>
-    <span class="line">the <em>element</em>,</span>
-    <span class="line">not the pixel.</span>
+  <h1 class="mega">
+    <span>It knows</span>
+    <span>what you</span>
+    <span class="hot">clicked.</span>
   </h1>
 
-  <p class="lede">
-    Every screen recorder saves pixels and throws away everything the browser
-    already knew. Cutscene records a Chrome tab and the DOM events behind it,
-    together.
-  </p>
-
-  <div class="actions">
-    <a class="btn" href="demo/">Try the live demo<svg viewBox="0 0 20 12" aria-hidden="true"><path d="M0 6h17M12 1l5 5-5 5"/></svg></a>
-    <a class="btn ghost" href="https://github.com/macayu17/Cutscene">Read the source</a>
-  </div>
-
-  <figure class="stage" aria-labelledby="stage-cap">
-    <video src="media/hero.mp4" autoplay muted loop playsinline
-           poster="media/editor.png" aria-describedby="stage-cap"></video>
-    <figcaption id="stage-cap">Real output. An element&#8209;locked zoom, where the camera frames the
-      element's recorded bounds, not a rectangle around the cursor.</figcaption>
-  </figure>
-
-  <p class="scrollcue" aria-hidden="true">Scroll</p>
-</section>
-
-<!-- 02 .......................................................... CAPTURE -->
-<section id="capture" class="act pin-act">
-  <div class="pin">
-    <div class="split">
-      <div class="half">
-        <p class="tag">Ordinary recording</p>
-        <div class="frame guess">
-          <span class="cursorpt" aria-hidden="true"></span>
-          <span class="box loose" aria-hidden="true"></span>
-          <p class="framenote">A coordinate. The editor infers the rest.</p>
-        </div>
-      </div>
-      <div class="half">
-        <p class="tag on">Cutscene</p>
-        <div class="frame locked">
-          <span class="box tight" aria-hidden="true"></span>
-          <dl class="readouts">
-            <div><dt>Step</dt><dd>step_0005</dd></div>
-            <div><dt>Element</dt><dd>checkbox</dd></div>
-            <div><dt>Box css px</dt><dd>467, 424, 40, 40</dd></div>
-            <div><dt>Locator</dt><dd>testId · 100%</dd></div>
-          </dl>
-        </div>
-      </div>
+  <div class="hero-foot">
+    <p>Every screen recorder saves pixels and throws away everything the browser
+       already knew. Cutscene records a Chrome tab and the DOM events behind it,
+       together.</p>
+    <div class="actions">
+      <a class="btn" href="demo/">Try the live demo<svg viewBox="0 0 22 12" aria-hidden="true"><path d="M0 6h19M14 1l5 5-5 5"/></svg></a>
+      <a class="btn ghost" href="https://github.com/macayu17/Cutscene">Read the source</a>
     </div>
-    <h2 class="statement">It is not guessing.<br>It wrote the element down.</h2>
+  </div>
+
+  <video class="hero-vid" src="media/hero.mp4" autoplay muted loop playsinline aria-hidden="true"></video>
+</section>
+
+<!-- ═══ 01 ══════════════════════════════════════ PIXELS → ELEMENT ═══ -->
+<section class="scene" id="capture" data-step="step_0001" data-t="01.2s">
+  <div class="stage">
+    <div class="scene-copy">
+      <p class="lbl">Ordinary recording</p>
+      <h2>A coordinate,<br>and a guess.</h2>
+      <p class="say">A pixel recorder knows a pointer was somewhere. Everything
+        after that is inference: which thing mattered, how tight to crop, when
+        to move.</p>
+    </div>
+
+    <figure class="wipe">
+      <img class="under" src="media/pixels.webp" width="1400" height="875" alt="A frame from the raw recording. The whole TodoMVC page is visible and the mouse pointer sits in empty space beside the list." loading="lazy" decoding="async">
+      <img class="over" src="media/locked.webp" width="1400" height="875" alt="The same recording after Cutscene's element-locked zoom. The camera has framed the todo row that was actually clicked, and the item is struck through." loading="lazy" decoding="async">
+      <span class="wipe-edge" aria-hidden="true"></span>
+      <figcaption>One recording, two readings: the raw frame, and the zoom
+        Cutscene built from the element it recorded.</figcaption>
+    </figure>
+
+    <dl class="trace">
+      <div><dt>step</dt><dd>step_0001</dd></div>
+      <div><dt>element</dt><dd>checkbox</dd></div>
+      <div><dt>box css px</dt><dd>507.4, 205.2, 40, 40</dd></div>
+      <div><dt>locator</dt><dd>testId · 100%</dd></div>
+    </dl>
   </div>
 </section>
 
-<!-- 03 ........................................................ ARTIFACTS -->
-<section id="artifacts" class="act">
-  <div class="act-head">
-    <h2>One capture. Then it keeps paying.</h2>
-    <p>The trace holds clicks, inputs, navigation, scroll, viewport changes,
-       ranked locators, element bounds and clock&#8209;sync markers. Everything below
-       is generated from that one file, so nothing can drift out of step with
-       anything else.</p>
+<!-- ═══ 02 ═════════════════════════════════════════════ ARTIFACTS ═══ -->
+<section class="scene wide" id="artifacts" data-step="step_0002" data-t="04.6s">
+  <div class="stage">
+    <div class="scene-copy top">
+      <p class="lbl">One capture</p>
+      <h2>Then it keeps paying.</h2>
+    </div>
+    <div class="strip-wrap">
+      <ol class="strip">
+        <li>
+          <figure><img src="media/step5.webp" width="1400" height="875" loading="lazy" decoding="async" alt="A rendered frame from the exported MP4, zoomed to the final checkbox."></figure>
+          <b>demo.mp4</b><span>1080p H.264, element-locked zooms baked in</span>
+        </li>
+        <li>
+          <figure><img src="media/player.webp" width="1400" height="875" loading="lazy" decoding="async" alt="The exported interactive player, showing the demo paused with a hotspot over the next element and a progress readout."></figure>
+          <b>index.html</b><span>static click-through, no backend, no sign-in</span>
+        </li>
+        <li>
+          <figure class="txt"><pre><code>## Step 3
+
+Click **Post-navigation
+target 3a**.
+
+![Step 3](screenshots/
+step-03.png)</code></pre></figure>
+          <b>docs.md</b><span>written from accessible names, never a language model</span>
+        </li>
+        <li>
+          <figure class="txt"><pre><code>await page
+  .getByTestId('toggle-3')
+  .click();
+
+await page
+  .getByRole('checkbox',
+    { name: 'target 4a' })
+  .click();</code></pre></figure>
+          <b>playwright.spec.ts</b><span>the same ranked locators, as a test</span>
+        </li>
+        <li>
+          <figure><img src="media/editor.webp" width="1400" height="875" loading="lazy" decoding="async" alt="The Cutscene editor with the semantic trace listed on the left and the zoom and redaction timeline below the video."></figure>
+          <b>the edit</b><span>retime, retarget, blur, crop, brand</span>
+        </li>
+        <li>
+          <figure class="txt hot"><pre><code>Interactions on elements
+with no accessible name (5)
+
+step_0001 at 1.2s
+step_0002 at 4.6s
+step_0003 at 7.3s</code></pre></figure>
+          <b>quality.md</b><span>an audit of the path you just walked</span>
+        </li>
+      </ol>
+    </div>
+    <p class="strip-note">Generated from one trace file, so nothing can drift out
+      of step with anything else.</p>
   </div>
-  <ol class="sheet">
-    <li><b>MP4</b><span>1080p H.264, element&#8209;locked zooms baked in</span></li>
-    <li><b>README GIF</b><span>one global palette, no flicker</span></li>
-    <li><b>Interactive guide</b><span>static ZIP, pauses at every recorded click</span></li>
-    <li><b>Step docs</b><span>written from accessible names, never a language model</span></li>
-    <li><b>Screenshots</b><span>cropped to the element that was clicked</span></li>
-    <li><b>Playwright skeleton</b><span>the same ranked locators, as a test</span></li>
-  </ol>
-  <figure class="shot">
-    <img src="media/editor.png" width="1440" height="900" loading="lazy" decoding="async"
-         alt="The Cutscene editor. A semantic trace panel lists each recorded event on the left, the video preview shows an amber box locked onto a checkbox, and a timeline of zoom and redaction tracks runs underneath.">
-  </figure>
 </section>
 
-<!-- 04 ............................................................ AUDIT -->
-<section id="audit" class="act">
-  <div class="act-head">
-    <h2>It already knew this.</h2>
-    <p>Every element you touched carries its role, accessible name and ranked
-       locators. Read them back and the recording audits the path it just
-       walked. This is the real report from the TodoMVC capture on this page.</p>
+<!-- ═══ 03 ═════════════════════════════════════════════════ AUDIT ═══ -->
+<section class="scene" id="audit" data-step="step_0003" data-t="07.3s">
+  <div class="stage">
+    <div class="scene-copy">
+      <p class="lbl">It already knew</p>
+      <h2>Five checkboxes.<br>No accessible name.</h2>
+      <p class="say">Every element you touched carries its role, accessible name
+        and ranked locators. Read them back and the recording audits the path it
+        just walked. This is the real report from the capture on this page.</p>
+    </div>
+    <div class="report">
+      <p class="report-h">Interactions on elements with no accessible name (5)</p>
+      <ul>
+        <li><code>step_0001</code><i>1.2s</i><b>checkbox</b> exposes no accessible name</li>
+        <li><code>step_0002</code><i>4.6s</i><b>checkbox</b> exposes no accessible name</li>
+        <li><code>step_0003</code><i>7.3s</i><b>checkbox</b> exposes no accessible name</li>
+        <li><code>step_0004</code><i>9.9s</i><b>checkbox</b> exposes no accessible name</li>
+        <li><code>step_0005</code><i>12.6s</i><b>checkbox</b> exposes no accessible name</li>
+      </ul>
+      <p class="report-f">Derived from the trace. No page was re-inspected to produce this.</p>
+    </div>
   </div>
-  <div class="report" role="figure" aria-label="Recording quality report from the TodoMVC capture">
-    <p class="report-head">Recording quality report</p>
-    <p class="report-sub">Derived from the recorded trace. No page was re&#8209;inspected to produce this.</p>
-    <p class="report-h2">Interactions on elements with no accessible name (5)</p>
-    <ul>
-      <li><code>step_0001</code> at 1.2s <b>checkbox</b> exposes no accessible name</li>
-      <li><code>step_0002</code> at 4.6s <b>checkbox</b> exposes no accessible name</li>
-      <li><code>step_0003</code> at 7.3s <b>checkbox</b> exposes no accessible name</li>
-      <li><code>step_0004</code> at 9.9s <b>checkbox</b> exposes no accessible name</li>
-      <li><code>step_0005</code> at 12.6s <b>checkbox</b> exposes no accessible name</li>
-    </ul>
-  </div>
-  <p class="aside">Five checkboxes on the critical path of a site everyone uses as
-     a reference implementation, none of them announced to a screen reader. The
-     recording found it at zero cost, because the fields were captured on day
-     one and ignored for months.</p>
 </section>
 
-<!-- 05 ............................................................ DRIFT -->
-<section id="drift" class="act pin-act">
-  <div class="pin">
-    <p class="tag">The application changes</p>
-    <pre class="diff" aria-label="A diff renaming a test id and deleting a button"><code><span class="ctx">   &lt;button data-testid="create-report"&gt;Create report&lt;/button&gt;</span>
-<span class="del">-  &lt;button data-testid="export-csv"&gt;Export CSV&lt;/button&gt;</span>
-<span class="del">-  &lt;button data-testid="archive"&gt;Archive&lt;/button&gt;</span>
-<span class="add">+  &lt;button data-testid="csv-export-button"&gt;Export CSV&lt;/button&gt;</span></code></pre>
+<!-- ═══ 04 ═════════════════════════════════════════════════ DRIFT ═══ -->
+<section class="scene dark" id="drift" data-step="step_0004" data-t="09.9s">
+  <div class="stage">
+    <div class="scene-copy">
+      <p class="lbl">The application changes</p>
+      <h2>It stops being<br>a recording.<br>It becomes a test.</h2>
+    </div>
+
+    <pre class="diff" aria-label="A diff renaming a test id and deleting a button"><code><span class="ctx">  &lt;button data-testid="create-report"&gt;Create report&lt;/button&gt;</span>
+<span class="del">- &lt;button data-testid="export-csv"&gt;Export CSV&lt;/button&gt;</span>
+<span class="del">- &lt;button data-testid="archive"&gt;Archive&lt;/button&gt;</span>
+<span class="add">+ &lt;button data-testid="csv-export-button"&gt;Export CSV&lt;/button&gt;</span></code></pre>
 
     <div class="runs">
-      <div class="run bad">
-        <p class="runhead">Replay <b>exit 1</b></p>
-        <p><i>2</i> steps matched</p>
-        <p class="drifted"><i>1</i> step drifted <em>Export CSV · role[1]</em></p>
-        <p class="orphan"><i>1</i> step orphaned <em>Archive · no locator resolved</em></p>
+      <div class="run">
+        <p class="run-h">replay<b class="bad">exit 1</b></p>
+        <p class="ok"><i>2</i>matched</p>
+        <p class="warn"><i>1</i>drifted<em>Export CSV · role[1]</em></p>
+        <p class="bad"><i>1</i>orphaned<em>Archive · no locator resolved</em></p>
       </div>
-      <div class="run heal">
-        <p class="runhead">Replay <b>--heal</b></p>
-        <p class="healed">healed step_3 <em>testId &rarr; role</em></p>
-        <p><i>3</i> steps matched</p>
-        <p class="orphan"><i>1</i> step orphaned <em>Archive · still gone</em></p>
+      <div class="run">
+        <p class="run-h">replay --heal<b class="hot">repaired</b></p>
+        <p class="hot"><i>&rarr;</i>healed step_3<em>testId to role</em></p>
+        <p class="ok"><i>3</i>matched</p>
+        <p class="bad"><i>1</i>orphaned<em>Archive · still gone</em></p>
       </div>
     </div>
-    <p class="aside tight">It promotes the locator that actually resolved and writes
-      the trace back, so the rename is fixed for good. The deleted button has
-      nothing left to promote, so the run still fails. It repairs what it can
-      and refuses to hide what it cannot.</p>
+    <p class="say wide-say">It promotes the locator that actually resolved and
+      writes the trace back, so the rename is fixed for good. The deleted button
+      has nothing left to promote, so the run still fails. It repairs what it
+      can and refuses to hide what it cannot.</p>
   </div>
 </section>
 
-<!-- 06 ........................................................... CLIMAX -->
-<section class="climax">
-  <h2>A stale screen recording looks fine right up until someone notices.
+<!-- ═══ 05 ════════════════════════════════════════════════ CLIMAX ═══ -->
+<section class="climax" data-step="step_0005" data-t="12.6s">
+  <h2>A stale recording looks fine right up until someone notices.
       A stale Cutscene demo fails like a failing test.</h2>
 </section>
 
-<!-- 07 .............................................................. END -->
-<section class="end">
+<!-- ═══ 06 ═══════════════════════════════════════════════════ END ═══ -->
+<section class="end" data-step="step_0006" data-t="15.9s">
+  <h2>Go and click it.</h2>
   <div class="end-grid">
     <div>
-      <h2>Go and click it.</h2>
-      <p>The interactive demo is a static file exported by the editor. It pauses
-         the video at every recorded click and waits for you to hit the real
-         element. No install and no account.</p>
+      <p>The demo is a static file exported by the editor. It pauses the video at
+         every recorded click and waits for you to hit the real element. No
+         install, no account.</p>
       <div class="actions">
-        <a class="btn" href="demo/">Try the live demo<svg viewBox="0 0 20 12" aria-hidden="true"><path d="M0 6h17M12 1l5 5-5 5"/></svg></a>
+        <a class="btn" href="demo/">Try the live demo<svg viewBox="0 0 22 12" aria-hidden="true"><path d="M0 6h19M14 1l5 5-5 5"/></svg></a>
         <a class="btn ghost" href="https://github.com/macayu17/Cutscene">GitHub</a>
       </div>
+      <h3>What it will not do</h3>
+      <ul class="limits">
+        <li>Chrome only.</li>
+        <li>DOM-based web apps only. Canvas, WebGL and maps fall back to pixels.</li>
+        <li>Cross-origin iframes cannot be traced.</li>
+        <li>Shadow DOM only when the root is open.</li>
+      </ul>
     </div>
     <div>
       <h3>Measured, and reproducible with <code>pnpm test</code></h3>
@@ -197,20 +231,8 @@
       </dl>
     </div>
   </div>
-
-  <div class="limits">
-    <h3>What it will not do</h3>
-    <ul>
-      <li>Chrome only.</li>
-      <li>DOM&#8209;based web apps only. Canvas, WebGL and maps fall back to pixels.</li>
-      <li>Cross&#8209;origin iframes cannot be traced.</li>
-      <li>Shadow DOM only when the root is open.</li>
-    </ul>
-  </div>
-
   <footer>
-    <span>Cutscene</span>
-    <span>MIT licensed</span>
+    <span>Cutscene</span><span>MIT licensed</span>
     <a href="https://github.com/macayu17/Cutscene">github.com/macayu17/Cutscene</a>
   </footer>
 </section>

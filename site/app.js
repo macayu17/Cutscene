@@ -1,33 +1,32 @@
-// Two small jobs only. Everything visual is CSS; nothing here gates content.
+// Two jobs. Neither one gates content: if this file never runs, the page is
+// complete, only the gutter readout stops tracking.
 
-// 1. Mark the section currently in view on the side rail.
-const rail = document.querySelector('.rail');
-if (rail && 'IntersectionObserver' in window) {
-  const links = new Map(
-    [...rail.querySelectorAll('a[href^="#"]')].map((a) => [a.getAttribute('href').slice(1), a]),
-  );
+const gutterId = document.querySelector('.gutter-id');
+const gutterT = document.querySelector('.gutter-t');
+const scenes = [...document.querySelectorAll('[data-step]')];
+
+if (gutterId && gutterT && scenes.length && 'IntersectionObserver' in window) {
+  // Report the recorded step the current scene corresponds to.
   const observer = new IntersectionObserver((entries) => {
-    for (const entry of entries) {
-      const link = links.get(entry.target.id);
-      if (!link) continue;
-      link.style.color = entry.isIntersecting ? 'var(--text)' : '';
-      const bar = link.querySelector('i');
-      if (bar) bar.style.width = entry.isIntersecting ? '30px' : '';
-    }
-  }, { rootMargin: '-45% 0px -45% 0px' });
-  for (const id of links.keys()) {
-    const section = document.getElementById(id);
-    if (section) observer.observe(section);
-  }
+    const visible = entries
+      .filter((entry) => entry.isIntersecting)
+      .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+    if (!visible) return;
+    gutterId.textContent = visible.target.dataset.step ?? '';
+    gutterT.textContent = visible.target.dataset.t ?? '';
+    // only count a scene once it crosses the middle band, so the readout
+    // matches the scene actually filling the viewport
+  }, { rootMargin: '-40% 0px -40% 0px', threshold: 0 });
+  for (const scene of scenes) observer.observe(scene);
 }
 
-// 2. Don't keep decoding the hero video while it is off screen.
-const hero = document.querySelector('.stage video');
+// Stop decoding the hero loop once it is off screen.
+const hero = document.querySelector('.hero-vid');
 if (hero && 'IntersectionObserver' in window) {
   new IntersectionObserver((entries) => {
     for (const entry of entries) {
       if (entry.isIntersecting) hero.play().catch(() => {});
       else hero.pause();
     }
-  }, { threshold: 0.1 }).observe(hero);
+  }, { threshold: 0.05 }).observe(hero);
 }

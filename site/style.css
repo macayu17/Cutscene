@@ -1,34 +1,30 @@
 /* Cutscene launch site.
-   Palette, type and the clip-path "measure" wipe are inherited from the editor
-   in packages/editor/src/tokens.css so the site and the instrument agree. */
+   The page is built as a trace: a scrubber across the top, real recorded step
+   ids in the gutter, and one box motif that transforms scene to scene.
+   Palette comes from packages/editor/src/tokens.css so the site and the
+   instrument agree. */
 
 :root {
+  --ink: #0e1013;
   --bg: #16181c;
   --surface: #1e2126;
-  --line: #2c3037;
-  --line-bright: #3b4048;
-  --text: #e6e9ee;
-  --text-mid: #aeb5bf;
-  /* 4.88:1 on --surface, 5.37:1 on --bg. The editor's dimmer #727a85 fails AA
-     against panel backgrounds at these sizes, so the site lifts it. */
+  --line: #2a2e35;
+  --line-hi: #3c424b;
+  --text: #eef1f5;
+  --mid: #b3bac4;
   --dim: #868e9a;
-  --signal: #f2a63b;
-  --danger: #d9645c;
+  --hot: #f2a63b;
+  --bad: #e2706a;
 
   --display: 'Archivo', system-ui, sans-serif;
   --mono: 'IBM Plex Mono', ui-monospace, monospace;
 
-  --pad: clamp(1.25rem, 4vw, 5rem);
-  --measure: 62ch;
-
-  --z-rail: 20;
-  --z-skip: 40;
-
+  --pad: clamp(1.15rem, 4vw, 4.5rem);
+  --gut: clamp(0rem, 6vw, 7rem);
   --out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 * { box-sizing: border-box; }
-
 html { scroll-behavior: smooth; }
 
 body {
@@ -36,602 +32,487 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--display);
-  font-size: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
-  line-height: 1.6;
+  font-size: clamp(1rem, 0.96rem + 0.2vw, 1.09rem);
+  font-weight: 500;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
 
-img, video { max-width: 100%; display: block; }
-
-::selection { background: var(--signal); color: #101216; }
-
+img, video { display: block; max-width: 100%; }
+::selection { background: var(--hot); color: var(--ink); }
 a { color: inherit; }
-
-:focus-visible {
-  outline: 2px solid var(--signal);
-  outline-offset: 3px;
-}
+:focus-visible { outline: 2px solid var(--hot); outline-offset: 3px; }
 
 .skip {
-  position: absolute;
-  z-index: var(--z-skip);
-  top: 0; left: 0;
-  padding: 0.75rem 1rem;
-  background: var(--signal);
-  color: #101216;
+  position: fixed; z-index: 60; top: 0; left: 0;
+  padding: 0.8rem 1.1rem;
+  background: var(--hot); color: var(--ink);
   font: 500 0.85rem var(--mono);
-  transform: translateY(-120%);
+  transform: translateY(-130%);
 }
 .skip:focus { transform: none; }
 
-/* ------------------------------------------------------------------ rail */
+/* ─────────────────────────────────────────────────────────── scrubber ── */
 
-.rail {
-  position: fixed;
-  z-index: var(--z-rail);
-  top: 50%;
-  right: clamp(0.75rem, 2vw, 2rem);
-  translate: 0 -50%;
-  display: grid;
-  gap: 0.9rem;
-  font: 500 0.7rem/1 var(--mono);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+.scrub {
+  position: fixed; z-index: 50; inset: 0 0 auto 0;
+  height: 2px; background: var(--line);
 }
-.rail a {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
+.scrub i {
+  display: block; height: 100%; width: 100%;
+  background: var(--hot);
+  transform-origin: 0 50%;
+  scale: 0 1;
+}
+
+/* ───────────────────────────────────────────────────────────── gutter ── */
+/* The recorded step the current scene corresponds to. Real ids, not decor. */
+
+.gutter {
+  position: fixed; z-index: 40;
+  left: clamp(0.6rem, 1.6vw, 1.4rem);
+  top: 50%; translate: 0 -50%;
+  display: grid; gap: 0.25rem;
+  font: 500 0.66rem/1.2 var(--mono);
+  letter-spacing: 0.1em;
   color: var(--dim);
-  text-decoration: none;
-  transition: color 0.3s var(--out);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
 }
-.rail i {
-  width: 18px;
-  height: 1px;
-  background: currentColor;
-  transition: width 0.35s var(--out);
-}
-.rail a:hover, .rail a:focus-visible { color: var(--text); }
-.rail a:hover i { width: 30px; }
-.rail-cta { color: var(--signal); }
-.rail-cta::before {
-  content: '';
-  width: 18px; height: 1px;
-  background: currentColor;
-  margin-right: 0.6rem;
-}
+.gutter-t { color: var(--line-hi); }
+@media (max-width: 1100px) { .gutter { display: none; } }
 
-@media (max-width: 900px) { .rail { display: none; } }
-
-/* ------------------------------------------------------------------ hero */
+/* ─────────────────────────────────────────────────────────────── hero ── */
 
 .hero {
-  padding: clamp(1.25rem, 3vw, 2.5rem) var(--pad) clamp(3rem, 8vw, 6rem);
+  position: relative;
+  min-height: 100svh;
+  padding: clamp(1rem, 2.5vw, 2rem) var(--pad) clamp(2rem, 6vh, 4rem) calc(var(--pad) + var(--gut));
   display: grid;
-  align-content: start;
-  gap: clamp(1.1rem, 2.2vw, 1.75rem);
+  grid-template-rows: auto 1fr auto;
+  gap: clamp(1.5rem, 4vh, 3rem);
+  overflow: hidden;
 }
 
 .masthead {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 1rem;
-  padding-bottom: 1.25rem;
-  border-bottom: 1px solid var(--line);
-  font: 500 0.75rem var(--mono);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 1rem; flex-wrap: wrap;
+  font: 500 0.74rem var(--mono);
+  letter-spacing: 0.16em; text-transform: uppercase;
 }
-.wordmark { color: var(--text); }
-.meta { color: var(--dim); }
+.masthead nav { display: flex; gap: 1.5rem; }
+.masthead a { color: var(--dim); text-decoration: none; }
+.masthead a:hover { color: var(--text); }
 
-.display {
-  margin: clamp(0.5rem, 2vw, 1.25rem) 0 0;
-  font-size: clamp(2.6rem, 9vw, 6.75rem);
-  font-weight: 800;
-  line-height: 0.92;
-  letter-spacing: -0.035em;
-  text-wrap: balance;
-}
-.display .line { display: block; }
-.display em {
-  font-style: normal;
-  color: var(--signal);
-}
-
-.lede {
-  max-width: var(--measure);
+.mega {
   margin: 0;
-  color: var(--text-mid);
-  font-size: clamp(1rem, 0.9rem + 0.5vw, 1.3rem);
-  text-wrap: pretty;
+  align-self: center;
+  font-size: clamp(3.2rem, 13.5vw, 13rem);
+  font-weight: 900;
+  line-height: 0.83;
+  letter-spacing: -0.045em;
+  text-transform: none;
+}
+.mega span { display: block; }
+.mega .hot { color: var(--hot); }
+
+.hero-foot {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: clamp(1.25rem, 3vw, 3rem);
+  align-items: end;
+  max-width: 78rem;
+}
+.hero-foot p { margin: 0; max-width: 44ch; color: var(--mid); }
+
+.hero-vid {
+  position: absolute;
+  z-index: -1;
+  right: -12%; bottom: -6%;
+  width: min(58vw, 46rem);
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  opacity: 0.16;
+  filter: grayscale(1) contrast(1.1);
+  mask-image: linear-gradient(285deg, #000 20%, transparent 78%);
+  pointer-events: none;
 }
 
-/* --------------------------------------------------------------- buttons */
+/* ──────────────────────────────────────────────────────────── buttons ── */
 
-.actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.actions { display: flex; flex-wrap: wrap; gap: 0.7rem; }
 
 .btn {
-  --btn-ink: #101216;
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.7rem;
-  padding: 0.85rem 1.4rem;
-  border: 1px solid var(--signal);
-  background: var(--signal);
-  color: var(--btn-ink);
-  font: 500 0.95rem var(--mono);
-  letter-spacing: 0.02em;
-  text-decoration: none;
-  overflow: hidden;
-  isolation: isolate;
+  position: relative; isolation: isolate;
+  display: inline-flex; align-items: center; gap: 0.7rem;
+  padding: 0.9rem 1.4rem;
+  border: 1px solid var(--hot);
+  background: var(--hot); color: var(--ink);
+  font: 500 0.92rem var(--mono);
+  text-decoration: none; overflow: hidden;
 }
-.btn svg {
-  width: 20px; height: 12px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  transition: translate 0.35s var(--out);
-}
+.btn svg { width: 22px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.7; transition: translate 0.4s var(--out); }
 .btn::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: var(--text);
-  translate: -101% 0;
-  transition: translate 0.4s var(--out);
+  content: ''; position: absolute; inset: 0; z-index: -1;
+  background: var(--text); translate: -101% 0;
+  transition: translate 0.45s var(--out);
 }
 .btn:hover::before, .btn:focus-visible::before { translate: 0 0; }
-.btn:hover svg, .btn:focus-visible svg { translate: 7px 0; }
-
-.btn.ghost {
-  --btn-ink: var(--text);
-  border-color: var(--line-bright);
-  background: transparent;
-}
+.btn:hover svg, .btn:focus-visible svg { translate: 6px 0; }
+.btn.ghost { border-color: var(--line-hi); background: transparent; color: var(--text); }
 .btn.ghost::before { background: var(--surface); }
 .btn.ghost:hover, .btn.ghost:focus-visible { border-color: var(--text); }
 
-/* ----------------------------------------------------------------- stage */
+/* ────────────────────────────────────────────────────────────── scenes ── */
+/* Each scene is a tall track with a sticky stage. Children hang off the
+   track's own view timeline, so scrolling scrubs the scene rather than
+   triggering a one-shot reveal. */
+
+.scene {
+  position: relative;
+  height: 300vh;
+  view-timeline-name: --track;
+  view-timeline-axis: block;
+}
+.scene.wide { height: 420vh; }
+.scene.dark { background: var(--ink); }
 
 .stage {
-  position: relative;
-  margin: clamp(1rem, 3vw, 2rem) 0 0;
-  border: 1px solid var(--line);
-  background: #0f1114;
-}
-.stage video { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
-
-.stage figcaption {
-  padding: 0.85rem 1rem;
-  border-top: 1px solid var(--line);
-  color: var(--dim);
-  font: 0.8rem/1.5 var(--mono);
-  max-width: 70ch;
-}
-
-.scrollcue {
-  margin: 0;
-  color: var(--dim);
-  font: 500 0.7rem var(--mono);
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
-}
-
-/* ------------------------------------------------------------------ acts */
-
-.act { padding: clamp(4rem, 12vh, 9rem) var(--pad); }
-
-.act-head {
-  display: grid;
-  gap: 1rem;
-  max-width: 78ch;
-  margin-bottom: clamp(2rem, 5vw, 3.5rem);
-}
-.act-head h2, .statement, .climax h2, .end h2 {
-  margin: 0;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1.02;
-  text-wrap: balance;
-}
-.act-head h2 { font-size: clamp(1.9rem, 5vw, 3.6rem); }
-.act-head p {
-  margin: 0;
-  max-width: var(--measure);
-  color: var(--text-mid);
-  text-wrap: pretty;
-}
-
-.tag {
-  margin: 0 0 0.9rem;
-  color: var(--dim);
-  font: 500 0.72rem var(--mono);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-.tag.on { color: var(--signal); }
-
-/* ------------------------------------------------- act 02: guess vs lock */
-
-.pin-act { padding-block: 0; }
-.pin {
+  position: sticky; top: 0;
   min-height: 100svh;
-  padding-block: clamp(4rem, 10vh, 7rem);
+  padding: clamp(3.5rem, 9vh, 6rem) var(--pad) clamp(2.5rem, 6vh, 4rem) calc(var(--pad) + var(--gut));
   display: grid;
   align-content: center;
-  gap: clamp(1.5rem, 4vw, 3rem);
-}
-
-.split {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
-  gap: clamp(1rem, 2.5vw, 2rem);
-}
-
-.frame {
-  position: relative;
-  aspect-ratio: 4 / 3;
-  border: 1px solid var(--line);
-  background:
-    linear-gradient(var(--line) 1px, transparent 1px) 0 0 / 100% 25%,
-    linear-gradient(90deg, var(--line) 1px, transparent 1px) 0 0 / 25% 100%,
-    var(--surface);
-  background-blend-mode: normal;
+  gap: clamp(1.25rem, 3vh, 2.25rem);
   overflow: hidden;
 }
-.frame::after {
-  /* the target: a wide row, the case where a cursor point and an element
-     centre are nowhere near each other */
-  content: '';
-  position: absolute;
-  left: 12%; top: 46%;
-  width: 66%; height: 13%;
-  background: #2b3037;
-  border: 1px solid var(--line-bright);
-}
 
-.cursorpt {
-  position: absolute;
-  left: 22%; top: 51%;
-  width: 7px; height: 7px;
-  border-radius: 50%;
-  background: var(--text);
-  z-index: 2;
-}
-.box {
-  position: absolute;
-  z-index: 3;
-  border: 2px solid var(--danger);
-}
-.box.loose {
-  left: 8%; top: 34%;
-  width: 30%; height: 34%;
-  animation: wander 4.5s var(--out) infinite alternate;
-}
-.box.tight {
-  left: calc(12% - 3px); top: calc(46% - 3px);
-  width: calc(66% + 6px); height: calc(13% + 6px);
-  border-color: var(--signal);
-}
-
-@keyframes wander {
-  0%   { translate: 0 0; }
-  50%  { translate: 6% -5%; }
-  100% { translate: -4% 4%; }
-}
-
-.framenote {
-  position: absolute;
-  left: 0; right: 0; bottom: 0;
-  margin: 0;
-  padding: 0.6rem 0.8rem;
-  border-top: 1px solid var(--line);
-  background: #191c21;
+.lbl {
+  margin: 0 0 0.9rem;
   color: var(--dim);
-  font: 0.75rem var(--mono);
+  font: 500 0.7rem var(--mono);
+  letter-spacing: 0.18em; text-transform: uppercase;
 }
 
-.readouts {
-  position: absolute;
-  right: 0; bottom: 0;
+.scene-copy { max-width: 60rem; }
+.scene-copy h2, .climax h2, .end h2 {
   margin: 0;
-  display: grid;
-  gap: 2px 0.9rem;
-  padding: 0.7rem 0.85rem;
-  border-top: 1px solid var(--line);
-  border-left: 1px solid var(--line);
-  background: #191c21;
-  font: 0.75rem var(--mono);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 0.95;
+  text-wrap: balance;
 }
-.readouts div { display: grid; grid-template-columns: 7.5rem 1fr; }
-.readouts dt { color: var(--dim); }
-.readouts dd { margin: 0; color: var(--text); }
+/* Pinned stages clip at 100svh, so display type inside them is a step down
+   from the hero and the copy stays short. */
+.scene-copy h2 { font-size: clamp(1.9rem, 4.6vw, 4rem); }
+.say {
+  margin: 1.1rem 0 0;
+  max-width: 54ch;
+  color: var(--mid);
+  font-size: 0.98rem;
+  text-wrap: pretty;
+}
+.wide-say { max-width: 72ch; }
 
-.statement {
-  font-size: clamp(1.8rem, 5.5vw, 4.2rem);
-  max-width: 22ch;
+/* Scene 01 reads as two columns on wide screens: the argument on the left,
+   the evidence on the right. */
+@media (min-width: 1100px) {
+  #capture .stage {
+    grid-template-columns: minmax(16rem, 25rem) minmax(0, 1fr);
+    grid-template-areas: "copy fig" "trace fig";
+    column-gap: clamp(1.5rem, 3vw, 3.25rem);
+    row-gap: 1.25rem;
+    align-content: center;
+  }
+  /* the column is narrow, so this heading sizes to the column not the page */
+  #capture .scene-copy h2 { font-size: clamp(1.9rem, 3.3vw, 3.1rem); text-wrap: pretty; }
+  #capture .scene-copy { grid-area: copy; align-self: end; }
+  #capture .wipe { grid-area: fig; align-self: center; }
+  #capture .trace { grid-area: trace; align-self: start; display: grid; gap: 0; }
 }
 
-/* --------------------------------------------------- act 03: contact sheet */
+/* ─────────────────────────────────────────────── scene 01: the wipe ── */
 
-.sheet {
-  list-style: none;
-  margin: 0 0 clamp(2rem, 5vw, 3.5rem);
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
-  border-top: 1px solid var(--line);
-  border-left: 1px solid var(--line);
-}
-.sheet li {
-  display: grid;
-  gap: 0.35rem;
-  align-content: start;
-  padding: clamp(1.1rem, 2.5vw, 1.6rem);
-  border-right: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-}
-.sheet b {
-  font: 500 0.95rem var(--mono);
-  letter-spacing: 0.02em;
-  color: var(--text);
-}
-.sheet span { color: var(--dim); font-size: 0.92rem; line-height: 1.5; }
-
-.shot {
+.wipe {
+  position: relative;
   margin: 0;
   border: 1px solid var(--line);
-  background: #0f1114;
+  background: var(--ink);
+  max-width: min(100%, 76rem);
+  justify-self: start;
 }
-.shot img { width: 100%; height: auto; }
+.wipe img { width: 100%; height: auto; max-height: 62svh; aspect-ratio: 1400/875; object-fit: cover; }
+.wipe .over { position: absolute; inset: 0; }
+.wipe-edge { display: none; }
+.wipe figcaption {
+  padding: 0.7rem 0.9rem;
+  border-top: 1px solid var(--line);
+  color: var(--dim);
+  font: 0.76rem/1.5 var(--mono);
+}
 
-/* ---------------------------------------------------------- act 04: report */
+.trace {
+  margin: 0;
+  display: flex; flex-wrap: wrap;
+  gap: 0 clamp(1.25rem, 3vw, 2.75rem);
+  font: 0.78rem var(--mono);
+}
+.trace div { display: flex; gap: 0.55rem; padding: 0.3rem 0; }
+.trace dt { color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; }
+.trace dd { margin: 0; color: var(--hot); }
+
+
+/* Where the wipe cannot run, the two frames stack so the comparison is still
+   made rather than the raw frame simply being hidden underneath. */
+@media (prefers-reduced-motion: reduce), (max-width: 780px), (max-height: 620px) {
+  .wipe .over { position: static; border-top: 1px solid var(--line); }
+  .wipe img { max-height: none; }
+}
+@supports not (animation-timeline: view()) {
+  .wipe .over { position: static; border-top: 1px solid var(--line); }
+}
+
+/* ────────────────────────────────────────── scene 02: artifact strip ── */
+
+.scene-copy.top { align-self: start; }
+.strip-wrap { overflow-x: auto; overscroll-behavior-x: contain; }
+.strip {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; gap: clamp(0.75rem, 1.5vw, 1.25rem);
+  width: max-content;
+}
+.strip li {
+  width: clamp(15rem, 26vw, 21rem);
+  display: grid;
+  align-content: start;
+  gap: 0.45rem;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  padding-bottom: 0.9rem;
+}
+.strip figure { margin: 0; border-bottom: 1px solid var(--line); background: var(--ink); }
+.strip img { width: 100%; height: clamp(9rem, 26svh, 15rem); object-fit: cover; object-position: top left; }
+.strip .txt {
+  height: clamp(9rem, 26svh, 15rem); padding: 0.9rem 1rem; overflow: hidden;
+}
+.strip .txt pre { margin: 0; }
+.strip .txt code {
+  font: 0.72rem/1.6 var(--mono);
+  color: var(--mid);
+  white-space: pre;
+}
+.strip .txt.hot code { color: var(--hot); }
+.strip b { padding: 0 1rem; font: 500 0.86rem var(--mono); color: var(--text); }
+.strip span { padding: 0 1rem; color: var(--dim); font-size: 0.86rem; line-height: 1.45; }
+.strip-note { margin: 0; color: var(--dim); font: 0.8rem var(--mono); }
+
+/* ───────────────────────────────────────────────── scene 03: report ── */
 
 .report {
   border: 1px solid var(--line);
   background: var(--surface);
-  padding: clamp(1.1rem, 3vw, 2rem);
+  padding: clamp(1rem, 2.5vw, 1.75rem);
   font-family: var(--mono);
-  overflow-x: auto;
+  max-width: min(100%, 68rem);
+  justify-self: start;
 }
 .report p { margin: 0; }
-.report-head { font-size: 1.05rem; color: var(--text); }
-.report-sub { margin-top: 0.4rem !important; color: var(--dim); font-size: 0.85rem; }
-.report-h2 {
-  margin-top: 1.6rem !important;
-  color: var(--signal);
-  font-size: 0.95rem;
-}
+.report-h { color: var(--hot); font-size: 0.9rem; }
+.report-f { margin-top: 1.1rem !important; color: var(--dim); font-size: 0.76rem; }
 .report ul {
-  margin: 0.8rem 0 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  gap: 0.45rem;
-  font-size: 0.85rem;
-  color: var(--text-mid);
+  margin: 0.9rem 0 0; padding: 0; list-style: none;
+  display: grid; gap: 0.3rem;
+  font-size: 0.82rem; color: var(--mid);
 }
-/* Keep report rows on one line where there is room, so they read as the
-   generated output they are. Narrow screens wrap instead of hiding text
-   behind a horizontal scroll nobody notices. */
-.report li { white-space: nowrap; }
-@media (max-width: 700px) {
-  .report li { white-space: normal; line-height: 1.6; }
-}
+.report li { display: flex; flex-wrap: wrap; gap: 0 0.75rem; padding: 0.25rem 0; border-bottom: 1px solid #23272d; }
 .report code { color: var(--text); }
+.report i { color: var(--dim); font-style: normal; }
 .report b { color: var(--text); font-weight: 500; }
 
-.aside {
-  max-width: var(--measure);
-  margin: clamp(1.5rem, 4vw, 2.5rem) 0 0;
-  color: var(--text-mid);
-  text-wrap: pretty;
-}
-.aside.tight { margin-top: 0; font-size: 0.95rem; }
-
-/* ----------------------------------------------------------- act 05: drift */
+/* ────────────────────────────────────────────────── scene 04: drift ── */
 
 .diff {
-  margin: 0;
-  padding: clamp(0.9rem, 2vw, 1.3rem);
-  border: 1px solid var(--line);
-  background: var(--surface);
-  font: 0.82rem/1.75 var(--mono);
+  margin: 0; padding: clamp(0.7rem, 1.6vw, 1.05rem);
+  border: 1px solid var(--line); background: var(--bg);
+  font: 0.76rem/1.65 var(--mono);
   overflow-x: auto;
+  max-width: min(100%, 68rem);
 }
-.diff .ctx { color: var(--dim); }
-.diff .del { color: var(--danger); display: block; }
-.diff .add { color: var(--signal); display: block; }
+.diff .ctx { color: var(--dim); display: block; }
+.diff .del { color: var(--bad); display: block; }
+.diff .add { color: var(--hot); display: block; }
 
 .runs {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
-  gap: clamp(1rem, 2.5vw, 1.75rem);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+  gap: clamp(0.75rem, 2vw, 1.5rem);
+  max-width: min(100%, 68rem);
 }
-.run {
-  padding: clamp(1rem, 2.5vw, 1.5rem);
-  border: 1px solid var(--line);
-  background: var(--surface);
-  font: 0.88rem/1.9 var(--mono);
-}
-.run p { margin: 0; }
-.run i { font-style: normal; color: var(--text); display: inline-block; min-width: 1.1rem; }
-.run em { font-style: normal; color: var(--dim); }
-.runhead {
-  margin-bottom: 0.9rem !important;
-  padding-bottom: 0.7rem;
+.run { border: 1px solid var(--line); background: var(--bg); padding: clamp(0.9rem, 2vw, 1.35rem); }
+.run p { margin: 0; display: flex; gap: 0.6rem; align-items: baseline; font: 0.84rem/1.85 var(--mono); }
+.run i { font-style: normal; min-width: 1.2rem; color: var(--text); }
+.run em { font-style: normal; color: var(--dim); margin-left: auto; font-size: 0.78rem; }
+.run-h {
+  margin-bottom: 0.8rem !important; padding-bottom: 0.7rem;
   border-bottom: 1px solid var(--line);
-  color: var(--dim);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  font-size: 0.72rem;
+  color: var(--dim); font-size: 0.72rem !important;
+  letter-spacing: 0.14em; text-transform: uppercase;
 }
-.run.bad .runhead b { color: var(--danger); }
-.run.heal .runhead b { color: var(--signal); }
-.run .drifted { color: var(--text-mid); }
-.run .orphan { color: var(--danger); }
-.run .healed { color: var(--signal); }
+.run-h b { margin-left: auto; }
+.run .ok { color: var(--mid); }
+.run .warn { color: var(--text); }
+.run .bad, .bad { color: var(--bad); }
+.run .hot, .hot { color: var(--hot); }
 
-/* ---------------------------------------------------------------- climax */
+/* ───────────────────────────────────────────────────────────── climax ── */
 
 .climax {
-  min-height: 92svh;
-  display: grid;
-  align-content: center;
-  padding: clamp(4rem, 12vh, 8rem) var(--pad);
-  background: var(--signal);
-  color: #101216;
+  min-height: 100svh;
+  display: grid; align-content: center;
+  padding: clamp(3rem, 10vh, 7rem) var(--pad) clamp(3rem, 10vh, 7rem) calc(var(--pad) + var(--gut));
+  background: var(--hot); color: var(--ink);
 }
-.climax h2 {
-  max-width: 20ch;
-  font-size: clamp(2rem, 7vw, 5.5rem);
-  letter-spacing: -0.04em;
-}
+.climax h2 { max-width: 19ch; font-size: clamp(2.1rem, 7.4vw, 6rem); letter-spacing: -0.045em; }
 
-/* ------------------------------------------------------------------- end */
+/* ──────────────────────────────────────────────────────────────── end ── */
 
-.end { padding: clamp(4rem, 12vh, 8rem) var(--pad) clamp(2rem, 5vw, 3rem); }
-
+.end { padding: clamp(4rem, 12vh, 8rem) var(--pad) clamp(1.5rem, 4vh, 2.5rem) calc(var(--pad) + var(--gut)); }
+.end h2 { font-size: clamp(2.4rem, 8vw, 6rem); margin-bottom: clamp(2rem, 5vh, 3.5rem); }
 .end-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
-  gap: clamp(2rem, 5vw, 4rem);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: clamp(2rem, 5vw, 4.5rem);
   align-items: start;
 }
-.end h2 { font-size: clamp(2rem, 6vw, 4rem); margin-bottom: 1rem; }
-.end p { max-width: 46ch; color: var(--text-mid); margin: 0 0 1.75rem; }
+.end p { margin: 0 0 1.6rem; max-width: 46ch; color: var(--mid); }
 .end h3 {
-  margin: 0 0 1.2rem;
-  font: 500 0.78rem var(--mono);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--dim);
+  margin: 2.6rem 0 1rem;
+  font: 500 0.72rem var(--mono);
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim);
 }
-.end h3 code { color: var(--signal); font-size: inherit; text-transform: none; letter-spacing: 0; }
-
-.facts { margin: 0; display: grid; }
+.end h3 code { color: var(--hot); font-size: inherit; letter-spacing: 0; text-transform: none; }
+.limits { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.5rem; color: var(--mid); font-size: 0.95rem; }
+.facts { margin: 0; }
 .facts div {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 0.5rem 1.5rem;
-  padding: 0.85rem 0;
-  border-bottom: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; justify-content: space-between;
+  gap: 0.4rem 1.5rem; padding: 0.85rem 0; border-bottom: 1px solid var(--line);
 }
-.facts dt { color: var(--text-mid); font-size: 0.95rem; }
-.facts dd { margin: 0; font: 500 0.95rem var(--mono); color: var(--text); }
-
-.limits {
-  margin-top: clamp(3rem, 8vw, 5rem);
-  padding-top: clamp(1.5rem, 4vw, 2.5rem);
-  border-top: 1px solid var(--line);
-}
-.limits h3 {
-  margin: 0 0 1rem;
-  font: 500 0.78rem var(--mono);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--dim);
-}
-.limits ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
-  gap: 0.6rem 2rem;
-  color: var(--text-mid);
-  font-size: 0.95rem;
-}
+.facts dt { color: var(--mid); font-size: 0.95rem; }
+.facts dd { margin: 0; font: 500 0.95rem var(--mono); color: var(--hot); }
 
 footer {
-  margin-top: clamp(3rem, 8vw, 5rem);
-  padding-top: 1.25rem;
+  margin-top: clamp(3rem, 8vh, 5rem); padding-top: 1.2rem;
   border-top: 1px solid var(--line);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 2rem;
-  color: var(--dim);
-  font: 0.8rem var(--mono);
+  display: flex; flex-wrap: wrap; gap: 0.4rem 2rem;
+  color: var(--dim); font: 0.78rem var(--mono);
 }
 footer a { text-decoration: none; }
 footer a:hover { color: var(--text); }
 
-/* ---------------------------------------------------------------- motion */
-/* Scroll-driven, no library. Content is visible by default and the animation
-   only refines it, so nothing is gated behind a class that may never fire. */
-
-/* Rule: nothing that carries meaning may depend on an animation to become
-   visible. Text is opaque at rest. Scroll-driven timelines only move things
-   that are already readable, and the one opacity fade left is on a purely
-   decorative overlay. */
+/* ═══════════════════════════════════════════════════════════ motion ═══ */
+/* Everything above is the resting state and is fully legible on its own.
+   The block below only refines it, so a browser without scroll timelines,
+   a headless renderer, or reduced-motion loses choreography and nothing
+   else. */
 
 @media (prefers-reduced-motion: no-preference) {
 
-  /* Hero: a single orchestrated load, not tied to scroll, so it always runs. */
-  .display .line, .lede, .actions, .stage, .scrollcue {
-    animation: enter 0.9s var(--out) backwards;
+  /* hero: a real load, never tied to scroll */
+  .mega span, .hero-foot { animation: enter 0.85s var(--out) backwards; }
+  .mega span:nth-child(1) { animation-delay: 0.04s; }
+  .mega span:nth-child(2) { animation-delay: 0.12s; }
+  .mega span:nth-child(3) { animation-delay: 0.2s; }
+  .hero-foot { animation-delay: 0.34s; }
+
+  @supports (animation-timeline: scroll()) {
+    .scrub i {
+      animation: fill linear both;
+      animation-timeline: scroll(root block);
+    }
   }
-  .display .line:nth-child(1) { animation-delay: 0.05s; }
-  .display .line:nth-child(2) { animation-delay: 0.13s; }
-  .display .line:nth-child(3) { animation-delay: 0.21s; }
-  .lede      { animation-delay: 0.34s; }
-  .actions   { animation-delay: 0.42s; }
-  .stage     { animation-delay: 0.5s; }
-  .scrollcue { animation-delay: 0.6s; }
 
   @supports (animation-timeline: view()) {
-    /* Translate only. If the timeline never resolves, the element simply sits
-       1rem lower than final, still fully legible. */
-    .act-head h2, .statement, .end h2, .climax h2 {
-      animation: settle linear both;
-      animation-timeline: view();
-      animation-range: entry 5% cover 32%;
+    /* Scene 01. The recorded frame is wiped over the raw one, using the same
+       clip-path measure the editor draws around a captured element. */
+    .wipe .over {
+      animation: measure linear both;
+      animation-timeline: --track;
+      animation-range: contain 8% contain 62%;
     }
-    .sheet li {
-      animation: settle linear both;
-      animation-timeline: view();
-      animation-range: entry 4% cover 26%;
+    .wipe-edge {
+      display: block;
+      position: absolute; top: 0; bottom: 0; width: 2px;
+      background: var(--hot);
+      animation: sweep linear both;
+      animation-timeline: --track;
+      animation-range: contain 8% contain 62%;
+    }
+    .trace div {
+      animation: lift linear both;
+      animation-timeline: --track;
+      animation-range: contain 40% contain 78%;
+    }
+    .trace div:nth-child(2) { animation-range: contain 46% contain 82%; }
+    .trace div:nth-child(3) { animation-range: contain 52% contain 86%; }
+    .trace div:nth-child(4) { animation-range: contain 58% contain 90%; }
+
+    /* Scene 02. Vertical scroll drives the strip horizontally. */
+    .scene.wide .strip-wrap { overflow-x: hidden; }
+    .scene.wide .strip {
+      animation: pan linear both;
+      animation-timeline: --track;
+      animation-range: contain 4% contain 96%;
     }
 
-    /* The motif: the box being measured out, left to right. Decorative. */
-    .frame .box.tight {
-      animation: measure linear both;
-      animation-timeline: view();
-      animation-range: entry 25% cover 48%;
+    /* Scene 03 and 04: rows arrive in recorded order. */
+    .report li, .run p, .diff span {
+      animation: lift linear both;
+      animation-timeline: --track;
+      animation-range: contain 10% contain 55%;
+    }
+    .report li:nth-child(2), .run p:nth-child(2) { animation-range: contain 16% contain 60%; }
+    .report li:nth-child(3), .run p:nth-child(3) { animation-range: contain 22% contain 65%; }
+    .report li:nth-child(4), .run p:nth-child(4) { animation-range: contain 28% contain 70%; }
+    .report li:nth-child(5) { animation-range: contain 34% contain 75%; }
+
+    .scene-copy h2 {
+      animation: lift linear both;
+      animation-timeline: --track;
+      animation-range: contain 0% contain 30%;
     }
   }
 }
 
-@keyframes enter {
-  from { opacity: 0; translate: 0 1.2rem; }
-  to   { opacity: 1; translate: 0 0; }
+@keyframes enter { from { opacity: 0; translate: 0 1.1rem; } to { opacity: 1; translate: 0 0; } }
+@keyframes fill  { from { scale: 0 1; } to { scale: 1 1; } }
+@keyframes lift  { from { translate: 0 0.85rem; } to { translate: 0 0; } }
+@keyframes measure { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes sweep { from { left: 0; } to { left: calc(100% - 2px); } }
+@keyframes pan {
+  from { translate: 0 0; }
+  to   { translate: calc(-100% + min(100vw - var(--pad) * 2 - var(--gut), 100%)) 0; }
 }
 
-@keyframes settle {
-  from { translate: 0 1rem; }
-  to   { translate: 0 0; }
-}
-
-/* clip-path wipe: the box being measured out, left to right, in steps */
-@keyframes measure {
-  from { clip-path: inset(0 100% 0 0); }
-  to   { clip-path: inset(0); }
-}
-
+/* Static, ordered, fully readable. */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .box.loose { animation: none; }
-  .btn::before { transition: none; }
+  .scene, .scene.wide { height: auto; }
+  .stage { position: static; }
+  .scrub { display: none; }
+  .hero-vid { display: none; }
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
+}
+
+/* No sticky scenes on short or narrow screens: the content is taller than the
+   viewport there, and pinning would clip it. */
+@media (max-width: 780px), (max-height: 620px) {
+  .scene, .scene.wide { height: auto; }
+  .stage { position: static; min-height: 0; padding-block: clamp(3rem, 9vh, 5rem); }
+  .scene.wide .strip-wrap { overflow-x: auto; }
+  .scene.wide .strip { animation: none; }
 }
