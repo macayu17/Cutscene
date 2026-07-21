@@ -81,7 +81,7 @@ export function renderQualityReport(findings: readonly QualityFinding[]): string
     if (group.length === 0) continue;
     lines.push(`## ${HEADINGS[kind]} (${group.length})`, '');
     for (const finding of group) {
-      lines.push(`- \`${finding.stepId}\` at ${(finding.t / 1_000).toFixed(1)}s — **${finding.label}**: ${finding.detail}`);
+      lines.push(`- \`${finding.stepId}\` at ${(finding.t / 1_000).toFixed(1)}s - **${finding.label}**: ${finding.detail}`);
     }
     lines.push('');
   }
