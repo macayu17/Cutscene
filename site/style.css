@@ -1,0 +1,637 @@
+/* Cutscene launch site.
+   Palette, type and the clip-path "measure" wipe are inherited from the editor
+   in packages/editor/src/tokens.css so the site and the instrument agree. */
+
+:root {
+  --bg: #16181c;
+  --surface: #1e2126;
+  --line: #2c3037;
+  --line-bright: #3b4048;
+  --text: #e6e9ee;
+  --text-mid: #aeb5bf;
+  /* 4.88:1 on --surface, 5.37:1 on --bg. The editor's dimmer #727a85 fails AA
+     against panel backgrounds at these sizes, so the site lifts it. */
+  --dim: #868e9a;
+  --signal: #f2a63b;
+  --danger: #d9645c;
+
+  --display: 'Archivo', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --pad: clamp(1.25rem, 4vw, 5rem);
+  --measure: 62ch;
+
+  --z-rail: 20;
+  --z-skip: 40;
+
+  --out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--display);
+  font-size: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+img, video { max-width: 100%; display: block; }
+
+::selection { background: var(--signal); color: #101216; }
+
+a { color: inherit; }
+
+:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 3px;
+}
+
+.skip {
+  position: absolute;
+  z-index: var(--z-skip);
+  top: 0; left: 0;
+  padding: 0.75rem 1rem;
+  background: var(--signal);
+  color: #101216;
+  font: 500 0.85rem var(--mono);
+  transform: translateY(-120%);
+}
+.skip:focus { transform: none; }
+
+/* ------------------------------------------------------------------ rail */
+
+.rail {
+  position: fixed;
+  z-index: var(--z-rail);
+  top: 50%;
+  right: clamp(0.75rem, 2vw, 2rem);
+  translate: 0 -50%;
+  display: grid;
+  gap: 0.9rem;
+  font: 500 0.7rem/1 var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.rail a {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--dim);
+  text-decoration: none;
+  transition: color 0.3s var(--out);
+}
+.rail i {
+  width: 18px;
+  height: 1px;
+  background: currentColor;
+  transition: width 0.35s var(--out);
+}
+.rail a:hover, .rail a:focus-visible { color: var(--text); }
+.rail a:hover i { width: 30px; }
+.rail-cta { color: var(--signal); }
+.rail-cta::before {
+  content: '';
+  width: 18px; height: 1px;
+  background: currentColor;
+  margin-right: 0.6rem;
+}
+
+@media (max-width: 900px) { .rail { display: none; } }
+
+/* ------------------------------------------------------------------ hero */
+
+.hero {
+  padding: clamp(1.25rem, 3vw, 2.5rem) var(--pad) clamp(3rem, 8vw, 6rem);
+  display: grid;
+  align-content: start;
+  gap: clamp(1.1rem, 2.2vw, 1.75rem);
+}
+
+.masthead {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--line);
+  font: 500 0.75rem var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.wordmark { color: var(--text); }
+.meta { color: var(--dim); }
+
+.display {
+  margin: clamp(0.5rem, 2vw, 1.25rem) 0 0;
+  font-size: clamp(2.6rem, 9vw, 6.75rem);
+  font-weight: 800;
+  line-height: 0.92;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+.display .line { display: block; }
+.display em {
+  font-style: normal;
+  color: var(--signal);
+}
+
+.lede {
+  max-width: var(--measure);
+  margin: 0;
+  color: var(--text-mid);
+  font-size: clamp(1rem, 0.9rem + 0.5vw, 1.3rem);
+  text-wrap: pretty;
+}
+
+/* --------------------------------------------------------------- buttons */
+
+.actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+
+.btn {
+  --btn-ink: #101216;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.85rem 1.4rem;
+  border: 1px solid var(--signal);
+  background: var(--signal);
+  color: var(--btn-ink);
+  font: 500 0.95rem var(--mono);
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  overflow: hidden;
+  isolation: isolate;
+}
+.btn svg {
+  width: 20px; height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  transition: translate 0.35s var(--out);
+}
+.btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--text);
+  translate: -101% 0;
+  transition: translate 0.4s var(--out);
+}
+.btn:hover::before, .btn:focus-visible::before { translate: 0 0; }
+.btn:hover svg, .btn:focus-visible svg { translate: 7px 0; }
+
+.btn.ghost {
+  --btn-ink: var(--text);
+  border-color: var(--line-bright);
+  background: transparent;
+}
+.btn.ghost::before { background: var(--surface); }
+.btn.ghost:hover, .btn.ghost:focus-visible { border-color: var(--text); }
+
+/* ----------------------------------------------------------------- stage */
+
+.stage {
+  position: relative;
+  margin: clamp(1rem, 3vw, 2rem) 0 0;
+  border: 1px solid var(--line);
+  background: #0f1114;
+}
+.stage video { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+
+.stage figcaption {
+  padding: 0.85rem 1rem;
+  border-top: 1px solid var(--line);
+  color: var(--dim);
+  font: 0.8rem/1.5 var(--mono);
+  max-width: 70ch;
+}
+
+.scrollcue {
+  margin: 0;
+  color: var(--dim);
+  font: 500 0.7rem var(--mono);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+/* ------------------------------------------------------------------ acts */
+
+.act { padding: clamp(4rem, 12vh, 9rem) var(--pad); }
+
+.act-head {
+  display: grid;
+  gap: 1rem;
+  max-width: 78ch;
+  margin-bottom: clamp(2rem, 5vw, 3.5rem);
+}
+.act-head h2, .statement, .climax h2, .end h2 {
+  margin: 0;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.02;
+  text-wrap: balance;
+}
+.act-head h2 { font-size: clamp(1.9rem, 5vw, 3.6rem); }
+.act-head p {
+  margin: 0;
+  max-width: var(--measure);
+  color: var(--text-mid);
+  text-wrap: pretty;
+}
+
+.tag {
+  margin: 0 0 0.9rem;
+  color: var(--dim);
+  font: 500 0.72rem var(--mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.tag.on { color: var(--signal); }
+
+/* ------------------------------------------------- act 02: guess vs lock */
+
+.pin-act { padding-block: 0; }
+.pin {
+  min-height: 100svh;
+  padding-block: clamp(4rem, 10vh, 7rem);
+  display: grid;
+  align-content: center;
+  gap: clamp(1.5rem, 4vw, 3rem);
+}
+
+.split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: clamp(1rem, 2.5vw, 2rem);
+}
+
+.frame {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(var(--line) 1px, transparent 1px) 0 0 / 100% 25%,
+    linear-gradient(90deg, var(--line) 1px, transparent 1px) 0 0 / 25% 100%,
+    var(--surface);
+  background-blend-mode: normal;
+  overflow: hidden;
+}
+.frame::after {
+  /* the target: a wide row, the case where a cursor point and an element
+     centre are nowhere near each other */
+  content: '';
+  position: absolute;
+  left: 12%; top: 46%;
+  width: 66%; height: 13%;
+  background: #2b3037;
+  border: 1px solid var(--line-bright);
+}
+
+.cursorpt {
+  position: absolute;
+  left: 22%; top: 51%;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--text);
+  z-index: 2;
+}
+.box {
+  position: absolute;
+  z-index: 3;
+  border: 2px solid var(--danger);
+}
+.box.loose {
+  left: 8%; top: 34%;
+  width: 30%; height: 34%;
+  animation: wander 4.5s var(--out) infinite alternate;
+}
+.box.tight {
+  left: calc(12% - 3px); top: calc(46% - 3px);
+  width: calc(66% + 6px); height: calc(13% + 6px);
+  border-color: var(--signal);
+}
+
+@keyframes wander {
+  0%   { translate: 0 0; }
+  50%  { translate: 6% -5%; }
+  100% { translate: -4% 4%; }
+}
+
+.framenote {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  border-top: 1px solid var(--line);
+  background: #191c21;
+  color: var(--dim);
+  font: 0.75rem var(--mono);
+}
+
+.readouts {
+  position: absolute;
+  right: 0; bottom: 0;
+  margin: 0;
+  display: grid;
+  gap: 2px 0.9rem;
+  padding: 0.7rem 0.85rem;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  background: #191c21;
+  font: 0.75rem var(--mono);
+}
+.readouts div { display: grid; grid-template-columns: 7.5rem 1fr; }
+.readouts dt { color: var(--dim); }
+.readouts dd { margin: 0; color: var(--text); }
+
+.statement {
+  font-size: clamp(1.8rem, 5.5vw, 4.2rem);
+  max-width: 22ch;
+}
+
+/* --------------------------------------------------- act 03: contact sheet */
+
+.sheet {
+  list-style: none;
+  margin: 0 0 clamp(2rem, 5vw, 3.5rem);
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+.sheet li {
+  display: grid;
+  gap: 0.35rem;
+  align-content: start;
+  padding: clamp(1.1rem, 2.5vw, 1.6rem);
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.sheet b {
+  font: 500 0.95rem var(--mono);
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+.sheet span { color: var(--dim); font-size: 0.92rem; line-height: 1.5; }
+
+.shot {
+  margin: 0;
+  border: 1px solid var(--line);
+  background: #0f1114;
+}
+.shot img { width: 100%; height: auto; }
+
+/* ---------------------------------------------------------- act 04: report */
+
+.report {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  padding: clamp(1.1rem, 3vw, 2rem);
+  font-family: var(--mono);
+  overflow-x: auto;
+}
+.report p { margin: 0; }
+.report-head { font-size: 1.05rem; color: var(--text); }
+.report-sub { margin-top: 0.4rem !important; color: var(--dim); font-size: 0.85rem; }
+.report-h2 {
+  margin-top: 1.6rem !important;
+  color: var(--signal);
+  font-size: 0.95rem;
+}
+.report ul {
+  margin: 0.8rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+  color: var(--text-mid);
+}
+/* Keep report rows on one line where there is room, so they read as the
+   generated output they are. Narrow screens wrap instead of hiding text
+   behind a horizontal scroll nobody notices. */
+.report li { white-space: nowrap; }
+@media (max-width: 700px) {
+  .report li { white-space: normal; line-height: 1.6; }
+}
+.report code { color: var(--text); }
+.report b { color: var(--text); font-weight: 500; }
+
+.aside {
+  max-width: var(--measure);
+  margin: clamp(1.5rem, 4vw, 2.5rem) 0 0;
+  color: var(--text-mid);
+  text-wrap: pretty;
+}
+.aside.tight { margin-top: 0; font-size: 0.95rem; }
+
+/* ----------------------------------------------------------- act 05: drift */
+
+.diff {
+  margin: 0;
+  padding: clamp(0.9rem, 2vw, 1.3rem);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font: 0.82rem/1.75 var(--mono);
+  overflow-x: auto;
+}
+.diff .ctx { color: var(--dim); }
+.diff .del { color: var(--danger); display: block; }
+.diff .add { color: var(--signal); display: block; }
+
+.runs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: clamp(1rem, 2.5vw, 1.75rem);
+}
+.run {
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font: 0.88rem/1.9 var(--mono);
+}
+.run p { margin: 0; }
+.run i { font-style: normal; color: var(--text); display: inline-block; min-width: 1.1rem; }
+.run em { font-style: normal; color: var(--dim); }
+.runhead {
+  margin-bottom: 0.9rem !important;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--dim);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+}
+.run.bad .runhead b { color: var(--danger); }
+.run.heal .runhead b { color: var(--signal); }
+.run .drifted { color: var(--text-mid); }
+.run .orphan { color: var(--danger); }
+.run .healed { color: var(--signal); }
+
+/* ---------------------------------------------------------------- climax */
+
+.climax {
+  min-height: 92svh;
+  display: grid;
+  align-content: center;
+  padding: clamp(4rem, 12vh, 8rem) var(--pad);
+  background: var(--signal);
+  color: #101216;
+}
+.climax h2 {
+  max-width: 20ch;
+  font-size: clamp(2rem, 7vw, 5.5rem);
+  letter-spacing: -0.04em;
+}
+
+/* ------------------------------------------------------------------- end */
+
+.end { padding: clamp(4rem, 12vh, 8rem) var(--pad) clamp(2rem, 5vw, 3rem); }
+
+.end-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: clamp(2rem, 5vw, 4rem);
+  align-items: start;
+}
+.end h2 { font-size: clamp(2rem, 6vw, 4rem); margin-bottom: 1rem; }
+.end p { max-width: 46ch; color: var(--text-mid); margin: 0 0 1.75rem; }
+.end h3 {
+  margin: 0 0 1.2rem;
+  font: 500 0.78rem var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.end h3 code { color: var(--signal); font-size: inherit; text-transform: none; letter-spacing: 0; }
+
+.facts { margin: 0; display: grid; }
+.facts div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem 1.5rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.facts dt { color: var(--text-mid); font-size: 0.95rem; }
+.facts dd { margin: 0; font: 500 0.95rem var(--mono); color: var(--text); }
+
+.limits {
+  margin-top: clamp(3rem, 8vw, 5rem);
+  padding-top: clamp(1.5rem, 4vw, 2.5rem);
+  border-top: 1px solid var(--line);
+}
+.limits h3 {
+  margin: 0 0 1rem;
+  font: 500 0.78rem var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.limits ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+  gap: 0.6rem 2rem;
+  color: var(--text-mid);
+  font-size: 0.95rem;
+}
+
+footer {
+  margin-top: clamp(3rem, 8vw, 5rem);
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 2rem;
+  color: var(--dim);
+  font: 0.8rem var(--mono);
+}
+footer a { text-decoration: none; }
+footer a:hover { color: var(--text); }
+
+/* ---------------------------------------------------------------- motion */
+/* Scroll-driven, no library. Content is visible by default and the animation
+   only refines it, so nothing is gated behind a class that may never fire. */
+
+/* Rule: nothing that carries meaning may depend on an animation to become
+   visible. Text is opaque at rest. Scroll-driven timelines only move things
+   that are already readable, and the one opacity fade left is on a purely
+   decorative overlay. */
+
+@media (prefers-reduced-motion: no-preference) {
+
+  /* Hero: a single orchestrated load, not tied to scroll, so it always runs. */
+  .display .line, .lede, .actions, .stage, .scrollcue {
+    animation: enter 0.9s var(--out) backwards;
+  }
+  .display .line:nth-child(1) { animation-delay: 0.05s; }
+  .display .line:nth-child(2) { animation-delay: 0.13s; }
+  .display .line:nth-child(3) { animation-delay: 0.21s; }
+  .lede      { animation-delay: 0.34s; }
+  .actions   { animation-delay: 0.42s; }
+  .stage     { animation-delay: 0.5s; }
+  .scrollcue { animation-delay: 0.6s; }
+
+  @supports (animation-timeline: view()) {
+    /* Translate only. If the timeline never resolves, the element simply sits
+       1rem lower than final, still fully legible. */
+    .act-head h2, .statement, .end h2, .climax h2 {
+      animation: settle linear both;
+      animation-timeline: view();
+      animation-range: entry 5% cover 32%;
+    }
+    .sheet li {
+      animation: settle linear both;
+      animation-timeline: view();
+      animation-range: entry 4% cover 26%;
+    }
+
+    /* The motif: the box being measured out, left to right. Decorative. */
+    .frame .box.tight {
+      animation: measure linear both;
+      animation-timeline: view();
+      animation-range: entry 25% cover 48%;
+    }
+  }
+}
+
+@keyframes enter {
+  from { opacity: 0; translate: 0 1.2rem; }
+  to   { opacity: 1; translate: 0 0; }
+}
+
+@keyframes settle {
+  from { translate: 0 1rem; }
+  to   { translate: 0 0; }
+}
+
+/* clip-path wipe: the box being measured out, left to right, in steps */
+@keyframes measure {
+  from { clip-path: inset(0 100% 0 0); }
+  to   { clip-path: inset(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .box.loose { animation: none; }
+  .btn::before { transition: none; }
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
