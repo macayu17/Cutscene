@@ -5,6 +5,17 @@ runner ship from the same commit.
 
 ## 0.2.0 — unreleased
 
+Phase 10: the regeneration story, installable.
+
+- `@cutscene/trace`, `@cutscene/editor` and `@cutscene/runner` publish to npm.
+  `npx cutscene-regenerate --config demo.yml --dry-run` needs no clone.
+- A packaged GitHub Action runs the same check and comments the report on the
+  pull request that would break the demo.
+- Rendering without the editor installed names the fix instead of failing on a
+  resolved path. A drift-only install no longer pulls the render pipeline.
+- Continuous integration, contributor and security documents, issue and pull
+  request templates.
+
 Phase 9: a first run that needs no terminal.
 
 - The editor ships inside the extension. Stopping a recording opens it with that
