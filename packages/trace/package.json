@@ -1,10 +1,22 @@
 {
   "name": "@cutscene/trace",
-  "version": "0.1.0",
+  "version": "0.2.0",
+  "description": "Trace schema, ranked locators, clock mapping, drift detection and healing for Cutscene recordings.",
+  "keywords": ["cutscene", "screen-recording", "dom", "locators", "playwright"],
+  "license": "MIT",
+  "author": "Ayush Kumar",
+  "repository": { "type": "git", "url": "git+https://github.com/macayu17/Cutscene.git", "directory": "packages/trace" },
+  "homepage": "https://github.com/macayu17/Cutscene#readme",
+  "bugs": "https://github.com/macayu17/Cutscene/issues",
   "type": "module",
   "exports": "./src/index.ts",
+  "files": ["dist"],
+  "engines": { "node": ">=22.18" },
+  "publishConfig": {
+    "exports": { "types": "./dist/index.d.ts", "default": "./dist/index.js" }
+  },
   "scripts": {
-    "build": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   }

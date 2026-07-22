@@ -684,7 +684,54 @@ Out of scope for this phase: hosted storage, accounts, billing, screen capture w
 
 ---
 
-## 16. Scope discipline
+## 16. Phase 10 — the regeneration story, installable
+
+The defensible claim is that a Cutscene demo fails like a failing test when the
+product moves. That is built and measured, and it is unreachable: the runner is
+a private workspace package invoked through `pnpm --filter` inside a clone.
+
+### Goal
+
+A maintainer who has never seen this repository can install the runner, point it
+at a recorded demo, and get a drift report on a pull request.
+
+### Scope
+
+- **The runner, the trace library and the editor are published.** The runner is
+  the CLI, the trace library is what it reads with, and the editor carries the
+  render pipeline. Drift checking needs the first two; rebuilding outputs needs
+  all three.
+- **The published artefact is JavaScript.** Node refuses to strip types inside
+  `node_modules`, so the packages emit built JavaScript and declarations while
+  the workspace keeps consuming the TypeScript sources.
+- **A packaged GitHub Action** runs the same CLI and posts the report on the
+  pull request that would break the demo.
+- **Continuous integration exists.** This repository has had none. The suites
+  that depend on a third-party site and a headed browser stay a local gate; the
+  rest runs on every push.
+- **The repository is legible to a stranger**: how to contribute, how to report a
+  vulnerability, what a good change looks like, and what changed between
+  versions.
+
+Out of scope: hosted storage, accounts, billing, an example repository.
+
+### Exit criteria
+
+1. The three packages, packed and installed into a project outside the
+   workspace, run a drift check and a full regeneration that rebuilds GIF, MP4
+   and documentation.
+2. The regeneration suite passes against the installed package, not only against
+   the working tree.
+3. CI runs tests, typecheck, build, the self-contained end-to-end suites, and the
+   packaging check on every push.
+4. Rendering without the editor installed fails with a message naming the fix,
+   not a filesystem error.
+5. `pnpm test && pnpm typecheck && pnpm build && pnpm e2e` pass, and the numbers
+   are recorded in `STATUS.md`.
+
+---
+
+## 17. Scope discipline
 
 The failure mode of this project is not a bad architecture. It is building Phase 6 during Phase 1.
 

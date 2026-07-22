@@ -41,9 +41,13 @@ function event(
   });
 }
 
+// Point CUTSCENE_CLI at an installed tarball's entry to run this suite against the
+// published package rather than the working tree.
+const cliPath = process.env.CUTSCENE_CLI ?? join(packageDirectory, 'src', 'cli.ts');
+
 function runCli(configPath: string, cwd: string, dryRun = true): Promise<{ code: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [join(packageDirectory, 'src', 'cli.ts'),
+    const child = spawn(process.execPath, [cliPath,
       '--config', configPath, ...(dryRun ? ['--dry-run'] : [])], {
       cwd,
       env: { ...process.env, DEMO_VALUE: secret },

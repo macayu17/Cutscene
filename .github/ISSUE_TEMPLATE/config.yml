@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security report
+    url: https://github.com/macayu17/Cutscene/security/advisories/new
+    about: Report a vulnerability privately. Never in a public issue.
+  - name: What is planned, and what is deliberately not
+    url: https://github.com/macayu17/Cutscene/blob/main/PRD.md
+    about: The whole product as gated phases, including what is out of scope.

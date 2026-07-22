@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.6.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm typecheck
+      - run: pnpm build
+
+  end-to-end:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.6.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm exec playwright install --with-deps chromium
+      # The extension capture suite records a third-party site in a headed browser and
+      # stays a local acceptance gate. These two are self-contained.
+      - run: pnpm --filter @cutscene/editor e2e
+      - run: pnpm --filter @cutscene/runner e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: packages/*/test-results
+          retention-days: 7
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.6.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm exec playwright install --with-deps chromium
+      # Prove the published artefacts work outside the workspace, not just inside it.
+      - name: Pack and install into a clean project
+        run: |
+          mkdir -p /tmp/pack/consumer
+          for package in trace editor runner; do
+            pnpm --filter "@cutscene/$package" pack --pack-destination /tmp/pack
+          done
+          cd /tmp/pack/consumer
+          echo '{"name":"consumer","private":true,"version":"1.0.0"}' > package.json
+          npm install --no-audit --no-fund /tmp/pack/cutscene-*.tgz
+      - name: Run the regeneration suite against the installed package
+        env:
+          CUTSCENE_CLI: /tmp/pack/consumer/node_modules/@cutscene/runner/dist/cli.js
+        run: pnpm --filter @cutscene/runner e2e

@@ -1,0 +1,85 @@
+name: Cutscene regeneration
+description: Replay a recorded demo against this build, report locator drift, and optionally rebuild the declared outputs.
+author: Ayush Kumar
+
+inputs:
+  config:
+    description: Path to the demo.yml describing the recorded demos.
+    default: demo.yml
+  demo:
+    description: Run one configured demo by id. Runs every demo when empty.
+    default: ''
+  dry-run:
+    description: Check drift only, without recording fresh pixels or rebuilding outputs.
+    default: 'true'
+  heal:
+    description: Promote the ranked locator that actually resolved and write the trace back.
+    default: 'false'
+  comment:
+    description: Post the report as a pull request comment, replacing the previous one.
+    default: 'true'
+  version:
+    description: Version of the Cutscene packages to install.
+    default: latest
+
+outputs:
+  exit-code:
+    description: 0 every step matched, 1 a step drifted or is orphaned, 2 the run failed.
+    value: ${{ steps.regenerate.outputs.exit-code }}
+  report:
+    description: The regeneration output.
+    value: ${{ steps.regenerate.outputs.report }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+
+    - name: Install Cutscene
+      shell: bash
+      run: |
+        npm install --no-save --no-audit --no-fund \
+          "@cutscene/runner@${{ inputs.version }}" \
+          "@cutscene/editor@${{ inputs.version }}" \
+          "@playwright/test@latest"
+        npx playwright install --with-deps chromium
+
+    - name: Regenerate
+      id: regenerate
+      shell: bash
+      run: |
+        arguments=(--config "${{ inputs.config }}")
+        [ "${{ inputs.dry-run }}" = "true" ] && arguments+=(--dry-run)
+        [ "${{ inputs.heal }}" = "true" ] && arguments+=(--heal)
+        [ -n "${{ inputs.demo }}" ] && arguments+=(--demo "${{ inputs.demo }}")
+        set +e
+        npx cutscene-regenerate "${arguments[@]}" 2>&1 | tee /tmp/cutscene-report.txt
+        code=${PIPESTATUS[0]}
+        set -e
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        {
+          echo 'report<<CUTSCENE_EOF'
+          cat /tmp/cutscene-report.txt
+          echo CUTSCENE_EOF
+        } >> "$GITHUB_OUTPUT"
+        exit "$code"
+
+    - name: Comment on the pull request
+      # Runs even when the step above failed, because a drifted demo is the report worth reading.
+      if: always() && inputs.comment == 'true' && github.event_name == 'pull_request'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        {
+          echo '<!-- cutscene-regeneration -->'
+          echo '### Cutscene regeneration'
+          echo
+          echo '```'
+          cat /tmp/cutscene-report.txt
+          echo '```'
+        } > /tmp/cutscene-comment.md
+        gh pr comment "${{ github.event.pull_request.number }}" \
+          --body-file /tmp/cutscene-comment.md --edit-last --create-if-none

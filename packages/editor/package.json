@@ -1,11 +1,21 @@
 {
   "name": "@cutscene/editor",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.2.0",
+  "description": "The Cutscene editor and its render pipeline. Published so the runner can regenerate GIF, MP4 and documentation outputs.",
+  "license": "MIT",
+  "author": "Ayush Kumar",
+  "repository": { "type": "git", "url": "git+https://github.com/macayu17/Cutscene.git", "directory": "packages/editor" },
+  "homepage": "https://github.com/macayu17/Cutscene#readme",
+  "bugs": "https://github.com/macayu17/Cutscene/issues",
   "type": "module",
   "exports": {
     "./page": "./src/main.tsx",
-    "./recordings": "./src/recordings.ts"
+    "./recordings": "./src/recordings.ts",
+    "./package.json": "./package.json"
+  },
+  "files": ["dist"],
+  "publishConfig": {
+    "exports": { "./package.json": "./package.json" }
   },
   "scripts": {
     "build": "vite build",

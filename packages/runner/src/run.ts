@@ -1,5 +1,7 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { existsSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { chromium, type BrowserContext } from '@playwright/test';
 import {
@@ -67,7 +69,18 @@ function unavailableStaleness(): StalenessResult {
   return { v: 1, state: 'unavailable', reason: 'watch paths are not configured' };
 }
 
-const editorDist = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', 'editor', 'dist');
+// Rendering drives the editor's own automation page, so it needs the editor build.
+// Installed, that is the optional peer; in this repository it is the sibling package.
+export function editorDistPath(): string {
+  try {
+    return resolve(dirname(createRequire(import.meta.url).resolve('@cutscene/editor/package.json')), 'dist');
+  } catch {
+    return resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', 'editor', 'dist');
+  }
+}
+
+export const MISSING_EDITOR = 'rendering needs the editor build. Install @cutscene/editor beside this package, ' +
+  'or run pnpm build in the Cutscene repository. Drift checks with --dry-run do not need it.';
 
 export async function runDemo(demo: DemoConfig, configDir: string,
   options: RunOptions = { dryRun: true }): Promise<0 | 1 | 2> {
@@ -237,6 +250,11 @@ export async function runDemo(demo: DemoConfig, configDir: string,
       const written = await writeReports(configDir, report, { diff, staleness });
       if (!written.ok) {
         console.error(`${demo.id}: ${written.error}`);
+        return 2;
+      }
+      const editorDist = editorDistPath();
+      if (!existsSync(join(editorDist, 'automation.html'))) {
+        console.error(`${demo.id}: ${MISSING_EDITOR}`);
         return 2;
       }
       const rendered = await renderOutputs({ configDir, editorDist, bundle: bundle.value, outputs: demo.outputs });

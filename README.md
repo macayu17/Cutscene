@@ -94,7 +94,32 @@ The editor uploads the original three files and shows the public link.
 
 ## Check a recorded flow against a current build
 
-The Phase 7 runner validates `demo.yml`, optionally runs a seed command, and
+Install the runner where the check should happen. Drift checks need only the
+runner and a browser; rebuilding GIF, MP4 or documentation also needs the
+editor, which carries the render pipeline.
+
+```sh
+npm install --save-dev @cutscene/runner @playwright/test
+npx playwright install chromium
+npx cutscene-regenerate --config demo.yml --dry-run
+
+npm install --save-dev @cutscene/editor   # only if you rebuild outputs
+```
+
+Node 22.18 or newer. In GitHub Actions, the packaged action does the same thing
+and comments the report on the pull request:
+
+```yaml
+- uses: macayu17/Cutscene@main
+  with:
+    config: demo.yml
+    dry-run: true
+```
+
+The step fails when a demo drifts, exactly as a failing test does. Add
+`heal: true` to promote the locator that actually resolved instead.
+
+The runner validates `demo.yml`, optionally runs a seed command, and
 replays the stored trace in Chromium. A normal run records a fresh WebM and
 trace, compares the semantic actions, and rebuilds every declared output. Add
 `--dry-run` to check locator drift without recording or rendering.
@@ -238,3 +263,17 @@ The repository has five active packages:
 - `packages/editor` — local React editor and FFmpeg export pipeline.
 - `packages/server` — optional self-hosted public share links.
 - `packages/runner` — local `demo.yml` validation, replay, and drift reports.
+
+## License
+
+Cutscene's own source is MIT, as stated in [`LICENSE`](LICENSE).
+
+The built extension package additionally bundles [`@ffmpeg/core`
+0.12.10](https://github.com/ffmpegwasm/ffmpeg.wasm), which is licensed
+GPL-2.0-or-later because it includes x264 for H.264 export. An extension page
+may not load that core from a CDN or a `blob:` URL, so it is served from the
+extension's own origin and therefore distributed with it. The distributed
+package is a combined work and carries GPL terms; Cutscene's own source remains
+MIT and is available in this repository, which is where the corresponding
+source for the bundled core is also linked from. Building the editor without
+H.264 export removes that dependency.

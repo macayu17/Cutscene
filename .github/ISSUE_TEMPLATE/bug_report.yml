@@ -1,0 +1,57 @@
+name: Bug report
+description: Something recorded, edited, exported or replayed incorrectly.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Input values are masked at capture, but URLs and accessible names are not.
+        Check anything you attach before posting it.
+
+  - type: input
+    id: page
+    attributes:
+      label: Page being recorded
+      description: The URL, or a description if it is not public.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected, and what happened instead
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Record …
+        2. Stop, the editor opens …
+        3. Export …
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Cutscene version
+      description: The extension version, or the commit you built.
+    validations:
+      required: true
+
+  - type: input
+    id: chrome
+    attributes:
+      label: Chrome version and operating system
+    validations:
+      required: true
+
+  - type: textarea
+    id: trace
+    attributes:
+      label: Trace or console output
+      description: Attach `trace.jsonl` if you can share it, or paste the console error.
+      render: text

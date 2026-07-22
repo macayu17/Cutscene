@@ -1,4 +1,47 @@
-Phase: 9
+Phase: 10
+
+Phase 10 (the regeneration story, installable, PRD.md section 16) opened on
+2026-07-22. Chrome Web Store submission remains open owner action; it needs a
+developer account and is not a code gate.
+
+Installable regeneration (2026-07-22):
+  published packages: @cutscene/trace, @cutscene/editor, @cutscene/runner at
+                      0.2.0. The runner is the CLI, trace is what it reads with,
+                      the editor carries the render pipeline
+  emitted JavaScript: Node refuses to strip types inside node_modules
+                      (ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING), measured on
+                      an installed tarball, so the packages emit built JS and
+                      declarations while the workspace still consumes sources
+  packing: pnpm publishConfig swaps exports and bin from src to dist on pack;
+           the workspace protocol resolves to 0.2.0 in the tarball
+  measured on a clean project outside the workspace, three tarballs installed
+           with npm: 2/2 regeneration end-to-end passed against the installed
+           CLI, covering the drift report and a full run that wrote fresh
+           pixels, trace reports, GIF, MP4 and documentation
+  tarball sizes: trace 14,797 B, runner 14,918 B, editor 10,439,477 B
+  missing editor: rendering exits 2 with a message naming the install, instead
+           of an ENOENT on a resolved path
+  peers: @playwright/test required, @cutscene/editor optional, so a drift-only
+         install does not pull the render pipeline
+
+  exit criteria (PRD.md section 16):
+    [x] the three packages install outside the workspace and run both a drift
+        check and a full regeneration
+    [x] the regeneration suite passes against the installed package
+    [ ] CI runs on every push (workflow committed, unverified until the first
+        push to GitHub)
+    [x] rendering without the editor names the fix
+    [x] full verification below
+
+  unverified until published: the packaged GitHub Action installs the packages
+        by name from npm, so it cannot run until the first publish
+
+  repository tests: 322 passed (97 trace, 25 server, 132 editor,
+                    15 extension, 53 runner)
+  typecheck: 5/5 active packages passed
+  production build: 4/4 buildable packages passed
+  end-to-end: 6/6 Chromium (1 editor, 2 runner, 3 extension)
+  hosted CI / paid credits: none
 
 Phase 9 (zero-friction first run, PRD.md section 15) opened on 2026-07-22.
 

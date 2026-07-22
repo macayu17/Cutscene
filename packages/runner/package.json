@@ -1,12 +1,24 @@
 {
   "name": "@cutscene/runner",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.2.0",
+  "description": "Replay a Cutscene recording against a current build: locator drift, trace diff, and regenerated GIF, MP4 and documentation.",
+  "keywords": ["cutscene", "screen-recording", "documentation", "playwright", "ci"],
+  "license": "MIT",
+  "author": "Ayush Kumar",
+  "repository": { "type": "git", "url": "git+https://github.com/macayu17/Cutscene.git", "directory": "packages/runner" },
+  "homepage": "https://github.com/macayu17/Cutscene#readme",
+  "bugs": "https://github.com/macayu17/Cutscene/issues",
   "type": "module",
   "bin": {
     "cutscene-regenerate": "src/cli.ts"
   },
+  "files": ["dist"],
+  "engines": { "node": ">=22.18" },
+  "publishConfig": {
+    "bin": { "cutscene-regenerate": "dist/cli.js" }
+  },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "regenerate": "node src/cli.ts",
     "test": "vitest run src",
     "typecheck": "tsc --noEmit",
@@ -14,10 +26,18 @@
   },
   "dependencies": {
     "@cutscene/trace": "workspace:*",
-    "@playwright/test": "^1.61.1",
     "yaml": "^2.8.1"
   },
+  "peerDependencies": {
+    "@cutscene/editor": "0.2.0",
+    "@playwright/test": ">=1.61.1"
+  },
+  "peerDependenciesMeta": {
+    "@cutscene/editor": { "optional": true }
+  },
   "devDependencies": {
+    "@cutscene/editor": "workspace:*",
+    "@playwright/test": "^1.61.1",
     "@types/node": "^24.13.3"
   }
 }
