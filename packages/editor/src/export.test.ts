@@ -9,7 +9,8 @@ const engine = vi.hoisted(() => ({
   exec: vi.fn(async () => 0), readFile: vi.fn(async () => new Uint8Array([7])),
 }));
 vi.mock('@ffmpeg/ffmpeg', () => ({ FFmpeg: function FFmpeg() { return engine; } }));
-vi.mock('@ffmpeg/util', () => ({ toBlobURL: vi.fn(async (url: string) => url) }));
+vi.mock('@ffmpeg/core?url', () => ({ default: '/ffmpeg-core.js' }));
+vi.mock('@ffmpeg/core/wasm?url', () => ({ default: '/ffmpeg-core.wasm' }));
 
 afterEach(() => vi.unstubAllGlobals());
 

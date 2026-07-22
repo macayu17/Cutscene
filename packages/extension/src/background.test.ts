@@ -49,7 +49,8 @@ describe('recording stop', () => {
       throw new Error(`Unexpected tab message: ${message.type}`);
     });
     vi.stubGlobal('chrome', { runtime: { getURL: vi.fn(), sendMessage: runtimeSend,
-      onMessage: { addListener: vi.fn((value: Listener) => { listener = value; }) } }, tabs: { sendMessage: tabsSend } });
+      onMessage: { addListener: vi.fn((value: Listener) => { listener = value; }) } }, tabs: { sendMessage: tabsSend },
+      action: { setBadgeText: vi.fn(), setBadgeBackgroundColor: vi.fn() } });
     await import('./background');
     if (!listener) throw new Error('Background listener was not registered.');
     const responses: unknown[] = [];

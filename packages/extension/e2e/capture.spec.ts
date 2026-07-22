@@ -150,6 +150,25 @@ test('captures a playable, complete, masked recording bundle', async () => {
     const items = await control.evaluate(() => chrome.downloads.search({ orderBy: ['-startTime'], limit: 3 }));
     for (const item of items) await copyFile(item.filename, path.join(output, path.basename(item.filename)));
 
+    // The extension hands the bundle to its own editor page through IndexedDB, so the
+    // editor opens on this recording with no folder picker, and renders under the
+    // extension's CSP with a locally served ffmpeg core.
+    const isEditor = (open: { url: () => string }) => open.url().startsWith(`chrome-extension://${extensionId}/editor.html`);
+    const editor = context.pages().find(isEditor) ?? await context.waitForEvent('page', { predicate: isEditor });
+    await expect(editor.locator('.instrument')).toBeVisible({ timeout: 30_000 });
+    await expect(editor.locator('.topbar')).toContainText('todomvc.com');
+    await editor.locator('.action-menu summary', { hasText: 'Export' }).click();
+    await editor.getByRole('button', { name: 'Export GIF' }).click();
+    await expect(editor.locator('.export-progress')).toHaveCount(1, { timeout: 60_000 });
+    await expect(editor.locator('.export-progress')).toHaveCount(0, { timeout: 180_000 });
+    await expect(editor.locator('.export-error')).toHaveCount(0);
+
+    // Opened without a recording id, the editor lists what the extension still holds.
+    await editor.goto(`chrome-extension://${extensionId}/editor.html`);
+    await expect(editor.locator('.recordings li')).toHaveCount(1);
+    await editor.locator('.recordings .danger').click();
+    await expect(editor.locator('.recordings li')).toHaveCount(0);
+
     const traceItem = items.find((item) => item.mime.includes('ndjson'));
     const metaItem = items.find((item) => item.mime === 'application/json');
     const mediaItem = items.find((item) => item.mime.startsWith('video/webm'));

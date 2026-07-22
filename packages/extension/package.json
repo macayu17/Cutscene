@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@cutscene/editor": "workspace:*",
     "@cutscene/trace": "workspace:*"
   },
   "devDependencies": {

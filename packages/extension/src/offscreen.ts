@@ -1,6 +1,6 @@
 import type { RecordingMeta, TraceEvent, Viewport, ScrollPosition } from '@cutscene/trace';
 import type { RecorderStatus, Result } from './messages';
-import { saveBundle } from './storage';
+import { saveBundle } from '@cutscene/editor/recordings';
 import { orderTraceEvents, rollbackCapture } from './recording-lifecycle';
 
 type PageContext = { viewport: Viewport; scroll: ScrollPosition; route: string; url: string; origin: string; contentClockMs: number;

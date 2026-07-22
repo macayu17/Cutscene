@@ -4,5 +4,5 @@ import manifest from './manifest';
 
 export default defineConfig({
   plugins: [crx({ manifest })],
-  build: { rollupOptions: { input: { control: 'control.html', offscreen: 'offscreen.html' } } },
+  build: { rollupOptions: { input: { control: 'control.html', offscreen: 'offscreen.html', editor: 'editor.html' } } },
 });

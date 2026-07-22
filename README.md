@@ -67,7 +67,9 @@ pnpm build
 Open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**,
 and select `packages/extension/dist`.
 
-Start the editor:
+The editor ships inside the extension, so recording a tab opens it directly.
+To run the editor as a standalone page instead — for recordings you already
+have on disk:
 
 ```sh
 pnpm --filter @cutscene/editor exec vite
@@ -156,9 +158,12 @@ rejected as ambiguous instead of guessing an action sequence.
 1. Open a DOM-based page in Chrome.
 2. Open the Cutscene extension. Add any CSS selectors that must be visually
    blurred, then start recording. Microphone capture is optional.
-3. Stop recording. Chrome downloads `media.webm`, `trace.jsonl`, and `meta.json`
+3. Stop recording. The editor opens in a new tab with that recording already
+   loaded. Chrome also downloads `media.webm`, `trace.jsonl`, and `meta.json`
    into one `cutscene-<recording-id>` folder.
-4. Choose that folder in the editor.
+4. Open the extension's editor at any time to pick from the last five
+   recordings it still holds, or choose a downloaded folder in a browser tab
+   running the editor.
 5. Inspect the trace, adjust the edit, then export video, an interactive demo,
    documentation, screenshots, step GIFs, a Playwright skeleton, or captions.
    Extract an interactive ZIP and keep `index.html` beside `demo.mp4`; open the

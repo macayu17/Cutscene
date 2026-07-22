@@ -1,7 +1,14 @@
 import type { RecorderStatus, Result } from './messages';
 
 const offscreenPath = 'offscreen.html';
+const editorPath = 'editor.html';
 const activeRecordingKey = 'activeRecording';
+
+/** The toolbar icon is the only recording indicator a user sees once the popup closes. */
+function indicate(recording: boolean): void {
+  void chrome.action.setBadgeText({ text: recording ? 'REC' : '' });
+  void chrome.action.setBadgeBackgroundColor({ color: '#C7524B' });
+}
 type ActiveRecording = { tabId: number; sessionEpoch: number; redactSelectors: string[]; captureReady: boolean };
 
 async function activeRecording(): Promise<ActiveRecording | null> {
@@ -54,6 +61,7 @@ async function start(tabId: number, includeMic: boolean, redactSelectors: readon
         return ready;
       }
       await saveActiveRecording({ tabId, sessionEpoch, redactSelectors: [...redactSelectors], captureReady: true });
+      indicate(true);
     }
     return result;
   } catch (error: unknown) {
@@ -71,6 +79,7 @@ async function stop(): Promise<Result<RecorderStatus>> {
     if (!status.ok || status.value.tabId === null) return status;
     const tabId = status.value.tabId;
     await clearActiveRecording().catch(() => undefined);
+    indicate(false);
     let quiesced: Result;
     try { quiesced = await chrome.tabs.sendMessage(tabId, { type: 'session.quiesce' }) as Result; }
     catch (error: unknown) { quiesced = { ok: false, error: error instanceof Error ? error.message : String(error) }; }
@@ -113,11 +122,17 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, respond) => {
       'mediaUrl' in message && typeof message.mediaUrl === 'string' && 'traceUrl' in message && typeof message.traceUrl === 'string' &&
       'metaUrl' in message && typeof message.metaUrl === 'string') {
     const folder = `cutscene-${message.recordingId}`;
+    const recordingId = message.recordingId;
     void Promise.all([
       chrome.downloads.download({ url: message.mediaUrl, filename: `${folder}/media.webm` }),
       chrome.downloads.download({ url: message.traceUrl, filename: `${folder}/trace.jsonl` }),
       chrome.downloads.download({ url: message.metaUrl, filename: `${folder}/meta.json` }),
-    ]).then(() => respond({ ok: true, value: undefined } satisfies Result)).catch((error: unknown) => respond({ ok: false, error: error instanceof Error ? error.message : String(error) } satisfies Result));
+    ]).then(async () => {
+      // The bundle is already in IndexedDB, which the editor page shares an origin with,
+      // so the editor opens on the recording itself rather than on a folder picker.
+      await chrome.tabs.create({ url: `${chrome.runtime.getURL(editorPath)}?recording=${recordingId}` });
+      respond({ ok: true, value: undefined } satisfies Result);
+    }).catch((error: unknown) => respond({ ok: false, error: error instanceof Error ? error.message : String(error) } satisfies Result));
     return true;
   }
   return false;

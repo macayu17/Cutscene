@@ -13,6 +13,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
 .file-label { border: 1px solid var(--line); color: var(--text); padding: 7px 10px; font-family: 'IBM Plex Mono', monospace; cursor: pointer; }
 .file-label input { position: absolute; opacity: 0; pointer-events: none; }
 .file-label:has(input:focus-visible) { outline: 2px solid var(--text); outline-offset: 2px; }
+.recordings { display: grid; gap: 1px; width: min(560px, 70vw); margin: 0 0 4px; padding: 0; list-style: none; }
+.recordings li { display: grid; grid-template-columns: minmax(0, 1fr) auto; border: 1px solid var(--line); }
+.recordings button { border: 0; background: transparent; color: var(--text); padding: 7px 9px; font-family: 'IBM Plex Mono', monospace; font-size: var(--t-sm); text-align: left; cursor: pointer; }
+.recordings button:hover { background: var(--surface); }
+.recordings button span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recordings .recording-when { color: var(--text-dim); font-size: var(--t-xs); }
+.recordings .danger { color: var(--danger); font-size: var(--t-xs); }
 .error { color: var(--danger); max-width: 560px; }
 .instrument { height: 100%; display: grid; grid-template: 40px minmax(0, 1fr) 286px / 240px minmax(0, 1fr); }
 .topbar { grid-column: 1 / -1; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; padding: 0 10px; font-size: var(--t-xs); letter-spacing: .03em; white-space: nowrap; }

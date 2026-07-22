@@ -650,7 +650,41 @@ Not planned in detail. Listed so it is not mistaken for permanently out of scope
 
 ---
 
-## 15. Scope discipline
+## 15. Phase 9 — zero-friction first run
+
+Phases 0 through 8 built a product nobody can reach. Every path to value runs through a clone, an install, a build, `chrome://extensions`, a dev server, a download folder and a folder picker. Phase 9 removes all of it.
+
+### Goal
+
+A person with only Chrome installs the extension, records a tab, and lands in a loaded editor. No terminal, no file picker, no dev server.
+
+### Scope
+
+- **The editor ships inside the extension.** The extension bundle contains the editor as an extension page. It is the same editor build that is deployed as a static site; the only difference is where the recording comes from.
+- **The handoff is IndexedDB, not the disk.** `saveBundle` already writes the bundle to IndexedDB before the download fires. The editor page reads it back from the same origin. Downloading the three files becomes an editor action, not a mandatory step.
+- **Recordings are a list, not a single latest.** The editor's empty state lists the bundles held in IndexedDB with their date, duration and click count, and can delete them. Retention is capped and the oldest bundle is evicted, because IndexedDB quota is finite.
+- **The recorder behaves like a public tool.** A visible recording indicator, a readable refusal on tabs that cannot be recorded, and a bundle that remains openable when the recording ends abnormally.
+- **The listing requirements are product work, not paperwork.** A privacy policy stating what leaves the machine and when, an icon set, and a justification for every permission.
+
+Out of scope for this phase: hosted storage, accounts, billing, screen capture without a trace.
+
+### Constraints
+
+- One editor codebase and one editor build. A second copy of the editor is a defect.
+- No new runtime dependency reaches the extension bundle without justification. `ffmpeg.wasm` currently fetches its core from a CDN, which an extension page's CSP forbids; the core is served from the extension's own origin instead.
+- Nothing recorded leaves the machine in this phase.
+
+### Exit criteria
+
+1. From a clean Chrome profile with the built extension loaded, recording a tab and stopping it opens the editor with that recording already loaded. No download and no file picker are involved.
+2. The editor's export paths — GIF, MP4, interactive demo, demo kit — work from inside the extension page, not only from the dev server.
+3. The empty state lists every retained recording and can open and delete each one.
+4. An end-to-end test asserts criterion 1 without human intervention.
+5. `pnpm test && pnpm typecheck && pnpm build && pnpm e2e` pass, and the numbers are recorded in `STATUS.md`.
+
+---
+
+## 16. Scope discipline
 
 The failure mode of this project is not a bad architecture. It is building Phase 6 during Phase 1.
 

@@ -150,10 +150,15 @@ let loaded: Promise<InstanceType<typeof import('@ffmpeg/ffmpeg')['FFmpeg']>> | n
 
 async function ffmpeg() {
   if (!loaded) loaded = (async () => {
-    const [{ FFmpeg }, { toBlobURL }] = await Promise.all([import('@ffmpeg/ffmpeg'), import('@ffmpeg/util')]);
+    // The core is served from our own origin, not a CDN: an extension page's CSP
+    // refuses both remote and blob: script, and this build runs inside the extension.
+    const [{ FFmpeg }, { default: coreURL }, { default: wasmURL }] = await Promise.all([
+      import('@ffmpeg/ffmpeg'),
+      import('@ffmpeg/core?url'),
+      import('@ffmpeg/core/wasm?url'),
+    ]);
     const instance = new FFmpeg();
-    const base = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm';
-    await instance.load({ coreURL: await toBlobURL(`${base}/ffmpeg-core.js`, 'text/javascript'), wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, 'application/wasm') });
+    await instance.load({ coreURL, wasmURL });
     return instance;
   })();
   return loaded;

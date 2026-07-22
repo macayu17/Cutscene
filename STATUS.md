@@ -1,8 +1,10 @@
-Phase: 8
+Phase: 9
+
+Phase 9 (zero-friction first run, PRD.md section 15) opened on 2026-07-22. Its
+exit criteria are not met yet; the numbers below still describe Phase 8.
 
 Phase 8's linear interactive-demo slice passed locally on 2026-07-18. The other
-long-tail items in PRD.md section 14 remain deferred; there is no Phase 9 status
-advance.
+long-tail items in PRD.md section 14 remain deferred.
 
 Trace-derived quality report and drift healing (2026-07-21):
   quality report: interactions on elements with no accessible name or role, and

@@ -11,11 +11,13 @@ import { exportStepGifs } from './gif-export';
 import { createShareLink, updateSharedRecording, type ShareLinks } from './share';
 import { deriveInteractiveManifest, interactiveArchive } from './interactive';
 import { buildDemoKit } from './demo-kit';
+import { deleteRecording, inExtension, listRecordings, readRecording, recordingFiles, type RecordingSummary } from './recordings';
 
 export default function App() {
   const video = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [bundleFiles, setBundleFiles] = useState<BundleFiles | null>(null);
+  const [stored, setStored] = useState<RecordingSummary[] | null>(null);
   const [sharing, setSharing] = useState(false);
   const [shareResult, setShareResult] = useState<Result<ShareLinks> | null>(null);
   const [updateResult, setUpdateResult] = useState<Result<string> | null>(null);
@@ -52,15 +54,48 @@ export default function App() {
       setError(null);
     } else setError(result.error);
   };
+  const openRecording = async (id: string) => {
+    const record = await readRecording(id);
+    if (record) await loadFiles(recordingFiles(record));
+    else setError(`Recording ${id} is no longer stored.`);
+  };
+  const removeRecording = async (id: string) => {
+    await deleteRecording(id);
+    setStored(await listRecordings());
+  };
+  // Inside the extension the recording is already in IndexedDB on this origin: the
+  // background page opens this editor with its id, so there is nothing to pick.
+  useEffect(() => {
+    if (!inExtension()) return;
+    void (async () => {
+      setStored(await listRecordings());
+      const requested = new URLSearchParams(location.search).get('recording');
+      if (requested) await openRecording(requested);
+    })().catch((failure: unknown) => setError(failure instanceof Error ? failure.message : String(failure)));
+  }, []); // one read on mount; the extension writes the bundle before it opens this page
   const input = (label: string) => <label className="file-label">{label}<input type="file" multiple accept=".webm,.json,.jsonl"
     {...{ webkitdirectory: '' }} onChange={(event) => void loadFiles(Array.from(event.currentTarget.files ?? []))}/></label>;
   if (!bundle || !mediaUrl) return <main className="empty" onDragOver={(event) => event.preventDefault()}
     onDrop={(event) => { event.preventDefault(); void loadFiles(Array.from(event.dataTransfer.files)); }}>
     <h1>NO RECORDING LOADED</h1>
-    <p>Choose the folder created by the Cutscene extension.</p>
-    <code>media.webm · trace.jsonl · meta.json</code>
-    {input('Choose recording folder')}
-    <small>or drop the three files anywhere here</small>
+    {stored === null ? <>
+      <p>Choose the folder created by the Cutscene extension.</p>
+      <code>media.webm · trace.jsonl · meta.json</code>
+      {input('Choose recording folder')}
+      <small>or drop the three files anywhere here</small>
+    </> : <>
+      <p>{stored.length ? 'Recordings held by the extension. Nothing has left this machine.'
+        : 'Record a tab with the Cutscene extension to begin. Chrome only, DOM-based pages.'}</p>
+      {stored.length ? <ul className="recordings">{stored.map((recording) => <li key={recording.id}>
+        <button type="button" onClick={() => void openRecording(recording.id)}>
+          <span className="recording-url">{recording.url}</span>
+          <span className="recording-when">{new Date(recording.createdAt).toLocaleString()} ·{' '}
+            {(recording.durationMs / 1_000).toFixed(1)}s · {(recording.bytes / 1_048_576).toFixed(1)} MB</span>
+        </button>
+        <button type="button" className="danger" onClick={() => void removeRecording(recording.id)}>Delete</button>
+      </li>)}</ul> : null}
+      {input('Choose recording folder')}
+    </>}
     {error ? <output className="error">{error}</output> : null}
   </main>;
   const selected = eventById(bundle.events, selectedEventId);
