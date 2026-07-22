@@ -1,15 +1,18 @@
 import type { RecordingMeta, TraceEvent, Viewport, ScrollPosition } from '@cutscene/trace';
 import type { RecorderStatus, Result } from './messages';
-import { saveBundle } from '@cutscene/editor/recordings';
+import { deleteRecording, saveBundle } from '@cutscene/editor/recordings';
 import { orderTraceEvents, rollbackCapture } from './recording-lifecycle';
 
 type PageContext = { viewport: Viewport; scroll: ScrollPosition; route: string; url: string; origin: string; contentClockMs: number;
   visualRedactionSelectors: string[] };
 type State = {
   recorder: MediaRecorder; stream: MediaStream; mic: MediaStream | null; chunks: Blob[]; events: TraceEvent[];
-  tabId: number; sessionEpoch: number; startedAt: number; mediaStart: number; timer: number; recordingId: string; context: PageContext;
+  tabId: number; sessionEpoch: number; startedAt: number; mediaStart: number; timer: number; flush: number;
+  recordingId: string; context: PageContext;
   capture: { width: number; height: number; fps: number };
 };
+
+const FLUSH_INTERVAL_MS = 15_000;
 
 let state: State | null = null;
 
@@ -36,6 +39,32 @@ function status(): RecorderStatus {
 function systemEvent(type: 'system.recordingStart' | 'system.recordingStop' | 'navigation', current: State, t: number): TraceEvent {
   return { v: 1, id: `evt_${crypto.randomUUID()}`, t, type, stepId: `step_${type}`, route: current.context.route,
     viewport: current.context.viewport, scroll: current.context.scroll };
+}
+
+export function bundle(current: State, durationMs: number): { media: Blob; trace: Blob; meta: RecordingMeta } {
+  const media = new Blob(current.chunks, { type: current.recorder.mimeType });
+  const trace = new Blob([`${orderTraceEvents(current.events).map((event) => JSON.stringify(event)).join('\n')}\n`],
+    { type: 'application/x-ndjson' });
+  const meta: RecordingMeta = { schemaVersion: 1, recordingId: current.recordingId, createdAt: new Date(current.sessionEpoch).toISOString(),
+    sessionEpoch: current.sessionEpoch, url: current.context.url, origin: current.context.origin, viewport: current.context.viewport,
+    capture: current.capture,
+    media: { mimeType: current.recorder.mimeType, hasAudio: current.stream.getAudioTracks().length > 0, durationMs },
+    privacy: { maskInputValues: true, captureNetwork: false, maskedSelectors: ['[data-sensitive]', '[data-private]', 'input[type=password]'],
+      ...(current.context.visualRedactionSelectors.length ?
+        { visualRedactionSelectors: current.context.visualRedactionSelectors } : {}) },
+    app: { commit: null, version: null, environment: null } };
+  return { media, trace, meta };
+}
+
+// A crashed service worker, a closed browser or a killed offscreen document would
+// otherwise lose the whole take, which is in memory until it stops.
+// ponytail: rewrites the accumulated blob each time; append chunks to their own
+// store if long recordings make this I/O hurt.
+async function persist(): Promise<void> {
+  const current = state;
+  if (!current) return;
+  const { media, trace, meta } = bundle(current, performance.now() - current.mediaStart);
+  await saveBundle(current.recordingId, media, trace, meta).catch(() => undefined);
 }
 
 async function sync(): Promise<void> {
@@ -67,7 +96,7 @@ async function start(message: { streamId: string; tabId: number; sessionEpoch: n
     const chunks: Blob[] = [];
     recorder.addEventListener('dataavailable', (event) => { if (event.data.size) chunks.push(event.data); });
     const current: State = { recorder, stream, mic, chunks, events: [], tabId: message.tabId, sessionEpoch: message.sessionEpoch,
-      startedAt: Date.now(), mediaStart: performance.now(), timer: 0, recordingId: `rec_${crypto.randomUUID()}`, context: message.context,
+      startedAt: Date.now(), mediaStart: performance.now(), timer: 0, flush: 0, recordingId: `rec_${crypto.randomUUID()}`, context: message.context,
       capture: { ...dimensions, fps: tab.getVideoTracks()[0]?.getSettings().frameRate ?? 30 } };
     recorder.start(1_000);
     state = current;
@@ -75,6 +104,7 @@ async function start(message: { streamId: string; tabId: number; sessionEpoch: n
     current.events.unshift(systemEvent('system.recordingStart', current, current.context.contentClockMs),
       systemEvent('navigation', current, current.context.contentClockMs));
     current.timer = window.setInterval(() => void sync(), 2_000);
+    current.flush = window.setInterval(() => void persist(), FLUSH_INTERVAL_MS);
     return { ok: true, value: status() };
   } catch (error: unknown) {
     rollbackCapture(recorder, [tab, mic].filter((stream): stream is MediaStream => stream !== null), () => { state = null; });
@@ -87,22 +117,13 @@ async function stop(): Promise<Result<RecorderStatus>> {
   if (!current) return { ok: false, error: 'No recording is active.' };
   try {
     clearInterval(current.timer);
+    clearInterval(current.flush);
     await sync();
     const durationMs = performance.now() - current.mediaStart;
     current.events.push(systemEvent('system.recordingStop', current, current.context.contentClockMs));
     await new Promise<void>((resolve) => { current.recorder.addEventListener('stop', () => resolve(), { once: true }); current.recorder.stop(); });
     current.stream.getTracks().forEach((track) => track.stop()); current.mic?.getTracks().forEach((track) => track.stop());
-    const media = new Blob(current.chunks, { type: current.recorder.mimeType });
-    const orderedEvents = orderTraceEvents(current.events);
-    const trace = new Blob([`${orderedEvents.map((event) => JSON.stringify(event)).join('\n')}\n`], { type: 'application/x-ndjson' });
-    const meta: RecordingMeta = { schemaVersion: 1, recordingId: current.recordingId, createdAt: new Date(current.sessionEpoch).toISOString(),
-      sessionEpoch: current.sessionEpoch, url: current.context.url, origin: current.context.origin, viewport: current.context.viewport,
-      capture: current.capture,
-      media: { mimeType: current.recorder.mimeType, hasAudio: current.stream.getAudioTracks().length > 0, durationMs },
-      privacy: { maskInputValues: true, captureNetwork: false, maskedSelectors: ['[data-sensitive]', '[data-private]', 'input[type=password]'],
-        ...(current.context.visualRedactionSelectors.length ?
-          { visualRedactionSelectors: current.context.visualRedactionSelectors } : {}) },
-      app: { commit: null, version: null, environment: null } };
+    const { media, trace, meta } = bundle(current, durationMs);
     await saveBundle(current.recordingId, media, trace, meta);
     const urls = { mediaUrl: URL.createObjectURL(media), traceUrl: URL.createObjectURL(trace),
       metaUrl: URL.createObjectURL(new Blob([`${JSON.stringify(meta, null, 2)}\n`], { type: 'application/json' })) };
@@ -122,11 +143,14 @@ async function cancel(): Promise<Result> {
   const current = state;
   if (!current) return { ok: true, value: undefined };
   clearInterval(current.timer);
+  clearInterval(current.flush);
   if (current.recorder.state !== 'inactive') await new Promise<void>((resolve) => {
     current.recorder.addEventListener('stop', () => resolve(), { once: true }); current.recorder.stop();
   });
   current.stream.getTracks().forEach((track) => track.stop()); current.mic?.getTracks().forEach((track) => track.stop());
   state = null;
+  // A cancelled recording is not a recording: drop anything the flush already wrote.
+  await deleteRecording(current.recordingId).catch(() => undefined);
   return { ok: true, value: undefined };
 }
 

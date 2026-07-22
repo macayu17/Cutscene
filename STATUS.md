@@ -1,7 +1,43 @@
 Phase: 9
 
-Phase 9 (zero-friction first run, PRD.md section 15) opened on 2026-07-22. Its
-exit criteria are not met yet; the numbers below still describe Phase 8.
+Phase 9 (zero-friction first run, PRD.md section 15) opened on 2026-07-22.
+
+Zero-friction first run (2026-07-22):
+  handoff: the extension bundles the editor as its own page and opens it with
+           the recording id when a recording stops; the bundle is read from
+           IndexedDB on the extension origin, not from the downloads folder
+  measured on the capture end-to-end run: recording stops, the editor page
+           opens loaded, and a GIF export completes inside the extension page
+           under `script-src 'self' 'wasm-unsafe-eval'`
+  ffmpeg core: served from the extension's own origin. A CDN core cannot load
+           on an extension page, and neither can a blob: URL
+  retention: the five most recent recordings, oldest evicted, listed and
+           deletable from the editor's empty state
+  crash safety: the take is flushed to IndexedDB every 15 s, so an interrupted
+           recording is openable instead of lost. A cancelled recording deletes
+           what the flush wrote
+  listing requirements: icon set generated from the product motif, privacy
+           policy at site/privacy, permission justifications recorded there
+
+  exit criteria (PRD.md section 15):
+    [x] recording stops and the editor opens loaded, no download, no picker
+    [x] export works from inside the extension page (GIF measured end to end;
+        every format shares the one engine loader)
+    [x] the empty state lists, opens and deletes retained recordings
+    [x] an end-to-end test asserts the handoff without human intervention
+    [x] full verification below
+
+  repository tests: 320 passed (97 trace, 25 server, 132 editor,
+                    15 extension, 51 runner)
+  typecheck: 5/5 active packages passed
+  production build: trace, editor, and extension passed
+  end-to-end: 6/6 Chromium (1 editor, 2 runner, 3 extension)
+  hosted CI / paid credits: none
+  new runtime dependency: @ffmpeg/core 0.12.10, pinned, replacing the CDN load
+
+  not built in this phase, deliberately: countdown, pause and resume, and
+  screen capture without a trace. Pause and resume splits the media clock into
+  segments and needs its own design before the trace can carry it.
 
 Phase 8's linear interactive-demo slice passed locally on 2026-07-18. The other
 long-tail items in PRD.md section 14 remain deferred.

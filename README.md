@@ -24,11 +24,16 @@ right.
 - Cross-origin iframes cannot be traced.
 - Shadow DOM is traced only when its root is open.
 - Recording and editing are local by default. The optional self-hosted share
-  server has public UUID links only; it has no accounts or private links.
+  server has public UUID links only; it has no accounts or private links. What
+  is recorded and what leaves the machine is stated in the
+  [privacy policy](site/privacy/index.html).
 
 ## What works today
 
-- Tab video capture with optional microphone audio.
+- Tab video capture with optional microphone audio. Stopping a recording opens
+  the editor with it already loaded; the extension keeps the five most recent
+  recordings and flushes the take to storage while it runs, so an interrupted
+  recording is openable instead of lost.
 - A versioned JSONL trace containing clicks, inputs, navigation, scrolling,
   viewport changes, ranked locators, element bounds, and clock-sync markers.
 - Capture-time masking for input values and sensitive elements.
@@ -208,7 +213,7 @@ Where GPT-5.6's reasoning did the load-bearing work:
   locators, zero raw trace, and zero input values in `index.html`.
 - **The `demo.yml` replay and trace-diff runner** in `packages/runner`.
 
-Codex also ran the verification loop it was measured against: 315 unit tests,
+Codex also ran the verification loop it was measured against: 320 unit tests,
 5/5 typecheck, production builds, and 6/6 Chromium E2E, all local. No pull
 request, hosted CI, paid credit, or subagent was used at any point.
 
