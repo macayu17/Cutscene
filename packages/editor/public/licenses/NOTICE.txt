@@ -1,0 +1,35 @@
+Cutscene — third-party notices
+==============================
+
+Cutscene's own source code is licensed MIT. See the LICENSE file in the source
+repository: https://github.com/macayu17/Cutscene
+
+This build additionally contains @ffmpeg/core 0.12.10, a WebAssembly build of
+FFmpeg, shipped as ffmpeg-core.js and ffmpeg-core.wasm. That build includes
+x264 and is licensed under the GNU General Public License, version 2 or (at
+your option) any later version. The full text of that licence is in GPL-2.0.txt
+beside this file.
+
+Because a GPL-licensed component is distributed here, this distribution as a
+whole is governed by the terms of the GPL, version 2 or later. Cutscene's own
+source remains available under MIT terms from the repository above.
+
+Corresponding source
+--------------------
+
+  FFmpeg                 https://ffmpeg.org/download.html
+  x264                   https://www.videolan.org/developers/x264.html
+  ffmpeg.wasm and the
+  build that produced
+  @ffmpeg/core           https://github.com/ffmpegwasm/ffmpeg.wasm
+  Cutscene               https://github.com/macayu17/Cutscene
+
+For a copy of the corresponding source for the FFmpeg build distributed here,
+open an issue at https://github.com/macayu17/Cutscene/issues and it will be
+provided.
+
+Fonts
+-----
+
+IBM Plex Mono and IBM Plex Sans, bundled via @fontsource, are licensed under the
+SIL Open Font License 1.1: https://github.com/IBM/plex/blob/master/LICENSE.txt

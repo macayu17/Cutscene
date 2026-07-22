@@ -2,7 +2,7 @@
   "name": "@cutscene/editor",
   "version": "0.2.0",
   "description": "The Cutscene editor and its render pipeline. Published so the runner can regenerate GIF, MP4 and documentation outputs.",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE.md",
   "author": "Ayush Kumar",
   "repository": {
     "type": "git",

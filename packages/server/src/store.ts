@@ -124,6 +124,25 @@ export async function storeBytes(root: string): Promise<number> {
   return total;
 }
 
+// Walking the whole store on every request is the flood amplifier, not the defence.
+// The total is cached and kept current by the writes themselves; a replaced file is
+// counted twice until the next refresh, which errs towards refusing sooner.
+const BYTES_TTL_MS = 60_000;
+const byteTotals = new Map<string, { value: number; at: number }>();
+
+export async function storeBytesCached(root: string, now = Date.now()): Promise<number> {
+  const cached = byteTotals.get(root);
+  if (cached && now - cached.at < BYTES_TTL_MS) return cached.value;
+  const value = await storeBytes(root);
+  byteTotals.set(root, { value, at: now });
+  return value;
+}
+
+export function addStoreBytes(root: string, delta: number): void {
+  const cached = byteTotals.get(root);
+  if (cached) cached.value = Math.max(0, cached.value + delta);
+}
+
 export async function listRecordings(root: string): Promise<string[]> {
   try {
     return (await readdir(root, { withFileTypes: true }))

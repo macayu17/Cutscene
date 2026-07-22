@@ -55,24 +55,54 @@ Pre-publish review (2026-07-22):
     STATUS claimed "no download" as a met exit criterion while every stop still
       writes three files. Reworded to what the code does
 
-  raised and NOT yet addressed, carried forward honestly:
-    storeBytes walks the whole store on every unauthenticated create
-    the store cap is checked at creation but not at upload, so it is a floor
+  closed afterwards, from the same list:
+    permissions: `tabs` and host_permissions <all_urls> are both gone. Every
+      remaining permission is proven by a call site: nothing reads a tab's URL
+      or title, tabs.create and tabs.sendMessage need no permission, and the
+      extension makes no cross-origin request at all. The full capture end to
+      end passes without them, which is the evidence. The install prompt this
+      removes was the loudest one Chrome shows
+    licensing: every build now ships dist/licenses/GPL-2.0.txt and NOTICE.txt
+      naming the corresponding sources, and @cutscene/editor declares
+      SEE LICENSE IN LICENSE.md rather than MIT, because its tarball carries the
+      GPL core. trace and runner bundle no binaries and stay MIT
+    the store total is cached for a minute and kept current by the uploads
+      themselves, so a create no longer walks the store, and the cap is enforced
+      where the bytes actually arrive
+    action.yml: flag assembly rewritten as explicit conditionals, and the report
+      file is created before the CLI runs so a failure still comments something
+    ci.yml and release.yml: the pnpm version input is gone, because
+      pnpm/action-setup rejects it alongside the packageManager field
+
+  a flaky capture run, chased down rather than retried away:
+    symptom: after Stop the popup showed "idle", so the e2e never saw "saved".
+      Roughly one run in two, only ever on the first run after a rebuild
+    first hypothesis, wrong: the new one-second poll called ensureOffscreen on
+      every tick, which could recreate the offscreen document while it was
+      recording. Fixed anyway, since answering a question must never create the
+      document, but it only moved the timing
+    second hypothesis, half right: a poll issued before Stop landing after it.
+      Ordering the responses by issue number made the failure deterministic
+      instead of curing it, which is what identified the real shape
+    actual cause: stopping takes seconds, and polls issued during that window
+      legitimately observe an idle recorder. No ordering rule can fix that,
+      because the newer observation is the stale one. A poll that overlaps a
+      user action is now discarded; what the user asked for outranks what a poll
+      happened to see
+    evidence: 3 of 3 rebuild-and-run cycles failed under the ordering fix,
+      7 of 7 pass under the current one
+
+  still carried forward, unaddressed:
     timeline updates are stored per recording and are not counted by the cap
-    the `tabs` permission and <all_urls> may both be unnecessary; each needs a
-      grep of its call sites before the store listing is final
-    the GPL ffmpeg core ships without the GPL text beside it, and
-      @cutscene/editor declares MIT while its tarball carries that core
     delete and sweep race writers that recreate a directory
+    the claims lens never ran. Numbers in this file were re-derived by hand, but
+      no independent pass has audited them
 
-  not examined by any lens, because the run died first: the packaging lens and
-  the claims lens never reported. Nothing here covers the emitted dist, the
-  action.yml shell, or the release workflow
-
-  repository tests: 329 passed (97 trace, 31 server, 132 editor,
+  repository tests: 330 passed (97 trace, 32 server, 132 editor,
                     16 extension, 53 runner)
-  end-to-end: 6/6 Chromium, capture verified from both a clean and a reused
-              browser profile
+  end-to-end: 6/6 Chromium. The capture suite was additionally run seven times,
+              rebuilding the extension before each, to confirm the popup race is
+              gone, and from both a clean and a reused browser profile
 
 Share server hardening (2026-07-22), ahead of any hosted deployment:
   retention: every recording carries an expiry file written when its directory
@@ -89,7 +119,7 @@ Share server hardening (2026-07-22), ahead of any hosted deployment:
   the editor shows the expiry date beside the share links it just created
   every knob is an environment variable, documented in the README
 
-  measured: server tests 31 passed, including a recording that stops serving
+  measured: server tests 32 passed, including a recording that stops serving
             the moment its expiry passes, owner-only deletion, and the sweep
             reporting the id it removed
 
@@ -129,7 +159,7 @@ Installable regeneration (2026-07-22):
   unverified until published: the packaged GitHub Action installs the packages
         by name from npm, so it cannot run until the first publish
 
-  repository tests: 329 passed (97 trace, 31 server, 132 editor,
+  repository tests: 330 passed (97 trace, 32 server, 132 editor,
                     16 extension, 53 runner)
   typecheck: 5/5 active packages passed
   production build: 4/4 buildable packages passed

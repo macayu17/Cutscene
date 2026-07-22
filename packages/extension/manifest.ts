@@ -5,8 +5,11 @@ export default defineManifest({
   name: 'Cutscene',
   version: '0.2.0',
   minimum_chrome_version: '116',
-  permissions: ['activeTab', 'audioCapture', 'tabCapture', 'tabs', 'offscreen', 'storage', 'downloads'],
-  host_permissions: ['<all_urls>'],
+  // Every permission here is proven by a call site. `tabs` is absent because nothing
+  // reads a tab's url or title (tabs.query takes only the id, tabs.create and
+  // tabs.sendMessage need no permission), and host_permissions is absent because the
+  // content script is declared statically and nothing makes a cross-origin request.
+  permissions: ['activeTab', 'audioCapture', 'tabCapture', 'offscreen', 'storage', 'downloads'],
   icons: { 16: 'icons/icon-16.png', 32: 'icons/icon-32.png', 48: 'icons/icon-48.png', 128: 'icons/icon-128.png' },
   action: { default_title: 'Cutscene', default_popup: 'control.html',
     default_icon: { 16: 'icons/icon-16.png', 32: 'icons/icon-32.png', 48: 'icons/icon-48.png', 128: 'icons/icon-128.png' } },

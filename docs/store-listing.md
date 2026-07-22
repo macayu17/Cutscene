@@ -76,8 +76,8 @@ microphone option before starting.
 **activeTab** — Identifies which tab the user asked to record when they open the
 popup.
 
-**tabs** — Opens the editor in a new tab when a recording stops, and addresses
-the recorded tab while capture is running.
+**activeTab** also covers the recorded tab for the duration of the capture the user
+started, which is why no host permission is requested.
 
 **offscreen** — Encodes the recording in an offscreen document so it survives the
 popup closing. MediaRecorder cannot run in a service worker.
@@ -87,11 +87,16 @@ so an interrupted recording is recoverable.
 
 **downloads** — Saves the finished recording to the user's Downloads folder.
 
-**Host permission, all sites** — The content script reads the structure of the
-page being recorded: the role, accessible name and bounds of the elements the
+**Content scripts on http and https** — The content script reads the structure of
+the page being recorded: the role, accessible name and bounds of the elements the
 user interacts with. The user chooses which page to record, so the extension
-cannot know in advance which host that is. The script reads structure only while
-a recording is active on that tab, and never sends it anywhere.
+cannot know in advance which host that is. It reads structure only while a
+recording is active on that tab, and never sends it anywhere.
+
+No `host_permissions` are requested. The extension makes no cross-origin request
+of any kind, and the recorded tab is covered by `activeTab` for the capture the
+user started. The `tabs` permission is not requested either: nothing reads a
+tab's URL or title.
 
 ## Data use disclosures
 

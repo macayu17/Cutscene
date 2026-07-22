@@ -51,9 +51,10 @@ runs:
       shell: bash
       run: |
         arguments=(--config "${{ inputs.config }}")
-        [ "${{ inputs.dry-run }}" = "true" ] && arguments+=(--dry-run)
-        [ "${{ inputs.heal }}" = "true" ] && arguments+=(--heal)
-        [ -n "${{ inputs.demo }}" ] && arguments+=(--demo "${{ inputs.demo }}")
+        if [ "${{ inputs.dry-run }}" = "true" ]; then arguments+=(--dry-run); fi
+        if [ "${{ inputs.heal }}" = "true" ]; then arguments+=(--heal); fi
+        if [ -n "${{ inputs.demo }}" ]; then arguments+=(--demo "${{ inputs.demo }}"); fi
+        : > /tmp/cutscene-report.txt
         set +e
         npx cutscene-regenerate "${arguments[@]}" 2>&1 | tee /tmp/cutscene-report.txt
         code=${PIPESTATUS[0]}
@@ -73,12 +74,14 @@ runs:
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
+        # The report file is created before the CLI runs, so a failure earlier in the
+        # step still comments something rather than failing the comment step too.
         {
           echo '<!-- cutscene-regeneration -->'
           echo '### Cutscene regeneration'
           echo
           echo '```'
-          cat /tmp/cutscene-report.txt
+          cat /tmp/cutscene-report.txt 2>/dev/null || echo 'The regeneration step produced no output.'
           echo '```'
         } > /tmp/cutscene-comment.md
         gh pr comment "${{ github.event.pull_request.number }}" \

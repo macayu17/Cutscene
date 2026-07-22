@@ -2,8 +2,8 @@ import { expect, it } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createId, ensureRecording, isBundleFile, isValidId, recordingReady, saveBundleFile,
-  readReview, updateReview, validateBundleFile, writeReview } from './store.ts';
+import { addStoreBytes, createId, ensureRecording, isBundleFile, isValidId, recordingReady, saveBundleFile,
+  readReview, storeBytesCached, updateReview, validateBundleFile, writeReview } from './store.ts';
 import { createReviewDocument } from './review.ts';
 
 const meta = {
@@ -83,6 +83,28 @@ it('serialises review updates without dropping concurrent changes', async () => 
 
     expect((await readReview(root, id))?.presence.map(({ resource }) => resource).sort())
       .toEqual(['first', 'second']);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+it('caches the store total and keeps it current as bytes arrive', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'cutscene-server-bytes-'));
+  const id = createId();
+  try {
+    await ensureRecording(root, id);
+    await saveBundleFile(root, id, 'media.webm', Buffer.alloc(1_000));
+    const first = await storeBytesCached(root);
+    expect(first).toBeGreaterThanOrEqual(1_000);
+
+    // Within the window the walk is not repeated, so an upload must report itself.
+    await saveBundleFile(root, id, 'trace.jsonl', Buffer.alloc(500));
+    expect(await storeBytesCached(root)).toBe(first);
+    addStoreBytes(root, 500);
+    expect(await storeBytesCached(root)).toBe(first + 500);
+
+    // Past the window it re-walks and settles on the truth.
+    expect(await storeBytesCached(root, Date.now() + 120_000)).toBeGreaterThanOrEqual(1_500);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

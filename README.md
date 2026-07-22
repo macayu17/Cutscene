@@ -258,7 +258,7 @@ Where GPT-5.6's reasoning did the load-bearing work:
   locators, zero raw trace, and zero input values in `index.html`.
 - **The `demo.yml` replay and trace-diff runner** in `packages/runner`.
 
-Codex also ran the verification loop it was measured against: 329 unit tests,
+Codex also ran the verification loop it was measured against: 330 unit tests,
 5/5 typecheck, production builds, and 6/6 Chromium E2E, all local. No pull
 request, hosted CI, paid credit, or subagent was used at any point.
 
@@ -294,6 +294,11 @@ GPL-2.0-or-later because it includes x264 for H.264 export. An extension page
 may not load that core from a CDN or a `blob:` URL, so it is served from the
 extension's own origin and therefore distributed with it. The distributed
 package is a combined work and carries GPL terms; Cutscene's own source remains
-MIT and is available in this repository, which is where the corresponding
-source for the bundled core is also linked from. Building the editor without
-H.264 export removes that dependency.
+MIT and is available in this repository. Building the editor without H.264
+export removes that dependency.
+
+Every build ships the licence it owes: `dist/licenses/GPL-2.0.txt` and
+`dist/licenses/NOTICE.txt`, which names the corresponding sources. The
+`@cutscene/editor` npm package declares `SEE LICENSE IN LICENSE.md` for the same
+reason. `@cutscene/trace` and `@cutscene/runner` bundle no binaries and are
+plain MIT. Bundled IBM Plex fonts are under the SIL Open Font License 1.1.

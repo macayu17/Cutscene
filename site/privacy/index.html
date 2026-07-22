@@ -93,12 +93,15 @@ unguessable URL: anyone holding it can view that recording.</p>
 <table>
   <tr><th>Permission</th><th>Why</th></tr>
   <tr><td><code>tabCapture</code>, <code>audioCapture</code></td><td>Record the video of the tab you chose, and your microphone if you enabled it.</td></tr>
-  <tr><td><code>activeTab</code>, <code>tabs</code></td><td>Identify the tab you asked to record and open the editor when the recording stops.</td></tr>
+  <tr><td><code>activeTab</code></td><td>Reach the tab you asked to record, for that recording only.</td></tr>
   <tr><td><code>offscreen</code></td><td>Encode the recording in a background document, so it survives the popup closing.</td></tr>
   <tr><td><code>storage</code></td><td>Remember an in-progress recording across a service worker restart.</td></tr>
   <tr><td><code>downloads</code></td><td>Save the finished recording to your Downloads folder.</td></tr>
-  <tr><td>Access to all sites</td><td>The content script that reads the page's structure has to be able to run on whichever page you decide to record. It reads structure only while a recording is active on that tab.</td></tr>
+  <tr><td>Content script on http and https pages</td><td>Reads the structure of the page you are recording. It cannot know in advance which page you will choose. It reads structure only while a recording is active on that tab.</td></tr>
 </table>
+<p>Cutscene requests no access to all sites, and no permission to read any tab's URL
+or title. It makes no cross-origin request of any kind: the editor, its typeface and
+its video encoder are all served from the extension itself.</p>
 
 <h2>Analytics</h2>
 <p>The extension and the editor contain no analytics, no telemetry, no error reporting and

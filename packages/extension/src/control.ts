@@ -47,19 +47,40 @@ function render(result: Result<RecorderStatus>): void {
   redact.disabled = result.value.recording;
 }
 
+// Stopping takes seconds: the recorder quiesces, encodes, saves and opens the editor.
+// Polls fired during that window see an already-idle recorder and would repaint over the
+// saved result. What the user asked for outranks what a poll happened to observe, so a
+// poll overlapping an action is discarded rather than ordered against it.
+let busy = false;
+let epoch = 0;
+
+async function act(type: 'recording.start' | 'recording.stop', extra: Record<string, unknown> = {}): Promise<void> {
+  busy = true;
+  epoch += 1;
+  try {
+    render(await chrome.runtime.sendMessage({ type, ...extra }) as Result<RecorderStatus>);
+  } finally {
+    busy = false;
+    epoch += 1;
+  }
+}
+
+async function poll(): Promise<void> {
+  if (busy) return;
+  const at = epoch;
+  const result = await chrome.runtime.sendMessage({ type: 'recording.status' }) as Result<RecorderStatus>;
+  if (busy || at !== epoch) return;
+  render(result);
+}
+
 start.addEventListener('click', async () => {
   const targetTabId = await tabId();
   if (targetTabId === null) return render({ ok: false, error: 'No active tab.' });
   const redactSelectors = redact.value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
-  render(await chrome.runtime.sendMessage({ type: 'recording.start', tabId: targetTabId, includeMic: mic.checked,
-    redactSelectors }) as Result<RecorderStatus>);
+  await act('recording.start', { tabId: targetTabId, includeMic: mic.checked, redactSelectors });
 });
-stop.addEventListener('click', async () => render(await chrome.runtime.sendMessage({ type: 'recording.stop' }) as Result<RecorderStatus>));
-async function refresh(): Promise<void> {
-  render(await chrome.runtime.sendMessage({ type: 'recording.status' }) as Result<RecorderStatus>);
-}
+stop.addEventListener('click', () => void act('recording.stop'));
 
-await refresh();
-// Only while recording: a poll after a stop would report the idle recorder and
-// overwrite the saved result the user just produced.
-setInterval(() => { if (output.dataset.state === 'recording') void refresh(); }, 1_000);
+await poll();
+// Only while recording: once it stops, the recorder has nothing further to report.
+setInterval(() => { if (output.dataset.state === 'recording') void poll(); }, 1_000);

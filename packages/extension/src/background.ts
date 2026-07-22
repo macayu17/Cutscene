@@ -32,11 +32,17 @@ async function reattach(tabId: number): Promise<Result> {
   return chrome.tabs.sendMessage(tabId, { type: 'session.captureReady', navigation: true }) as Promise<Result>;
 }
 
-async function ensureOffscreen(): Promise<void> {
+async function hasOffscreen(): Promise<boolean> {
   const url = chrome.runtime.getURL(offscreenPath);
-  if ((await chrome.runtime.getContexts({ contextTypes: [chrome.runtime.ContextType.OFFSCREEN_DOCUMENT], documentUrls: [url] })).length) return;
+  return (await chrome.runtime.getContexts({ contextTypes: [chrome.runtime.ContextType.OFFSCREEN_DOCUMENT], documentUrls: [url] })).length > 0;
+}
+
+async function ensureOffscreen(): Promise<void> {
+  if (await hasOffscreen()) return;
   await chrome.offscreen.createDocument({ url: offscreenPath, reasons: [chrome.offscreen.Reason.USER_MEDIA, chrome.offscreen.Reason.BLOBS], justification: 'Record a tab and persist its local recording bundle.' });
 }
+
+const IDLE: RecorderStatus = { recording: false, tabId: null, clickCount: 0, startedAt: null, recordingId: null };
 
 // A second start must never touch the running recording: it resets the content
 // session's clock and its rollback would cancel and delete a take it does not own.
@@ -123,7 +129,15 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, respond) => {
     void start(message.tabId, 'includeMic' in message && message.includeMic === true, redactSelectors).then(respond); return true;
   }
   if (message.type === 'recording.stop') { void stop().then(respond); return true; }
-  if (message.type === 'recording.status') { void ensureOffscreen().then(() => chrome.runtime.sendMessage({ type: 'offscreen.status' })).then(respond); return true; }
+  // Never create the offscreen document just to answer a question. The popup polls this
+  // once a second while recording, and a creation racing the live document loses the take.
+  if (message.type === 'recording.status') {
+    void hasOffscreen()
+      .then((exists) => exists ? chrome.runtime.sendMessage({ type: 'offscreen.status' })
+        : { ok: true, value: IDLE } satisfies Result<RecorderStatus>)
+      .then(respond, () => respond({ ok: true, value: IDLE } satisfies Result<RecorderStatus>));
+    return true;
+  }
   if (message.type === 'session.contentReady') {
     const sender = _sender as chrome.runtime.MessageSender;
     if (sender.tab?.id === undefined) { respond({ ok: true, value: undefined } satisfies Result); return false; }

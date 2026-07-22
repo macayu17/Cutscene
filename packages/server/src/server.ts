@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { BUNDLE_FILES, createId, deleteRecording, ensureRecording, isBundleFile, isValidId, readBundleFile,
-  readExpiry, readReview, recordingExists, recordingReady, saveBundleFile, storeBytes, updateReview,
-  validateBundleFile, writeReview, type BundleFile } from './store.ts';
+import { addStoreBytes, BUNDLE_FILES, createId, deleteRecording, ensureRecording, isBundleFile, isValidId,
+  readBundleFile, readExpiry, readReview, recordingExists, recordingReady, saveBundleFile, storeBytesCached,
+  updateReview, validateBundleFile, writeReview, type BundleFile } from './store.ts';
 import { clientKey, createRateLimiter, STORE_LIMIT_BYTES, WRITE_BURST, WRITE_PER_MINUTE } from './limits.ts';
 import { randomUUID } from 'node:crypto';
 import { fitMediaClock, mapBoxToCapture, parseRecordingMeta, parseTraceEvent, reanchorComments,
@@ -118,7 +118,7 @@ export async function handle(req: IncomingMessage, res: ServerResponse, root: st
     if (!writeLimiter.take(clientKey(req.headers, req.socket.remoteAddress), Date.now())) {
       return json(res, 429, { error: 'too many recordings created from this address' });
     }
-    if (await storeBytes(root) >= STORE_LIMIT_BYTES) {
+    if (await storeBytesCached(root) >= STORE_LIMIT_BYTES) {
       return json(res, 507, { error: 'this server is full' });
     }
     const id = createId();
@@ -374,6 +374,8 @@ export async function handle(req: IncomingMessage, res: ServerResponse, root: st
       const member = await memberFor(req, root, id);
       if (!member) return json(res, 401, { error: 'member token required' });
       if (!canApprove(member.role)) return json(res, 403, { error: 'member cannot replace bundle files' });
+      // The bytes arrive here, not at creation, so this is where the ceiling holds.
+      if (await storeBytesCached(root) >= STORE_LIMIT_BYTES) return json(res, 507, { error: 'this server is full' });
       const body = await readBody(req);
       if (!body) return json(res, 413, { error: 'bundle file too large or unreadable' });
       const valid = validateBundleFile(file, body);
@@ -382,6 +384,7 @@ export async function handle(req: IncomingMessage, res: ServerResponse, root: st
         const replacement = parseTraceData(body);
         if (!replacement.ok) return json(res, 400, { error: replacement.error });
         await saveBundleFile(root, id, file, body);
+        addStoreBytes(root, body.length);
         await updateReview(root, id, (review) => {
           const resolutions = reanchorComments(review.comments.filter((comment) => comment.resolvedAt === null)
             .map((comment) => comment.event), replacement.events, replacement.clock);
@@ -407,6 +410,7 @@ export async function handle(req: IncomingMessage, res: ServerResponse, root: st
         return json(res, 200, { ok: true });
       }
       await saveBundleFile(root, id, file, body);
+      addStoreBytes(root, body.length);
       return json(res, 200, { ok: true });
     }
     if (req.method === 'GET') {
