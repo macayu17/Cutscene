@@ -7,7 +7,9 @@ export default defineManifest({
   minimum_chrome_version: '116',
   permissions: ['activeTab', 'audioCapture', 'tabCapture', 'tabs', 'offscreen', 'storage', 'downloads'],
   host_permissions: ['<all_urls>'],
-  action: { default_title: 'Cutscene', default_popup: 'control.html' },
+  icons: { 16: 'icons/icon-16.png', 32: 'icons/icon-32.png', 48: 'icons/icon-48.png', 128: 'icons/icon-128.png' },
+  action: { default_title: 'Cutscene', default_popup: 'control.html',
+    default_icon: { 16: 'icons/icon-16.png', 32: 'icons/icon-32.png', 48: 'icons/icon-48.png', 128: 'icons/icon-128.png' } },
   // The editor page renders GIF and MP4 with ffmpeg.wasm, which an extension page
   // may not instantiate without this. The core itself is served from our own origin.
   content_security_policy: { extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'" },

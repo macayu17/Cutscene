@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cutscene — privacy</title>
+<meta name="description" content="What the Cutscene extension records, where it is stored, and what leaves your machine.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#16181C; --surface:#1E2126; --line:#2C3037; --text:#C8CDD4; --text-dim:#727A85; --signal:#F2A63B; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 400 15px/1.6 'IBM Plex Mono', ui-monospace, monospace; }
+  main { max-width: 72ch; margin: 0 auto; padding: 48px 20px 96px; }
+  a { color: var(--text); }
+  a:focus-visible, summary:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+  h1 { margin: 0 0 4px; font-size: 22px; font-weight: 500; letter-spacing: .04em; }
+  h2 { margin: 40px 0 10px; font-size: 15px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; color: var(--signal); }
+  p, li { color: var(--text); }
+  ul { padding-left: 18px; }
+  li { margin: 6px 0; }
+  .meta { color: var(--text-dim); font-size: 13px; margin: 0 0 8px; }
+  .lede { border-left: 2px solid var(--signal); padding-left: 14px; }
+  nav { margin-bottom: 36px; font-size: 13px; color: var(--text-dim); }
+  nav a { margin-right: 14px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { border: 1px solid var(--line); padding: 7px 9px; text-align: left; vertical-align: top; }
+  th { color: var(--text-dim); font-weight: 500; }
+</style>
+</head>
+<body>
+<main>
+<nav><a href="../">Cutscene</a><a href="https://github.com/macayu17/Cutscene">Source</a></nav>
+
+<h1>Privacy</h1>
+<p class="meta">Applies to the Cutscene Chrome extension, its editor, and this site. Last updated 22 July 2026.</p>
+
+<p class="lede">Cutscene records on your machine and keeps the recording on your machine.
+Nothing is uploaded, and no account exists to upload it to, unless you explicitly
+create a share link against a server you have configured yourself.</p>
+
+<h2>What the extension records</h2>
+<p>While you are recording a tab, and only then, Cutscene captures:</p>
+<ul>
+  <li>The video of the tab you selected, and your microphone if you turned it on.</li>
+  <li>Your interactions with that tab: clicks, typing, the Enter key, scrolling, viewport
+      changes and navigation.</li>
+  <li>The structure of the elements you interacted with: their role, accessible name, test
+      ids, ranked selectors and on-screen bounds.</li>
+  <li>The URL, origin and route of the recorded page.</li>
+</ul>
+<p>It does not record other tabs, your browsing history, your bookmarks, your files, or
+anything at all while no recording is running.</p>
+
+<h2>What is deliberately not recorded</h2>
+<ul>
+  <li>Values typed into inputs are masked when the event is built, before it is written to
+      disk. There is no code path that writes a raw input value and strips it afterwards.</li>
+  <li>Password fields and elements marked <code>[data-sensitive]</code> or
+      <code>[data-private]</code> are masked in the same way.</li>
+  <li>Network requests and responses are not captured.</li>
+  <li>Any CSS selector you list in the extension popup is visually blurred in the recording.</li>
+</ul>
+
+<h2>Where a recording is stored</h2>
+<p>In two places on your own computer: your browser's local IndexedDB storage, which the
+extension's editor reads directly, and your Downloads folder. The extension keeps the
+five most recent recordings and deletes older ones. You can delete any of them from the
+editor at any time. Uninstalling the extension removes its stored recordings.</p>
+
+<h2>What leaves your machine</h2>
+<p>By default, nothing. The editor renders video, GIFs, documentation and interactive demos
+locally in your browser.</p>
+<p>If you choose <strong>Create share link</strong> and enter the address of a Cutscene
+share server, the editor uploads that recording's three files — the video, the event
+trace and the recording metadata — to the server you named. Cutscene does not operate a
+default server; the address is one you or your team runs. A share link is a public,
+unguessable URL: anyone holding it can view that recording.</p>
+
+<h2>Permissions, and why each exists</h2>
+<table>
+  <tr><th>Permission</th><th>Why</th></tr>
+  <tr><td><code>tabCapture</code>, <code>audioCapture</code></td><td>Record the video of the tab you chose, and your microphone if you enabled it.</td></tr>
+  <tr><td><code>activeTab</code>, <code>tabs</code></td><td>Identify the tab you asked to record and open the editor when the recording stops.</td></tr>
+  <tr><td><code>offscreen</code></td><td>Encode the recording in a background document, so it survives the popup closing.</td></tr>
+  <tr><td><code>storage</code></td><td>Remember an in-progress recording across a service worker restart.</td></tr>
+  <tr><td><code>downloads</code></td><td>Save the finished recording to your Downloads folder.</td></tr>
+  <tr><td>Access to all sites</td><td>The content script that reads the page's structure has to be able to run on whichever page you decide to record. It reads structure only while a recording is active on that tab.</td></tr>
+</table>
+
+<h2>Analytics</h2>
+<p>The extension and the editor contain no analytics, no telemetry, no error reporting and
+no cookies. Cutscene has no accounts and no user records, because it has no server.</p>
+
+<h2>This website</h2>
+<p>These pages are static files. They set no cookies and run no analytics. They load a
+typeface from Google Fonts, which means Google receives the request for that file,
+including your IP address. The hosting provider keeps ordinary server logs.</p>
+
+<h2>Children</h2>
+<p>Cutscene is a developer tool and is not directed at children.</p>
+
+<h2>Changes and contact</h2>
+<p>Material changes to this page will be noted in the repository's history, which is
+public. Questions and corrections:
+<a href="https://github.com/macayu17/Cutscene/issues">github.com/macayu17/Cutscene/issues</a>.</p>
+</main>
+</body>
+</html>
