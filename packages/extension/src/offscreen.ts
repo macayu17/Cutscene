@@ -8,11 +8,20 @@ type PageContext = { viewport: Viewport; scroll: ScrollPosition; route: string; 
 type State = {
   recorder: MediaRecorder; stream: MediaStream; mic: MediaStream | null; chunks: Blob[]; events: TraceEvent[];
   tabId: number; sessionEpoch: number; startedAt: number; mediaStart: number; timer: number; flush: number;
-  recordingId: string; context: PageContext;
+  recordingId: string; context: PageContext; persisted: boolean;
   capture: { width: number; height: number; fps: number };
 };
 
 const FLUSH_INTERVAL_MS = 15_000;
+
+// Every write to storage goes through this chain, so a flush that started before a
+// stop can never land after it and overwrite the finished bundle with a partial one.
+let writes: Promise<unknown> = Promise.resolve();
+function serialize<T>(work: () => Promise<T>): Promise<T> {
+  const next = writes.catch(() => undefined).then(work);
+  writes = next.catch(() => undefined);
+  return next;
+}
 
 let state: State | null = null;
 
@@ -64,7 +73,10 @@ async function persist(): Promise<void> {
   const current = state;
   if (!current) return;
   const { media, trace, meta } = bundle(current, performance.now() - current.mediaStart);
-  await saveBundle(current.recordingId, media, trace, meta).catch(() => undefined);
+  await serialize(async () => {
+    if (state !== current) return; // stopped or cancelled while this flush was queued
+    await saveBundle(current.recordingId, media, trace, meta).then(() => { current.persisted = true; }, () => undefined);
+  });
 }
 
 async function sync(): Promise<void> {
@@ -96,7 +108,8 @@ async function start(message: { streamId: string; tabId: number; sessionEpoch: n
     const chunks: Blob[] = [];
     recorder.addEventListener('dataavailable', (event) => { if (event.data.size) chunks.push(event.data); });
     const current: State = { recorder, stream, mic, chunks, events: [], tabId: message.tabId, sessionEpoch: message.sessionEpoch,
-      startedAt: Date.now(), mediaStart: performance.now(), timer: 0, flush: 0, recordingId: `rec_${crypto.randomUUID()}`, context: message.context,
+      startedAt: Date.now(), mediaStart: performance.now(), timer: 0, flush: 0, recordingId: `rec_${crypto.randomUUID()}`,
+      context: message.context, persisted: false,
       capture: { ...dimensions, fps: tab.getVideoTracks()[0]?.getSettings().frameRate ?? 30 } };
     recorder.start(1_000);
     state = current;
@@ -124,7 +137,7 @@ async function stop(): Promise<Result<RecorderStatus>> {
     await new Promise<void>((resolve) => { current.recorder.addEventListener('stop', () => resolve(), { once: true }); current.recorder.stop(); });
     current.stream.getTracks().forEach((track) => track.stop()); current.mic?.getTracks().forEach((track) => track.stop());
     const { media, trace, meta } = bundle(current, durationMs);
-    await saveBundle(current.recordingId, media, trace, meta);
+    await serialize(() => saveBundle(current.recordingId, media, trace, meta));
     const urls = { mediaUrl: URL.createObjectURL(media), traceUrl: URL.createObjectURL(trace),
       metaUrl: URL.createObjectURL(new Blob([`${JSON.stringify(meta, null, 2)}\n`], { type: 'application/json' })) };
     const final = { ...status(), recording: false, tabId: current.tabId, clickCount: current.events.filter(({ type }) => type === 'interaction.click').length,
@@ -149,8 +162,10 @@ async function cancel(): Promise<Result> {
   });
   current.stream.getTracks().forEach((track) => track.stop()); current.mic?.getTracks().forEach((track) => track.stop());
   state = null;
-  // A cancelled recording is not a recording: drop anything the flush already wrote.
-  await deleteRecording(current.recordingId).catch(() => undefined);
+  // A cancel that rolls back a failed start drops its own scratch. A cancel that
+  // arrives after minutes of recording must not delete what the flush already saved:
+  // losing a take is worse than keeping one the user can delete in the editor.
+  if (!current.persisted) await serialize(() => deleteRecording(current.recordingId)).catch(() => undefined);
   return { ok: true, value: undefined };
 }
 

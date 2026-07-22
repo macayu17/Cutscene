@@ -1,4 +1,4 @@
-import type { RecorderStatus, Result } from './messages';
+import { RECORDER_BUSY, type RecorderStatus, type Result } from './messages';
 
 const offscreenPath = 'offscreen.html';
 const editorPath = 'editor.html';
@@ -38,11 +38,23 @@ async function ensureOffscreen(): Promise<void> {
   await chrome.offscreen.createDocument({ url: offscreenPath, reasons: [chrome.offscreen.Reason.USER_MEDIA, chrome.offscreen.Reason.BLOBS], justification: 'Record a tab and persist its local recording bundle.' });
 }
 
+// A second start must never touch the running recording: it resets the content
+// session's clock and its rollback would cancel and delete a take it does not own.
+// The flag closes the double-click window the status check alone cannot see.
+let starting = false;
+
 async function start(tabId: number, includeMic: boolean, redactSelectors: readonly string[]): Promise<Result<RecorderStatus>> {
+  if (starting) return { ok: false, error: RECORDER_BUSY };
+  starting = true;
   let sessionStarted = false;
   let offscreenStarted = false;
   try {
     await ensureOffscreen();
+    // An unreachable or silent recorder is not a running recording, so only a
+    // well-formed answer may refuse this start.
+    const active = await Promise.resolve(chrome.runtime.sendMessage({ type: 'offscreen.status' }))
+      .catch(() => null) as Result<RecorderStatus> | null;
+    if (active?.ok && active.value.recording) return { ok: false, error: RECORDER_BUSY };
     const sessionEpoch = Date.now();
     const context = await chrome.tabs.sendMessage(tabId, { type: 'session.start', sessionEpoch, redactSelectors }) as Result;
     if (!context.ok) return context;
@@ -50,9 +62,11 @@ async function start(tabId: number, includeMic: boolean, redactSelectors: readon
     const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tabId });
     const result = await chrome.runtime.sendMessage({ type: 'offscreen.start', streamId, tabId, sessionEpoch, includeMic,
       context: context.value }) as Result<RecorderStatus>;
-    if (!result.ok) { await chrome.runtime.sendMessage({ type: 'offscreen.cancel' }).catch(() => undefined);
-      await chrome.tabs.sendMessage(tabId, { type: 'session.stop' }); sessionStarted = false; }
-    else {
+    if (!result.ok) {
+      // Only roll back a capture this call created. A busy recorder owns itself.
+      if (result.error !== RECORDER_BUSY) await chrome.runtime.sendMessage({ type: 'offscreen.cancel' }).catch(() => undefined);
+      await chrome.tabs.sendMessage(tabId, { type: 'session.stop' }); sessionStarted = false;
+    } else {
       offscreenStarted = true;
       const ready = await chrome.tabs.sendMessage(tabId, { type: 'session.captureReady' }) as Result;
       if (!ready.ok) {
@@ -70,13 +84,16 @@ async function start(tabId: number, includeMic: boolean, redactSelectors: readon
     const message = error instanceof Error ? error.message : String(error);
     return { ok: false, error: message.includes('Receiving end does not exist')
       ? 'This tab cannot be recorded. Open or reload an http or https page.' : message };
+  } finally {
+    starting = false;
   }
 }
 
 async function stop(): Promise<Result<RecorderStatus>> {
   try {
     const status = await chrome.runtime.sendMessage({ type: 'offscreen.status' }) as Result<RecorderStatus>;
-    if (!status.ok || status.value.tabId === null) return status;
+    // An unreachable or idle recorder means nothing is recording, whatever the badge says.
+    if (!status.ok || status.value.tabId === null) { indicate(false); return status; }
     const tabId = status.value.tabId;
     await clearActiveRecording().catch(() => undefined);
     indicate(false);
@@ -92,7 +109,10 @@ async function stop(): Promise<Result<RecorderStatus>> {
     }
     try { return await chrome.runtime.sendMessage({ type: 'offscreen.stop' }) as Result<RecorderStatus>; }
     finally { await chrome.tabs.sendMessage(tabId, { type: 'session.stop' }).catch(() => undefined); }
-  } catch (error: unknown) { return { ok: false, error: error instanceof Error ? error.message : String(error) }; }
+  } catch (error: unknown) {
+    indicate(false);
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
 }
 
 chrome.runtime.onMessage.addListener((message: unknown, _sender, respond) => {
@@ -123,16 +143,21 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, respond) => {
       'metaUrl' in message && typeof message.metaUrl === 'string') {
     const folder = `cutscene-${message.recordingId}`;
     const recordingId = message.recordingId;
-    void Promise.all([
+    // The bundle is already in IndexedDB, which the editor page shares an origin with,
+    // so the editor opens on the recording itself rather than on a folder picker. A
+    // refused or failed download must not cost the user the editor as well.
+    void Promise.allSettled([
       chrome.downloads.download({ url: message.mediaUrl, filename: `${folder}/media.webm` }),
       chrome.downloads.download({ url: message.traceUrl, filename: `${folder}/trace.jsonl` }),
       chrome.downloads.download({ url: message.metaUrl, filename: `${folder}/meta.json` }),
-    ]).then(async () => {
-      // The bundle is already in IndexedDB, which the editor page shares an origin with,
-      // so the editor opens on the recording itself rather than on a folder picker.
-      await chrome.tabs.create({ url: `${chrome.runtime.getURL(editorPath)}?recording=${recordingId}` });
-      respond({ ok: true, value: undefined } satisfies Result);
-    }).catch((error: unknown) => respond({ ok: false, error: error instanceof Error ? error.message : String(error) } satisfies Result));
+    ]).then(async (settled) => {
+      await chrome.tabs.create({ url: `${chrome.runtime.getURL(editorPath)}?recording=${recordingId}` })
+        .catch(() => undefined);
+      const failed = settled.find((outcome) => outcome.status === 'rejected');
+      respond(failed
+        ? { ok: false, error: `Recording saved. Download failed: ${String(failed.reason)}` } satisfies Result
+        : { ok: true, value: undefined } satisfies Result);
+    });
     return true;
   }
   return false;

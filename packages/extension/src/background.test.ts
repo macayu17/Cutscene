@@ -63,6 +63,44 @@ describe('recording stop', () => {
   });
 });
 
+describe('concurrent start', () => {
+  beforeEach(() => { vi.resetModules(); vi.unstubAllGlobals(); });
+
+  // A second start used to reset the live content session and then cancel the running
+  // recorder, which deletes the take the flush had been saving.
+  it('refuses a start against a running recorder without touching it', async () => {
+    let listener: Listener | undefined;
+    const runtimeSend = vi.fn(async (message: { type: string }) => {
+      if (message.type === 'offscreen.status') {
+        return { ok: true, value: { recording: true, tabId: 7, clickCount: 3, startedAt: 1, recordingId: 'rec_1' } };
+      }
+      throw new Error(`Unexpected runtime message: ${message.type}`);
+    });
+    const tabsSend = vi.fn(async () => { throw new Error('The content script must not be touched.'); });
+    vi.stubGlobal('chrome', {
+      runtime: {
+        ContextType: { OFFSCREEN_DOCUMENT: 'OFFSCREEN_DOCUMENT' },
+        getURL: vi.fn(() => 'chrome-extension://cutscene/offscreen.html'),
+        getContexts: vi.fn(async () => [{}]),
+        sendMessage: runtimeSend,
+        onMessage: { addListener: vi.fn((value: Listener) => { listener = value; }) },
+      },
+      tabs: { sendMessage: tabsSend },
+      storage: { session: { get: vi.fn(), set: vi.fn(), remove: vi.fn() } },
+      action: { setBadgeText: vi.fn(), setBadgeBackgroundColor: vi.fn() },
+    });
+    await import('./background');
+    if (!listener) throw new Error('Background listener was not registered.');
+    const responses: unknown[] = [];
+
+    expect(listener({ type: 'recording.start', tabId: 9, includeMic: false, redactSelectors: [] }, {},
+      (response) => responses.push(response))).toBe(true);
+    await vi.waitFor(() => expect(responses).toEqual([{ ok: false, error: 'A recording is already active.' }]));
+    expect(tabsSend).not.toHaveBeenCalled();
+    expect(runtimeSend.mock.calls.map(([message]) => message.type)).toEqual(['offscreen.status']);
+  });
+});
+
 describe('content rejoin', () => {
   beforeEach(() => { vi.resetModules(); vi.unstubAllGlobals(); });
 

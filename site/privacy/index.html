@@ -61,8 +61,18 @@ anything at all while no recording is running.</p>
   <li>Password fields and elements marked <code>[data-sensitive]</code> or
       <code>[data-private]</code> are masked in the same way.</li>
   <li>Network requests and responses are not captured.</li>
-  <li>Any CSS selector you list in the extension popup is visually blurred in the recording.</li>
 </ul>
+
+<h2>What blur does, and does not do</h2>
+<p>A CSS selector you list in the extension popup is tracked through the recording and
+blurred in the editor's preview and in every file it exports: the MP4, the GIF, the
+interactive demo and the screenshots. It is <strong>not</strong> painted onto the
+recorded video. <code>media.webm</code> keeps the original pixels, because the blur is
+an edit you can move, disable or retarget afterwards.</p>
+<p>This matters in one place. <strong>Create share link uploads the original recording</strong>,
+not an export, so anyone holding that link sees the unblurred video. If a recording
+contains something that must not be seen, export the MP4 and share that file, or delete
+the share link with its owner token.</p>
 
 <h2>Where a recording is stored</h2>
 <p>In two places on your own computer: your browser's local IndexedDB storage, which the

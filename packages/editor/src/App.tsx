@@ -216,6 +216,8 @@ export default function App() {
         <details className="action-menu"><summary>Share</summary><div>
           <button disabled={sharing || !bundleFiles} onClick={() => void share()}>{sharing ? 'Publishing...' : 'Create share link'}</button>
           <button disabled={sharing || !bundleFiles} onClick={() => void updateShare()}>Update shared demo</button>
+          {redactions.length ? <p className="menu-note">Sharing uploads the original recording.
+            Blur is applied to exports, not to the uploaded video.</p> : null}
         </div></details>
         <details className="action-menu"><summary>Export</summary><div>
           <button disabled={exportProgress !== null} onClick={() => void runExport('gif')}>Export GIF</button>

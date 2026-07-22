@@ -164,10 +164,14 @@ test('captures a playable, complete, masked recording bundle', async () => {
     await expect(editor.locator('.export-error')).toHaveCount(0);
 
     // Opened without a recording id, the editor lists what the extension still holds.
+    // The profile is reused between runs, so assert the delta rather than a fixed count.
     await editor.goto(`chrome-extension://${extensionId}/editor.html`);
-    await expect(editor.locator('.recordings li')).toHaveCount(1);
-    await editor.locator('.recordings .danger').click();
-    await expect(editor.locator('.recordings li')).toHaveCount(0);
+    const listed = editor.locator('.recordings li');
+    await expect(listed.first()).toBeVisible();
+    const held = await listed.count();
+    await expect(listed.first()).toContainText('todomvc.com');
+    await editor.locator('.recordings .danger').first().click();
+    await expect(listed).toHaveCount(held - 1);
 
     const traceItem = items.find((item) => item.mime.includes('ndjson'));
     const metaItem = items.find((item) => item.mime === 'application/json');

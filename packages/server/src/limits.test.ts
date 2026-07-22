@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { clientKey, createRateLimiter, expiryFrom, isExpired } from './limits.ts';
+import { clientKey, createRateLimiter, expiryFrom, isExpired, positive } from './limits.ts';
 
 const now = new Date('2026-07-22T12:00:00.000Z');
 
@@ -22,9 +22,20 @@ it('spends a burst, refuses, then refills over time', () => {
   expect(limiter.take('a', 1_000)).toBe(true);
 });
 
-it('trusts a forwarding header only where the deployment says to', () => {
-  const headers = { 'x-forwarded-for': '203.0.113.7, 10.0.0.1' };
+it('trusts a forwarding header only where the deployment says to, and only its last hop', () => {
+  // A caller can put anything in X-Forwarded-For; our own proxy appends the address it
+  // actually saw. Reading the leftmost entry would hand every request a fresh bucket.
+  const headers = { 'x-forwarded-for': '198.51.100.9, 203.0.113.7' };
   expect(clientKey(headers, '10.0.0.1', false)).toBe('10.0.0.1');
   expect(clientKey(headers, '10.0.0.1', true)).toBe('203.0.113.7');
+  expect(clientKey({ 'x-forwarded-for': ['1.1.1.1', '203.0.113.7'] }, '10.0.0.1', true)).toBe('203.0.113.7');
   expect(clientKey({}, undefined, true)).toBe('unknown');
+});
+
+it('falls back rather than switching a limit off when a variable is unusable', () => {
+  expect(positive('45', 30)).toBe(45);
+  expect(positive(undefined, 30)).toBe(30);
+  expect(positive('nonsense', 30)).toBe(30);
+  expect(positive('0', 30)).toBe(30);
+  expect(positive('-5', 30)).toBe(30);
 });

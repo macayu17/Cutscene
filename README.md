@@ -205,7 +205,9 @@ rejected as ambiguous instead of guessing an action sequence.
 
 1. Open a DOM-based page in Chrome.
 2. Open the Cutscene extension. Add any CSS selectors that must be visually
-   blurred, then start recording. Microphone capture is optional.
+   blurred, then start recording. Microphone capture is optional. Blur applies to
+   the editor and everything it exports; `media.webm` keeps the original pixels,
+   so share an exported file rather than a share link when that matters.
 3. Stop recording. The editor opens in a new tab with that recording already
    loaded. Chrome also downloads `media.webm`, `trace.jsonl`, and `meta.json`
    into one `cutscene-<recording-id>` folder.
@@ -256,7 +258,7 @@ Where GPT-5.6's reasoning did the load-bearing work:
   locators, zero raw trace, and zero input values in `index.html`.
 - **The `demo.yml` replay and trace-diff runner** in `packages/runner`.
 
-Codex also ran the verification loop it was measured against: 327 unit tests,
+Codex also ran the verification loop it was measured against: 329 unit tests,
 5/5 typecheck, production builds, and 6/6 Chromium E2E, all local. No pull
 request, hosted CI, paid credit, or subagent was used at any point.
 

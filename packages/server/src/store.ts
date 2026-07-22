@@ -79,7 +79,10 @@ export async function saveBundleFile(root: string, id: string, file: BundleFile,
   await writeFile(join(root, id, file), data);
 }
 
+// Every route that serves recorded bytes reads through here, so retention is enforced
+// here too. A route that checked liveness separately would eventually forget to.
 export async function readBundleFile(root: string, id: string, file: BundleFile): Promise<Buffer | null> {
+  if (!(await recordingLive(root, id))) return null;
   try { return await readFile(join(root, id, file)); } catch { return null; }
 }
 

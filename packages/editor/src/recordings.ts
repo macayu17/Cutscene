@@ -39,9 +39,10 @@ export function retain(summaries: readonly RecordingSummary[], cap = retained):
   return { keep: ordered.slice(0, cap), evict: ordered.slice(cap).map((summary) => summary.id) };
 }
 
+/** Everything held, newest first. Listing must not hide a record the user could delete. */
 export async function listRecordings(): Promise<RecordingSummary[]> {
   const records = await run<RecordingRecord[]>('readonly', (store) => store.getAll() as IDBRequest<RecordingRecord[]>);
-  return retain(records.map(summarize)).keep;
+  return records.map(summarize).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export function readRecording(id: string): Promise<RecordingRecord | undefined> {
@@ -53,9 +54,12 @@ export function deleteRecording(id: string): Promise<undefined> {
 }
 
 export async function saveBundle(id: string, media: Blob, trace: Blob, meta: RecordingMeta): Promise<void> {
+  // Evict first: the quota this write needs is the space the oldest recordings hold,
+  // and losing the take being written to keep five old ones is the wrong trade.
+  const held = await run<RecordingRecord[]>('readonly', (store) => store.getAll() as IDBRequest<RecordingRecord[]>);
+  const existing = held.map(summarize).filter((summary) => summary.id !== id);
+  for (const evicted of retain([...existing, summarize({ id, media, trace, meta })]).evict) await deleteRecording(evicted);
   await run('readwrite', (store) => store.put({ id, media, trace, meta } satisfies RecordingRecord));
-  const records = await run<RecordingRecord[]>('readonly', (store) => store.getAll() as IDBRequest<RecordingRecord[]>);
-  for (const evicted of retain(records.map(summarize)).evict) await deleteRecording(evicted);
 }
 
 /** The three files the editor's existing bundle reader expects, rebuilt from one stored record. */

@@ -13,6 +13,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
 .file-label { border: 1px solid var(--line); color: var(--text); padding: 7px 10px; font-family: 'IBM Plex Mono', monospace; cursor: pointer; }
 .file-label input { position: absolute; opacity: 0; pointer-events: none; }
 .file-label:has(input:focus-visible) { outline: 2px solid var(--text); outline-offset: 2px; }
+.action-menu[open] .menu-note { margin: 4px 7px 2px; color: var(--text-dim); font-size: var(--t-xs); line-height: 1.4; white-space: normal; }
 .recordings { display: grid; gap: 1px; width: min(560px, 70vw); margin: 0 0 4px; padding: 0; list-style: none; }
 .recordings li { display: grid; grid-template-columns: minmax(0, 1fr) auto; border: 1px solid var(--line); }
 .recordings button { border: 0; background: transparent; color: var(--text); padding: 7px 9px; font-family: 'IBM Plex Mono', monospace; font-size: var(--t-sm); text-align: left; cursor: pointer; }

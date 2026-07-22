@@ -5,6 +5,75 @@ Phase 10 (the regeneration story, installable, PRD.md section 16) opened on
 developer account and is not a code gate. The listing copy, permission
 justifications and screenshot script are in docs/store-listing.md.
 
+Pre-publish review (2026-07-22):
+  method: six review lenses over the session's diff, each finding sent to three
+          adversarial verifiers. The run was cut off by a usage limit after four
+          lenses reported and four verifiers finished, so 31 findings were raised
+          and only 2 carried a full verdict. The rest were triaged by hand, not
+          refuted. This was a partial review and the gaps are named below
+
+  fixed, data loss:
+    a second start cancelled and deleted the running recording, because the
+      rollback path did not distinguish "my start failed" from "someone else is
+      recording". Start is now re-entrant-guarded and refuses a busy recorder
+      before it touches the content script or the recorder
+    a failed quiesce on stop cancelled the recording, and cancel deleted what the
+      15 s flush had saved. Cancel now deletes only a take that never reached
+      storage: losing minutes of capture is worse than keeping a bundle the user
+      can delete
+    a flush that started before a stop could land after it and overwrite the
+      finished bundle with a partial one. All storage writes are serialised
+    a refused download blocked the editor handoff entirely. The editor now opens
+      regardless, and the download failure is reported separately
+    a stop against a torn-down recorder left the REC badge lit
+    eviction ran after the write, so a quota-exceeded save lost the new recording
+      and kept five old ones. Eviction now runs first
+    the recordings list hid everything past the retention cap, including records
+      the user could otherwise have deleted
+
+  fixed, claims that the code did not support:
+    the editor page fetched its typeface from fonts.googleapis.com on every open,
+      inside an extension whose privacy policy says nothing leaves the machine.
+      The fonts are now bundled, and the build fails if any executable remote
+      reference reappears anywhere in the extension bundle
+    the shipped ffmpeg worker carried a CDN importScripts fallback. Unreachable,
+      and blocked by the page CSP, but it is what a store reviewer greps for.
+      Stripped at build time
+    blur was described as applied "in the recording". It is applied in the editor
+      and its exports; media.webm keeps the original pixels, and Create share link
+      uploads media.webm. The popup, the privacy policy and the README now say so,
+      and the share menu warns when redactions exist
+    expired recordings still served their bytes: the bundle-file route never
+      checked retention. The liveness check moved into readBundleFile, which every
+      byte-serving route reads through
+    a mistyped limit variable switched its limit off, because Number('x') is NaN
+      and every comparison against it is false. Unusable values now fall back
+    the rate limiter trusted the leftmost X-Forwarded-For entry, which the caller
+      supplies. It reads the last hop, the one our own proxy appended
+    the limiter swept every bucket on every call, quadratic in exactly the flood
+      it exists to survive. It sweeps on a timer
+    STATUS claimed "no download" as a met exit criterion while every stop still
+      writes three files. Reworded to what the code does
+
+  raised and NOT yet addressed, carried forward honestly:
+    storeBytes walks the whole store on every unauthenticated create
+    the store cap is checked at creation but not at upload, so it is a floor
+    timeline updates are stored per recording and are not counted by the cap
+    the `tabs` permission and <all_urls> may both be unnecessary; each needs a
+      grep of its call sites before the store listing is final
+    the GPL ffmpeg core ships without the GPL text beside it, and
+      @cutscene/editor declares MIT while its tarball carries that core
+    delete and sweep race writers that recreate a directory
+
+  not examined by any lens, because the run died first: the packaging lens and
+  the claims lens never reported. Nothing here covers the emitted dist, the
+  action.yml shell, or the release workflow
+
+  repository tests: 329 passed (97 trace, 31 server, 132 editor,
+                    16 extension, 53 runner)
+  end-to-end: 6/6 Chromium, capture verified from both a clean and a reused
+              browser profile
+
 Share server hardening (2026-07-22), ahead of any hosted deployment:
   retention: every recording carries an expiry file written when its directory
              is created, default 30 days. recordingExists and recordingReady
@@ -20,7 +89,7 @@ Share server hardening (2026-07-22), ahead of any hosted deployment:
   the editor shows the expiry date beside the share links it just created
   every knob is an environment variable, documented in the README
 
-  measured: server tests 30 passed, including a recording that stops serving
+  measured: server tests 31 passed, including a recording that stops serving
             the moment its expiry passes, owner-only deletion, and the sweep
             reporting the id it removed
 
@@ -60,8 +129,8 @@ Installable regeneration (2026-07-22):
   unverified until published: the packaged GitHub Action installs the packages
         by name from npm, so it cannot run until the first publish
 
-  repository tests: 327 passed (97 trace, 30 server, 132 editor,
-                    15 extension, 53 runner)
+  repository tests: 329 passed (97 trace, 31 server, 132 editor,
+                    16 extension, 53 runner)
   typecheck: 5/5 active packages passed
   production build: 4/4 buildable packages passed
   end-to-end: 6/6 Chromium (1 editor, 2 runner, 3 extension)
@@ -87,7 +156,9 @@ Zero-friction first run (2026-07-22):
            policy at site/privacy, permission justifications recorded there
 
   exit criteria (PRD.md section 15):
-    [x] recording stops and the editor opens loaded, no download, no picker
+    [x] recording stops and the editor opens loaded from IndexedDB, with no folder
+        picker. Chrome still writes the three files to Downloads, and the editor
+        no longer waits on that: a refused download costs the files, not the take
     [x] export works from inside the extension page (GIF measured end to end;
         every format shares the one engine loader)
     [x] the empty state lists, opens and deletes retained recordings
