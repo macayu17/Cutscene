@@ -8,7 +8,7 @@ const UPLOADS = [
 ] as const;
 type Upload = (typeof UPLOADS)[number];
 
-export type ShareLinks = { id: string; publicUrl: string; reviewerUrl: string; ownerUrl: string };
+export type ShareLinks = { id: string; publicUrl: string; reviewerUrl: string; ownerUrl: string; expiresAt: string | null };
 
 function field(value: unknown, key: string): string | null {
   return typeof value === 'object' && value !== null && key in value &&
@@ -50,6 +50,7 @@ export async function createShareLink(server: string, files: BundleFiles): Promi
     return { ok: true, value: {
       id,
       publicUrl,
+      expiresAt: field(payload, 'expiresAt'),
       reviewerUrl: `${publicUrl}#invite=${encodeURIComponent(invitationToken)}`,
       ownerUrl: `${publicUrl}#token=${encodeURIComponent(ownerToken)}`,
     } };

@@ -81,7 +81,7 @@ pnpm build && pnpm e2e`:
   0.014435 rendered pixels, zero console errors.
 - The quality report found a real defect on a real site: all five checkboxes on
   the recorded TodoMVC path expose no accessible name.
-- 320 tests, 5 of 5 packages typecheck clean, 6 of 6 Chromium E2E.
+- 327 tests, 5 of 5 packages typecheck clean, 6 of 6 Chromium E2E.
 
 No testimonials, no logos, no user counts. The project has none, and inventing
 them would contradict the brand.

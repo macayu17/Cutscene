@@ -90,7 +90,25 @@ pnpm --filter @cutscene/server start
 
 It stores bundles in `data/` and listens on port `4180`. After loading a
 recording in the editor, choose **Create share link** and enter the server URL.
-The editor uploads the original three files and shows the public link.
+The editor uploads the original three files and shows the public link and the
+date it expires.
+
+Before pointing anything public at it, know what it does and does not do. A
+share link is public and unguessable; there are no accounts and no private
+links. Recordings are deleted after their retention window, whether or not the
+sweep has run. The owner token can delete a recording immediately with
+`DELETE /api/recordings/<id>`. Writes are rate limited per address and the
+server refuses new recordings once its store is full.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `CUTSCENE_DATA` | `data` | Where bundles are stored. |
+| `PORT` | `4180` | Listening port. |
+| `CUTSCENE_RETENTION_DAYS` | `30` | Days before a recording expires and is swept. |
+| `CUTSCENE_STORE_LIMIT_BYTES` | 20 GiB | Refuse new recordings past this total. |
+| `CUTSCENE_WRITE_BURST` | `20` | Writes one address may make at once. |
+| `CUTSCENE_WRITE_PER_MINUTE` | `20` | Sustained write rate per address. |
+| `CUTSCENE_TRUST_PROXY` | unset | Set to `1` only behind a proxy you control, so `X-Forwarded-For` is believed. |
 
 ## Check a recorded flow against a current build
 
@@ -238,7 +256,7 @@ Where GPT-5.6's reasoning did the load-bearing work:
   locators, zero raw trace, and zero input values in `index.html`.
 - **The `demo.yml` replay and trace-diff runner** in `packages/runner`.
 
-Codex also ran the verification loop it was measured against: 320 unit tests,
+Codex also ran the verification loop it was measured against: 327 unit tests,
 5/5 typecheck, production builds, and 6/6 Chromium E2E, all local. No pull
 request, hosted CI, paid credit, or subagent was used at any point.
 

@@ -1,7 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { BUNDLE_FILES, createId, ensureRecording, isBundleFile, isValidId, readBundleFile,
-  readReview, recordingExists, recordingReady, saveBundleFile, updateReview, validateBundleFile,
-  writeReview, type BundleFile } from './store.ts';
+import { BUNDLE_FILES, createId, deleteRecording, ensureRecording, isBundleFile, isValidId, readBundleFile,
+  readExpiry, readReview, recordingExists, recordingReady, saveBundleFile, storeBytes, updateReview,
+  validateBundleFile, writeReview, type BundleFile } from './store.ts';
+import { clientKey, createRateLimiter, STORE_LIMIT_BYTES, WRITE_BURST, WRITE_PER_MINUTE } from './limits.ts';
 import { randomUUID } from 'node:crypto';
 import { fitMediaClock, mapBoxToCapture, parseRecordingMeta, parseTraceEvent, reanchorComments,
   type MediaClockFit, type TraceEvent } from '@cutscene/trace';
@@ -13,6 +14,9 @@ import { listTimelineVersions, MAX_TIMELINE_BYTES, mergeTimelineUpdate, readTime
   readTimelineVersion } from './timeline-store.ts';
 
 const MAX_BYTES = 250 * 1024 * 1024; // one bundle cannot exhaust disk
+
+// Creating recordings and uploading bytes are the expensive routes; reads are not.
+const writeLimiter = createRateLimiter(WRITE_BURST, WRITE_PER_MINUTE);
 const MAX_JSON_BYTES = 64 * 1024;
 
 const CONTENT_TYPE: Record<BundleFile, string> = {
@@ -111,6 +115,12 @@ export async function handle(req: IncomingMessage, res: ServerResponse, root: st
   const parts = (req.url ?? '/').split('?')[0]!.split('/').filter(Boolean);
 
   if (req.method === 'POST' && parts.length === 2 && parts[0] === 'api' && parts[1] === 'recordings') {
+    if (!writeLimiter.take(clientKey(req.headers, req.socket.remoteAddress), Date.now())) {
+      return json(res, 429, { error: 'too many recordings created from this address' });
+    }
+    if (await storeBytes(root) >= STORE_LIMIT_BYTES) {
+      return json(res, 507, { error: 'this server is full' });
+    }
     const id = createId();
     const ownerToken = randomUUID();
     const invitationId = randomUUID();
@@ -120,7 +130,7 @@ export async function handle(req: IncomingMessage, res: ServerResponse, root: st
       teamId: randomUUID(), ownerId: randomUUID(), ownerName: 'Owner', ownerToken,
       invitationId, invitationToken,
     }));
-    return json(res, 201, { id, ownerToken, invitationToken });
+    return json(res, 201, { id, ownerToken, invitationToken, expiresAt: await readExpiry(root, id) });
   }
 
   if (parts.length === 5 && parts[0] === 'api' && parts[1] === 'recordings' && parts[3] === 'invitations') {
@@ -150,6 +160,23 @@ export async function handle(req: IncomingMessage, res: ServerResponse, root: st
     if (req.method !== 'GET') return json(res, 405, { error: 'method not allowed' });
     const snapshot = await readTimelineVersion(root, id, version);
     return snapshot ? binary(res, 200, snapshot) : json(res, 404, { error: 'timeline version not found' });
+  }
+
+  // A public link that cannot be taken back is not a link anyone should create.
+  if (parts.length === 3 && parts[0] === 'api' && parts[1] === 'recordings') {
+    const id = parts[2]!;
+    if (!isValidId(id)) return json(res, 400, { error: 'invalid recording id' });
+    if (req.method === 'GET') {
+      if (!(await recordingExists(root, id))) return json(res, 404, { error: 'recording not found' });
+      return json(res, 200, { id, expiresAt: await readExpiry(root, id), ready: await recordingReady(root, id) });
+    }
+    if (req.method !== 'DELETE') return json(res, 405, { error: 'method not allowed' });
+    if (!(await recordingExists(root, id))) return json(res, 404, { error: 'recording not found' });
+    const member = await memberFor(req, root, id);
+    if (!member) return json(res, 401, { error: 'member token required' });
+    if (member.role !== 'owner') return json(res, 403, { error: 'only the owner can delete a recording' });
+    await deleteRecording(root, id);
+    return json(res, 200, { deleted: id });
   }
 
   if (parts.length === 4 && parts[0] === 'api' && parts[1] === 'recordings') {
@@ -337,6 +364,10 @@ export async function handle(req: IncomingMessage, res: ServerResponse, root: st
 
     const file = action;
     if (!isBundleFile(file)) return json(res, 400, { error: `file must be one of ${BUNDLE_FILES.join(', ')}` });
+
+    if (req.method === 'PUT' && !writeLimiter.take(clientKey(req.headers, req.socket.remoteAddress), Date.now())) {
+      return json(res, 429, { error: 'too many uploads from this address' });
+    }
 
     if (req.method === 'PUT') {
       if (!(await recordingExists(root, id))) return json(res, 404, { error: 'recording not found' });

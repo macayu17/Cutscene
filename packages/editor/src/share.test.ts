@@ -14,7 +14,7 @@ it('creates a recording and uploads the original bundle files', async () => {
   const ownerToken = 'owner-secret';
   const invitationToken = 'invite-secret';
   const request = vi.fn()
-    .mockResolvedValueOnce(new Response(JSON.stringify({ id, ownerToken, invitationToken }), { status: 201 }))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ id, ownerToken, invitationToken, expiresAt: '2026-08-21T12:00:00.000Z' }), { status: 201 }))
     .mockResolvedValue(new Response(null, { status: 200 }));
   vi.stubGlobal('fetch', request);
 
@@ -22,6 +22,7 @@ it('creates a recording and uploads the original bundle files', async () => {
     ok: true, value: {
       id,
       publicUrl: `https://share.example/r/${id}`,
+      expiresAt: '2026-08-21T12:00:00.000Z',
       reviewerUrl: `https://share.example/r/${id}#invite=invite-secret`,
       ownerUrl: `https://share.example/r/${id}#token=owner-secret`,
     },

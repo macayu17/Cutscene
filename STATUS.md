@@ -2,7 +2,31 @@ Phase: 10
 
 Phase 10 (the regeneration story, installable, PRD.md section 16) opened on
 2026-07-22. Chrome Web Store submission remains open owner action; it needs a
-developer account and is not a code gate.
+developer account and is not a code gate. The listing copy, permission
+justifications and screenshot script are in docs/store-listing.md.
+
+Share server hardening (2026-07-22), ahead of any hosted deployment:
+  retention: every recording carries an expiry file written when its directory
+             is created, default 30 days. recordingExists and recordingReady
+             both enforce it, so an expired recording is gone from every route
+             before the sweep runs
+  sweep: on start and hourly, deletes what has expired
+  delete: DELETE /api/recordings/<id> with the owner token; a joined member
+          gets 403, an anonymous caller 401
+  rate limit: token bucket per client address on recording creation and bundle
+              uploads, 20 burst and 20 per minute by default, 429 past that.
+              X-Forwarded-For is believed only when CUTSCENE_TRUST_PROXY=1
+  store cap: 507 once the store passes its byte limit, default 20 GiB
+  the editor shows the expiry date beside the share links it just created
+  every knob is an environment variable, documented in the README
+
+  measured: server tests 30 passed, including a recording that stops serving
+            the moment its expiry passes, owner-only deletion, and the sweep
+            reporting the id it removed
+
+  not built: object storage, accounts, and per-owner byte accounting. Per-owner
+             accounting needs an identity that survives more than one
+             recording, which does not exist yet
 
 Installable regeneration (2026-07-22):
   published packages: @cutscene/trace, @cutscene/editor, @cutscene/runner at
@@ -36,7 +60,7 @@ Installable regeneration (2026-07-22):
   unverified until published: the packaged GitHub Action installs the packages
         by name from npm, so it cannot run until the first publish
 
-  repository tests: 322 passed (97 trace, 25 server, 132 editor,
+  repository tests: 327 passed (97 trace, 30 server, 132 editor,
                     15 extension, 53 runner)
   typecheck: 5/5 active packages passed
   production build: 4/4 buildable packages passed

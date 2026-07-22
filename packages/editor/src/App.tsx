@@ -252,7 +252,8 @@ export default function App() {
     <Timeline video={video}/>
     {captionError ? <output className="export-error">{captionError}</output> : null}
     {exportError ? <output className="export-error">{exportError}</output> : null}
-    {shareResult?.ok ? <output className="share-result" aria-live="polite"><span>Reviewer</span><a href={shareResult.value.reviewerUrl} target="_blank" rel="noreferrer">{shareResult.value.reviewerUrl}</a><span>Owner</span><a href={shareResult.value.ownerUrl} target="_blank" rel="noreferrer">{shareResult.value.ownerUrl}</a><span>View</span><a href={shareResult.value.publicUrl} target="_blank" rel="noreferrer">{shareResult.value.publicUrl}</a></output> : null}
+    {shareResult?.ok ? <output className="share-result" aria-live="polite"><span>Reviewer</span><a href={shareResult.value.reviewerUrl} target="_blank" rel="noreferrer">{shareResult.value.reviewerUrl}</a><span>Owner</span><a href={shareResult.value.ownerUrl} target="_blank" rel="noreferrer">{shareResult.value.ownerUrl}</a><span>View</span><a href={shareResult.value.publicUrl} target="_blank" rel="noreferrer">{shareResult.value.publicUrl}</a>
+      {shareResult.value.expiresAt ? <><span>Expires</span><span>{new Date(shareResult.value.expiresAt).toLocaleDateString()}</span></> : null}</output> : null}
     {shareResult && !shareResult.ok ? <output className="export-error" aria-live="polite">{shareResult.error}</output> : null}
     {updateResult?.ok ? <output className="share-result" aria-live="polite">Shared demo updated <a href={updateResult.value} target="_blank" rel="noreferrer">Open owner review</a></output> : null}
     {updateResult && !updateResult.ok ? <output className="export-error" aria-live="polite">{updateResult.error}</output> : null}

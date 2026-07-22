@@ -1,10 +1,11 @@
 import { afterEach, expect, it } from 'vitest';
 import { once } from 'node:events';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { handle } from './server.ts';
+import { sweepExpired } from './store.ts';
 import * as Y from 'yjs';
 
 const servers: Server[] = [];
@@ -377,4 +378,37 @@ it('merges authenticated timeline updates and serves snapshot history', async ()
     .toBe(404);
   expect((await fetch(url, { method: 'POST', headers: auth(created.ownerToken), body: Uint8Array.from([255, 1]) })).status)
     .toBe(400);
+});
+
+it('reports retention, lets only the owner delete, and stops serving an expired recording', async () => {
+  const base = await startServer();
+  const created = await createRecording(base);
+  const root = roots[roots.length - 1]!;
+
+  const status = await fetch(`${base}/api/recordings/${created.id}`);
+  expect(status.status).toBe(200);
+  const body = await status.json() as { expiresAt: string; ready: boolean };
+  expect(body.ready).toBe(false);
+  expect(Date.parse(body.expiresAt)).toBeGreaterThan(Date.now());
+
+  expect((await fetch(`${base}/api/recordings/${created.id}`, { method: 'DELETE' })).status).toBe(401);
+  const joined = await fetch(`${base}/api/recordings/${created.id}/join`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ invitationToken: created.invitationToken, name: 'Viewer' }),
+  });
+  expect(joined.status).toBe(201);
+  const guest = await joined.json() as { memberToken: string };
+  expect((await fetch(`${base}/api/recordings/${created.id}`,
+    { method: 'DELETE', headers: auth(guest.memberToken) })).status).toBe(403);
+
+  // A recording past its retention date is gone before the sweep has run.
+  await writeFile(join(root, created.id, 'expires'), '2020-01-01T00:00:00.000Z\n');
+  expect((await fetch(`${base}/api/recordings/${created.id}`)).status).toBe(404);
+  expect((await fetch(`${base}/r/${created.id}`)).status).toBe(404);
+  expect(await sweepExpired(root)).toEqual([created.id]);
+
+  const other = await createRecording(base);
+  expect((await fetch(`${base}/api/recordings/${other.id}`,
+    { method: 'DELETE', headers: auth(other.ownerToken) })).status).toBe(200);
+  expect((await fetch(`${base}/api/recordings/${other.id}`)).status).toBe(404);
 });

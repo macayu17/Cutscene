@@ -1,7 +1,8 @@
-import { access, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { parseReviewDocument, type ReviewDocument } from './review.ts';
+import { expiryFrom, isExpired } from './limits.ts';
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
@@ -52,19 +53,26 @@ export function validateBundleFile(file: BundleFile, data: Buffer): Result<undef
   return { ok: true, value: undefined };
 }
 
+// Creating the directory dates it in the same step: a recording with no expiry is
+// treated as gone, so the two must never be separable.
 export async function ensureRecording(root: string, id: string): Promise<void> {
   await mkdir(join(root, id), { recursive: true });
+  if (await readExpiry(root, id) === null) await writeExpiry(root, id);
 }
 
+// Both of these gate every route that touches a recording, so retention is enforced
+// here rather than at each caller. A recording past its date is gone whether or not
+// the sweep has run yet.
 export async function recordingExists(root: string, id: string): Promise<boolean> {
-  try { await access(join(root, id)); return true; } catch { return false; }
+  try { await access(join(root, id)); } catch { return false; }
+  return recordingLive(root, id);
 }
 
 export async function recordingReady(root: string, id: string): Promise<boolean> {
   const files = await Promise.all(BUNDLE_FILES.map(async (file) => {
     try { await access(join(root, id, file)); return true; } catch { return false; }
   }));
-  return files.every(Boolean);
+  return files.every(Boolean) && await recordingLive(root, id);
 }
 
 export async function saveBundleFile(root: string, id: string, file: BundleFile, data: Buffer): Promise<void> {
@@ -73,6 +81,62 @@ export async function saveBundleFile(root: string, id: string, file: BundleFile,
 
 export async function readBundleFile(root: string, id: string, file: BundleFile): Promise<Buffer | null> {
   try { return await readFile(join(root, id, file)); } catch { return null; }
+}
+
+// Retention is one file holding one date, so nothing needs a schema change and an
+// operator can read it with cat.
+const EXPIRY_FILE = 'expires';
+
+export async function writeExpiry(root: string, id: string, now = new Date()): Promise<void> {
+  await writeFile(join(root, id, EXPIRY_FILE), `${expiryFrom(now)}\n`);
+}
+
+export async function readExpiry(root: string, id: string): Promise<string | null> {
+  try { return (await readFile(join(root, id, EXPIRY_FILE), 'utf8')).trim(); } catch { return null; }
+}
+
+/** Expired, or predating retention entirely, both mean gone. */
+export async function recordingLive(root: string, id: string, now = new Date()): Promise<boolean> {
+  const expiresAt = await readExpiry(root, id);
+  return expiresAt !== null && !isExpired(expiresAt, now);
+}
+
+export async function deleteRecording(root: string, id: string): Promise<void> {
+  await rm(join(root, id), { recursive: true, force: true });
+}
+
+export async function recordingBytes(root: string, id: string): Promise<number> {
+  let total = 0;
+  try {
+    for (const entry of await readdir(join(root, id))) {
+      try { total += (await stat(join(root, id, entry))).size; } catch { /* raced with a sweep */ }
+    }
+  } catch { return 0; }
+  return total;
+}
+
+export async function storeBytes(root: string): Promise<number> {
+  let total = 0;
+  for (const id of await listRecordings(root)) total += await recordingBytes(root, id);
+  return total;
+}
+
+export async function listRecordings(root: string): Promise<string[]> {
+  try {
+    return (await readdir(root, { withFileTypes: true }))
+      .filter((entry) => entry.isDirectory() && isValidId(entry.name)).map((entry) => entry.name);
+  } catch { return []; }
+}
+
+/** Deletes every recording past its retention date. Returns the ids removed. */
+export async function sweepExpired(root: string, now = new Date()): Promise<string[]> {
+  const removed: string[] = [];
+  for (const id of await listRecordings(root)) {
+    if (await recordingLive(root, id, now)) continue;
+    await deleteRecording(root, id);
+    removed.push(id);
+  }
+  return removed;
 }
 
 const reviewWrites = new Map<string, Promise<void>>();
