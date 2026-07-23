@@ -164,8 +164,13 @@ Installable regeneration (2026-07-22):
     [x] the three packages install outside the workspace and run both a drift
         check and a full regeneration
     [x] the regeneration suite passes against the installed package
-    [ ] CI runs on every push (workflow committed, unverified until the first
-        push to GitHub)
+    [x] CI runs on every push. First push (2026-07-23) was red and caught a real
+        portability bug: the runner's vitest suite launches Chromium and reads the
+        editor dist, but the verify and release jobs ran pnpm test before pnpm build
+        and never installed a browser — green only on a dev machine with a cached
+        browser and stale dist. Fixed by building and installing Chromium before
+        the tests, and resolving the playwright bin from the runner package rather
+        than the workspace root. Run 29988041237 green: verify, end-to-end, package
     [x] rendering without the editor names the fix
     [x] full verification below
 
