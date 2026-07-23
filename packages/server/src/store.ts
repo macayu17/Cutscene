@@ -1,4 +1,4 @@
-import { access, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { access, appendFile, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { parseReviewDocument, type ReviewDocument } from './review.ts';
@@ -79,6 +79,11 @@ export async function saveBundleFile(root: string, id: string, file: BundleFile,
   await writeFile(join(root, id, file), data);
 }
 
+/** Raw presence of one bundle file, without the liveness check reads apply. */
+export async function bundleFileExists(root: string, id: string, file: BundleFile): Promise<boolean> {
+  try { await access(join(root, id, file)); return true; } catch { return false; }
+}
+
 // Every route that serves recorded bytes reads through here, so retention is enforced
 // here too. A route that checked liveness separately would eventually forget to.
 export async function readBundleFile(root: string, id: string, file: BundleFile): Promise<Buffer | null> {
@@ -106,6 +111,24 @@ export async function recordingLive(root: string, id: string, now = new Date()):
 
 export async function deleteRecording(root: string, id: string): Promise<void> {
   await rm(join(root, id), { recursive: true, force: true });
+}
+
+// ponytail: read-modify-write one integer, so concurrent views can under-count. That is
+// the right trade for a view counter; make it an atomic append-and-tally only if it ever
+// has to be exact.
+// Append-only, so a flood of reports cannot overwrite earlier ones. An operator reads
+// abuse.jsonl beside the recording and decides; takedown is the owner-or-operator delete.
+export async function appendAbuseReport(root: string, id: string, entry: Record<string, unknown>): Promise<void> {
+  await appendFile(join(root, id, 'abuse.jsonl'), `${JSON.stringify(entry)}\n`);
+}
+
+export async function incrementViews(root: string, id: string): Promise<number> {
+  const file = join(root, id, 'views');
+  let count = 0;
+  try { count = Number.parseInt(await readFile(file, 'utf8'), 10) || 0; } catch { /* first view */ }
+  count += 1;
+  await writeFile(file, String(count));
+  return count;
 }
 
 // Recurses, because the timeline version snapshots live in a subdirectory. A flat

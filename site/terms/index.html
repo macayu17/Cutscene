@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cutscene — terms</title>
+<meta name="description" content="Terms for creating and hosting share links with a Cutscene share server.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#16181C; --surface:#1E2126; --line:#2C3037; --text:#C8CDD4; --text-dim:#727A85; --signal:#F2A63B; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 400 15px/1.6 'IBM Plex Mono', ui-monospace, monospace; }
+  main { max-width: 72ch; margin: 0 auto; padding: 48px 20px 96px; }
+  a { color: var(--text); }
+  a:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+  h1 { margin: 0 0 4px; font-size: 22px; font-weight: 500; letter-spacing: .04em; }
+  h2 { margin: 40px 0 10px; font-size: 15px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; color: var(--signal); }
+  p, li { color: var(--text); }
+  ul { padding-left: 18px; }
+  li { margin: 6px 0; }
+  .meta { color: var(--text-dim); font-size: 13px; margin: 0 0 8px; }
+  .lede { border-left: 2px solid var(--signal); padding-left: 14px; }
+  nav { margin-bottom: 36px; font-size: 13px; color: var(--text-dim); }
+  nav a { margin-right: 14px; }
+</style>
+</head>
+<body>
+<main>
+<nav><a href="../">Cutscene</a><a href="../privacy/">Privacy</a><a href="https://github.com/macayu17/Cutscene">Source</a></nav>
+
+<h1>Terms for share links</h1>
+<p class="meta">Applies to recordings you upload to a Cutscene share server. Last updated 23 July 2026.</p>
+
+<p class="lede">Recording and editing happen entirely on your machine and need no agreement.
+These terms apply only when you upload a recording to a share server to create a link.</p>
+
+<h2>What you may upload</h2>
+<p>Only recordings you have the right to share. You are responsible for their contents,
+including anything a screen recording captured that you did not intend — another
+application's window, a second monitor, someone else's information. Do not upload material
+that is unlawful, that infringes someone's rights, or that you were not permitted to
+capture.</p>
+
+<h2>What the server does with it</h2>
+<ul>
+  <li>A recording is stored for a retention window — 30 days by default — and then deleted
+      automatically.</li>
+  <li>A share link is a public, unguessable URL. Anyone holding it can view the recording;
+      treat the link as the access control it is.</li>
+  <li>The person who created a recording can delete it at any time with their owner token.</li>
+  <li>An anonymous view count is recorded. No viewer accounts, logins, or personal records
+      exist.</li>
+  <li>Uploads are limited to the three bundle files — video, event trace, metadata —
+      validated on upload and on read. A share server is not general file hosting.</li>
+</ul>
+
+<h2>Reports and takedown</h2>
+<p>Anyone viewing a share page can report it. An operator may remove a reported recording,
+and may remove any recording that breaks these terms. On a hosted instance, the operator's
+contact and takedown process are stated by that operator.</p>
+
+<h2>No warranty</h2>
+<p>A share server is provided as is, with no warranty. Retention means links are temporary
+by design; keep your own copy of anything you need. The software is open source, and a
+self-hosted operator sets their own additional terms.</p>
+
+<h2>Contact</h2>
+<p>For the software itself, the project lives at
+<a href="https://github.com/macayu17/Cutscene">github.com/macayu17/Cutscene</a>. For a
+specific hosted instance, contact its operator.</p>
+</main>
+</body>
+</html>

@@ -412,3 +412,34 @@ it('reports retention, lets only the owner delete, and stops serving an expired 
     { method: 'DELETE', headers: auth(other.ownerToken) })).status).toBe(200);
   expect((await fetch(`${base}/api/recordings/${other.id}`)).status).toBe(404);
 });
+
+it('accepts an abuse report and rejects an empty reason', async () => {
+  const base = await startServer();
+  const created = await createRecording(base);
+  const reported = await fetch(`${base}/api/recordings/${created.id}/report`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ reason: 'hosts malware' }),
+  });
+  expect(reported.status).toBe(202);
+  const empty = await fetch(`${base}/api/recordings/${created.id}/report`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ reason: '   ' }),
+  });
+  expect(empty.status).toBe(400);
+});
+
+it('lets a configured operator token take down any recording', async () => {
+  process.env.CUTSCENE_ADMIN_TOKEN = 'operator-secret';
+  try {
+    const base = await startServer();
+    const created = await createRecording(base);
+    // A stranger and a wrong token are both refused.
+    expect((await fetch(`${base}/api/recordings/${created.id}`, { method: 'DELETE' })).status).toBe(401);
+    expect((await fetch(`${base}/api/recordings/${created.id}`,
+      { method: 'DELETE', headers: auth('not-the-operator') })).status).toBe(401);
+    // The operator token deletes regardless of ownership.
+    expect((await fetch(`${base}/api/recordings/${created.id}`,
+      { method: 'DELETE', headers: auth('operator-secret') })).status).toBe(200);
+    expect((await fetch(`${base}/api/recordings/${created.id}`)).status).toBe(404);
+  } finally {
+    delete process.env.CUTSCENE_ADMIN_TOKEN;
+  }
+});

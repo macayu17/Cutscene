@@ -1,7 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { addStoreBytes, BUNDLE_FILES, createId, deleteRecording, ensureRecording, isBundleFile, isValidId,
-  readBundleFile, readExpiry, readReview, recordingExists, recordingReady, saveBundleFile, storeBytesCached,
+import { addStoreBytes, appendAbuseReport, BUNDLE_FILES, createId, deleteRecording, ensureRecording, incrementViews,
+  isBundleFile, isValidId, readExpiry, readReview, recordingExists, recordingReady, storeBytesCached,
   updateReview, validateBundleFile, writeReview, type BundleFile } from './store.ts';
+import { filesystemStore, type BundleStore } from './store-driver.ts';
 import { clientKey, createRateLimiter, STORE_LIMIT_BYTES, WRITE_BURST, WRITE_PER_MINUTE } from './limits.ts';
 import { randomUUID } from 'node:crypto';
 import { fitMediaClock, mapBoxToCapture, parseRecordingMeta, parseTraceEvent, reanchorComments,
@@ -14,6 +15,14 @@ import { listTimelineVersions, MAX_TIMELINE_BYTES, mergeTimelineUpdate, readTime
   readTimelineVersion } from './timeline-store.ts';
 
 const MAX_BYTES = 250 * 1024 * 1024; // one bundle cannot exhaust disk
+
+// An operator token, when configured, authorises takedown of any recording regardless of
+// ownership — the response to an abuse report. Read per request so deployments can rotate
+// it and tests can set it; unset means only owners can delete.
+function operatorMatches(req: IncomingMessage): boolean {
+  const configured = process.env.CUTSCENE_ADMIN_TOKEN;
+  return configured !== undefined && configured !== '' && bearer(req) === configured;
+}
 
 // Creating recordings and uploading bytes are the expensive routes; reads are not.
 const writeLimiter = createRateLimiter(WRITE_BURST, WRITE_PER_MINUTE);
@@ -96,13 +105,14 @@ function parseTraceData(data: Buffer): { ok: true; events: TraceEvent[]; clock: 
   return fit.ok ? { ok: true, events, clock: fit.value } : fit;
 }
 
-async function traceData(root: string, id: string): Promise<{ ok: true; events: TraceEvent[]; clock: MediaClockFit } |
+async function traceData(store: BundleStore, id: string): Promise<{ ok: true; events: TraceEvent[]; clock: MediaClockFit } |
   { ok: false; error: string }> {
-  const data = await readBundleFile(root, id, 'trace.jsonl');
+  const data = await store.read(id, 'trace.jsonl');
   return data ? parseTraceData(data) : { ok: false, error: 'trace not found' };
 }
 
-export async function handle(req: IncomingMessage, res: ServerResponse, root: string): Promise<void> {
+export async function handle(req: IncomingMessage, res: ServerResponse, root: string,
+  store: BundleStore = filesystemStore(root)): Promise<void> {
   res.setHeader('access-control-allow-origin', '*');
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
@@ -172,9 +182,11 @@ export async function handle(req: IncomingMessage, res: ServerResponse, root: st
     }
     if (req.method !== 'DELETE') return json(res, 405, { error: 'method not allowed' });
     if (!(await recordingExists(root, id))) return json(res, 404, { error: 'recording not found' });
-    const member = await memberFor(req, root, id);
-    if (!member) return json(res, 401, { error: 'member token required' });
-    if (member.role !== 'owner') return json(res, 403, { error: 'only the owner can delete a recording' });
+    if (!operatorMatches(req)) {
+      const member = await memberFor(req, root, id);
+      if (!member) return json(res, 401, { error: 'member token required' });
+      if (member.role !== 'owner') return json(res, 403, { error: 'only the owner or an operator can delete a recording' });
+    }
     await deleteRecording(root, id);
     return json(res, 200, { deleted: id });
   }
@@ -273,6 +285,21 @@ export async function handle(req: IncomingMessage, res: ServerResponse, root: st
       return joinError ? json(res, 409, { error: joinError }) : json(res, 201, { memberId, memberToken });
     }
 
+    if (action === 'report' && req.method === 'POST') {
+      // Anyone can report a public link; rate limited like the other writes.
+      if (!writeLimiter.take(clientKey(req.headers, req.socket.remoteAddress), Date.now())) {
+        return json(res, 429, { error: 'too many reports from this address' });
+      }
+      if (!(await recordingExists(root, id))) return json(res, 404, { error: 'recording not found' });
+      const input = await readJson(req);
+      if (!input.ok) return json(res, 400, { error: input.error });
+      const reason = typeof input.value.reason === 'string' ? input.value.reason.trim() : '';
+      if (!reason || reason.length > 2_000) return json(res, 400, { error: 'reason must be 1-2000 characters' });
+      await appendAbuseReport(root, id, { reason, at: new Date().toISOString(),
+        reporter: clientKey(req.headers, req.socket.remoteAddress) });
+      return json(res, 202, { reported: id });
+    }
+
     if (action === 'review' && req.method === 'GET') {
       const review = await readReview(root, id);
       if (!review) return json(res, 404, { error: 'recording not found' });
@@ -282,9 +309,9 @@ export async function handle(req: IncomingMessage, res: ServerResponse, root: st
     }
 
     if (action === 'events' && req.method === 'GET') {
-      const trace = await traceData(root, id);
+      const trace = await traceData(store, id);
       if (!trace.ok) return json(res, 404, { error: trace.error });
-      const metaData = await readBundleFile(root, id, 'meta.json');
+      const metaData = await store.read(id, 'meta.json');
       let metaInput: unknown;
       try { metaInput = metaData ? JSON.parse(metaData.toString('utf8')) : null; } catch { metaInput = null; }
       const meta = parseRecordingMeta(metaInput);
@@ -309,7 +336,7 @@ export async function handle(req: IncomingMessage, res: ServerResponse, root: st
       const body = typeof input.value.body === 'string' ? input.value.body.trim() : '';
       const eventId = typeof input.value.eventId === 'string' ? input.value.eventId : '';
       if (!body || body.length > 2_000 || !eventId) return json(res, 400, { error: 'eventId and a 1-2000 character body are required' });
-      const trace = await traceData(root, id);
+      const trace = await traceData(store, id);
       if (!trace.ok) return json(res, 409, { error: trace.error });
       const target = trace.events.find((event) => event.id === eventId && event.target);
       if (!target?.target) return json(res, 404, { error: 'comment target event not found' });
@@ -385,7 +412,7 @@ export async function handle(req: IncomingMessage, res: ServerResponse, root: st
       if (file === 'trace.jsonl') {
         const replacement = parseTraceData(body);
         if (!replacement.ok) return json(res, 400, { error: replacement.error });
-        await saveBundleFile(root, id, file, body);
+        await store.save(id, file, body);
         addStoreBytes(root, body.length);
         await updateReview(root, id, (review) => {
           const resolutions = reanchorComments(review.comments.filter((comment) => comment.resolvedAt === null)
@@ -411,12 +438,12 @@ export async function handle(req: IncomingMessage, res: ServerResponse, root: st
         });
         return json(res, 200, { ok: true });
       }
-      await saveBundleFile(root, id, file, body);
+      await store.save(id, file, body);
       addStoreBytes(root, body.length);
       return json(res, 200, { ok: true });
     }
     if (req.method === 'GET') {
-      const data = await readBundleFile(root, id, file);
+      const data = await store.read(id, file);
       if (!data) return json(res, 404, { error: 'not found' });
       res.writeHead(200, { 'content-type': CONTENT_TYPE[file], 'content-length': data.length });
       res.end(data);
@@ -428,7 +455,8 @@ export async function handle(req: IncomingMessage, res: ServerResponse, root: st
   if (req.method === 'GET' && parts.length === 2 && parts[0] === 'r') {
     const id = parts[1]!;
     if (!isValidId(id) || !(await recordingReady(root, id))) return html(res, 404, '<!doctype html><title>Not found</title><h1>Demo not found</h1>');
-    return html(res, 200, reviewPage(id));
+    const views = await incrementViews(root, id).catch(() => 0);
+    return html(res, 200, reviewPage(id, { views, expiresAt: await readExpiry(root, id) }));
   }
 
   return json(res, 404, { error: 'not found' });

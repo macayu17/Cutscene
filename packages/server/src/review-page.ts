@@ -2,7 +2,7 @@ const STYLE = `
 :root{--bg:#16181C;--surface:#1E2126;--line:#2C3037;--text:#C8CDD4;--dim:#727A85;--signal:#F2A63B;--danger:#C7524B}
 *{box-sizing:border-box}html,body{height:100%;margin:0}body{display:grid;grid-template-rows:32px minmax(0,1fr);overflow:hidden;background:var(--bg);color:var(--text);font:12px/1.4 "IBM Plex Mono",monospace}
 button,input,select,textarea{font:inherit;color:inherit}button,input,select,textarea{border:1px solid var(--line);background:var(--surface)}button{padding:5px 8px}button:disabled{color:var(--dim)}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--text);outline-offset:2px}
-header{display:flex;align-items:center;gap:8px;padding:0 10px;border-bottom:1px solid var(--line);letter-spacing:.03em}header .push{margin-left:auto;color:var(--dim)}
+header{display:flex;align-items:center;gap:8px;padding:0 10px;border-bottom:1px solid var(--line);letter-spacing:.03em}header .push{margin-left:auto;color:var(--dim)}header .expiry,header .views{color:var(--dim)}#delete-recording{border-color:var(--danger);color:var(--danger);margin-top:8px}
 main{min-height:0;display:grid;grid-template-columns:240px minmax(0,1fr)300px}.events,.review{min-height:0;overflow:auto}.events{border-right:1px solid var(--line)}.review{border-left:1px solid var(--line);padding:10px}.label{margin:0;padding:9px 10px;border-bottom:1px solid var(--line);font-size:11px;font-weight:500;letter-spacing:.12em}
 .event{width:100%;display:grid;grid-template-columns:54px 1fr;gap:7px;border:0;border-bottom:1px solid var(--line);background:transparent;padding:7px 10px;text-align:left}.event[aria-current=true],.event:hover{background:var(--surface)}.event time,.event small{color:var(--dim)}.event i{width:3px;height:9px;margin-top:3px;background:var(--signal)}
 .viewer{min-width:0;min-height:0;display:grid;place-items:center;padding:20px;background:#121418}.stage{position:relative;max-width:100%;max-height:100%}.stage video{display:block;max-width:100%;max-height:calc(100vh - 72px)}#semantic-box{position:absolute;border:2px solid var(--signal);pointer-events:none;animation:measure 120ms steps(4,end)}
@@ -82,7 +82,7 @@ function renderReview(review){
   byId('member-link-row').hidden=!current;byId('member-link').value=current?location.origin+location.pathname+'#token='+encodeURIComponent(token):'';
   const mayComment=current&&current.role!=='viewer';
   const mayApprove=current&&(current.role==='owner'||current.role==='editor');
-  byId('comment-form').hidden=!mayComment;byId('state-actions').hidden=!mayApprove;byId('invitation-form').hidden=current?.role!=='owner';
+  byId('comment-form').hidden=!mayComment;byId('state-actions').hidden=!mayApprove;byId('invitation-form').hidden=current?.role!=='owner';byId('delete-recording').hidden=current?.role!=='owner';
   const active=review.presence.map((lease)=>review.members.find((member)=>member.id===lease.memberId)?.name).filter(Boolean);
   byId('presence').textContent=active.length?'Present: '+active.join(', '):'No other members present.';
   const members=byId('member-list');members.replaceChildren();
@@ -141,16 +141,29 @@ for(const button of document.querySelectorAll('[data-state]'))button.addEventLis
   clearError();try{await request('/state',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({state:button.dataset.state})});await loadReview();}catch(cause){showError(cause);}
 });
 
+byId('report-recording').addEventListener('click',async()=>{
+  const reason=prompt('Report this recording. Briefly, what is wrong?');
+  if(!reason)return;
+  clearError();try{await request('/report',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({reason})});alert('Reported. Thank you.');}catch(cause){showError(cause);}
+});
+
+byId('delete-recording').addEventListener('click',async()=>{
+  if(!confirm('Delete this recording for everyone? This cannot be undone.'))return;
+  clearError();try{await request('',{method:'DELETE'});location.reload();}catch(cause){showError(cause);}
+});
+
 byId('review-video').addEventListener('seeked',()=>{if(selectedEvent)drawBox(selectedEvent);});
 void refresh();
 setInterval(()=>void refresh(),1500);
 setInterval(()=>void renewPresence(selectedEvent?'event:'+selectedEvent.id:null),10000);
 `;
 
-export function reviewPage(id: string): string {
+export function reviewPage(id: string, info: { views: number; expiresAt: string | null } = { views: 0, expiresAt: null }): string {
   const encoded = encodeURIComponent(id);
+  const expiry = info.expiresAt ? `<span class="expiry">expires ${new Date(info.expiresAt).toISOString().slice(0, 10)}</span>` : '';
+  const views = `<span class="views">${info.views} view${info.views === 1 ? '' : 's'}</span>`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cutscene review</title><style>${STYLE}</style></head>` +
-    `<body><header><strong>REVIEW</strong><span>${encoded}</span><span class="push">STATE</span><output id="review-state">view only</output></header>` +
+    `<body><header><strong>REVIEW</strong><span>${encoded}</span>${expiry}${views}<span class="push">STATE</span><output id="review-state">view only</output></header>` +
     `<main><section class="events"><h1 class="label">EVENTS</h1><div id="event-list"></div></section>` +
     `<section class="viewer"><div class="stage"><video id="review-video" controls playsinline src="/api/recordings/${encoded}/media.webm"></video><div id="semantic-box" hidden></div></div></section>` +
     `<aside class="review"><h2>TEAM</h2><p id="presence">View only.</p><p id="lock"></p>` +
@@ -159,6 +172,8 @@ export function reviewPage(id: string): string {
     `<div id="state-actions" class="state-actions" hidden><button type="button" data-state="in_review">Request review</button><button type="button" data-state="changes_requested">Request changes</button><button type="button" data-state="approved">Approve</button><button type="button" data-state="published">Publish</button></div>` +
     `<h2>COMMENTS</h2><ul id="comment-list" class="comments"></ul>` +
     `<form id="comment-form" hidden><label for="comment-body">Comment on selected event</label><textarea id="comment-body" maxlength="2000" required></textarea><button type="submit">Add comment</button></form>` +
+    `<button id="report-recording" type="button">Report</button>` +
+    `<button id="delete-recording" type="button" hidden>Delete recording</button>` +
     `<output id="review-error" class="error" aria-live="polite"></output></aside></main>` +
     `<script>const recordingId=${JSON.stringify(id)};${SCRIPT}</script></body></html>`;
 }

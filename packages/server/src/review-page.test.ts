@@ -26,3 +26,21 @@ it('renders the dependency-free semantic review client', () => {
   expect(html).toContain('prefers-reduced-motion');
   expect(html).not.toContain('border-radius');
 });
+
+it('shows view count, expiry, and an owner-gated delete control', () => {
+  const html = reviewPage('12345678-1234-4123-8123-123456789abc', {
+    views: 1, expiresAt: '2026-08-22T09:00:00.000Z',
+  });
+  expect(html).toContain('1 view'); // singular
+  expect(html).not.toContain('1 views');
+  expect(html).toContain('expires 2026-08-22');
+  expect(html).toContain('id="delete-recording"');
+  expect(html).toContain('id="report-recording"');
+  expect(html).toContain('/report');
+  // Delete is shown only for the owner and calls the owner-only DELETE endpoint.
+  expect(html).toContain("byId('delete-recording').hidden=current?.role!=='owner'");
+  expect(html).toContain("method:'DELETE'");
+
+  expect(reviewPage('12345678-1234-4123-8123-123456789abc', { views: 2, expiresAt: null }))
+    .toContain('2 views'); // plural
+});

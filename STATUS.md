@@ -35,6 +35,43 @@ Cutscene recording.
           7 docs — all met. Cursor-zoom "guess" relabel (prose, not a numbered
           criterion) left to the Timeline pass
 
+Phase 11 (hosted sharing) landed its deployable core on 2026-07-23. Scope was
+set by the owner to "deployable core plus seams": build and verify what runs
+now, name the two account-gated pieces (R2 object storage, GitHub OAuth) as
+seams rather than shipping code that cannot be exercised without their
+credentials.
+  storage seam: BundleStore (store-driver.ts) is the interface a hosted
+          deployment implements against R2; filesystemStore is the default and
+          the only driver that ships. handle() takes an optional store,
+          defaulting to fs, so all 32 prior server tests pass unchanged — the
+          plan's own proof the extraction is right. A conformance test exercises
+          the contract through the fs driver. The bundle bytes (the large,
+          egress-costly media) route through the store; the small mutable
+          metadata — expiry, review.json, the Yjs timeline — stays on the volume
+  deploy: root Dockerfile bundles the server into one file with esbuild (no
+          node_modules, no type-stripping at runtime) and fly.toml mounts a
+          persistent volume for the data directory, which makes the filesystem
+          store production-ready with no object storage. Verified by building the
+          bundle and running it standalone. docs/deploy.md is the runbook
+  share page: the /r/<id> page now shows an anonymous view count and the expiry
+          date, gives the owner a delete control, and gives any viewer a report
+          control. view count is one integer per recording, incremented on load
+  abuse + takedown: POST /report appends to an append-only abuse.jsonl beside the
+          recording; CUTSCENE_ADMIN_TOKEN authorises an operator to delete any
+          recording. Uploads stay limited to the three validated bundle files, so
+          the endpoint cannot be open file hosting
+  terms + privacy: a new site/terms page covers uploads, retention, reports and
+          takedown; the privacy page's upload and analytics sections now describe
+          the hosted-service behaviour honestly
+  seamed, not built (named in code and docs/deploy.md): the R2 s3Store() driver,
+          and GitHub OAuth to bind owner tokens to a login so "my recordings"
+          survives clearing site data. Both are additions when there is a reason,
+          not before — Phase 11 was gated on adoption evidence to begin with
+  verification: 337 tests (98 trace, 36 server, 133 editor, 16 extension,
+          54 runner — server added driver conformance, share-page surface, abuse
+          report, operator takedown), 5/5 typecheck, 5/5 build (the server bundle
+          joins the build), server bundle smoke-run clean
+
 Phase 10 (the regeneration story, installable, PRD.md section 16) opened on
 2026-07-22. Chrome Web Store submission remains open owner action; it needs a
 developer account and is not a code gate. The listing copy, permission

@@ -92,9 +92,16 @@ editor at any time. Uninstalling the extension removes its stored recordings.</p
 locally in your browser.</p>
 <p>If you choose <strong>Create share link</strong> and enter the address of a Cutscene
 share server, the editor uploads that recording's three files — the video, the event
-trace and the recording metadata — to the server you named. Cutscene does not operate a
-default server; the address is one you or your team runs. A share link is a public,
-unguessable URL: anyone holding it can view that recording.</p>
+trace and the recording metadata — to the server at that address. A share link is a
+public, unguessable URL: anyone holding it can view that recording.</p>
+<p>What the server does with an upload is fixed by the software, whether you run it
+yourself or use a hosted instance: a recording is kept for a retention window (30 days by
+default) and then deleted automatically. The person who created it can delete it at any
+time with their owner token, and its view count is recorded. Anyone viewing a share page
+can report it, and an operator can take a reported recording down. Uploads are limited to
+those three files, checked on the way in and the way out, so a share server cannot be used
+as general file hosting. Nothing in an upload is sold or used for any purpose other than
+serving the link you created.</p>
 
 <h2>Permissions, and why each exists</h2>
 <table>
@@ -112,7 +119,9 @@ its video encoder are all served from the extension itself.</p>
 
 <h2>Analytics</h2>
 <p>The extension and the editor contain no analytics, no telemetry, no error reporting and
-no cookies. Cutscene has no accounts and no user records, because it has no server.</p>
+no cookies. A share server has no user accounts and no logins either: access is by
+unguessable link and per-recording tokens, and the only record it keeps of a viewer is an
+anonymous view count.</p>
 
 <h2>This website</h2>
 <p>These pages are static files. They set no cookies and run no analytics. They load a

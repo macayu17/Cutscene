@@ -1,0 +1,32 @@
+# Cutscene share server on Fly.io. Deploy from the repo root: `fly deploy`.
+# A persistent volume backs the filesystem store, so a Fly deployment needs no object
+# storage to start — R2 is the egress-cost optimization to add later (see
+# packages/server/src/store-driver.ts).
+app = "cutscene-share"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+  CUTSCENE_DATA = "/data"
+  # The rate limiter keys on the client address; behind Fly's proxy that is the last
+  # X-Forwarded-For hop, so trust it here. Do not set this without a proxy in front.
+  CUTSCENE_TRUST_PROXY = "1"
+  # CUTSCENE_RETENTION_DAYS and CUTSCENE_STORE_LIMIT_BYTES override the defaults.
+  # CUTSCENE_ADMIN_TOKEN (operator takedown) is a secret: `fly secrets set CUTSCENE_ADMIN_TOKEN=...`.
+
+# One volume per machine. Create it before the first deploy:
+#   fly volumes create cutscene_data --size 20 --region iad
+[[mounts]]
+  source = "cutscene_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Uploads are large; do not let the proxy stop a machine mid-transfer.
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 0
