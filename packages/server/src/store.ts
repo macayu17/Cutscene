@@ -108,13 +108,21 @@ export async function deleteRecording(root: string, id: string): Promise<void> {
   await rm(join(root, id), { recursive: true, force: true });
 }
 
+// Recurses, because the timeline version snapshots live in a subdirectory. A flat
+// sum would leave the store's fastest-growing files invisible to the cap.
 export async function recordingBytes(root: string, id: string): Promise<number> {
+  return dirBytes(join(root, id));
+}
+
+async function dirBytes(dir: string): Promise<number> {
+  let entries;
+  try { entries = await readdir(dir, { withFileTypes: true }); } catch { return 0; }
   let total = 0;
-  try {
-    for (const entry of await readdir(join(root, id))) {
-      try { total += (await stat(join(root, id, entry))).size; } catch { /* raced with a sweep */ }
-    }
-  } catch { return 0; }
+  for (const entry of entries) {
+    const full = join(dir, entry.name);
+    try { total += entry.isDirectory() ? await dirBytes(full) : (await stat(full)).size; }
+    catch { /* raced with a sweep */ }
+  }
   return total;
 }
 

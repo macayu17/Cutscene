@@ -92,9 +92,22 @@ Pre-publish review (2026-07-22):
     evidence: 3 of 3 rebuild-and-run cycles failed under the ordering fix,
       7 of 7 pass under the current one
 
+  closed since (2026-07-23):
+    timeline updates now count against the store cap. recordingBytes recurses,
+      so the version snapshots under timeline-versions/ are no longer invisible
+      to it, and the timeline POST route refuses with 507 once the store is full,
+      like every other write route. store bytes test asserts a subdirectory file
+      is counted; without recursion it would read ~1500, not the ~3500 it now sees
+    the site footer claimed "MIT licensed", which is wrong for the distributed
+      extension: it is a GPL combined work through the bundled FFmpeg core. The
+      footer now links to the repository's license section, which states the mix
+      the README already documents
+
   still carried forward, unaddressed:
-    timeline updates are stored per recording and are not counted by the cap
-    delete and sweep race writers that recreate a directory
+    delete and sweep race writers that recreate a directory. It self-heals: a
+      recreated directory carries no expiry file, so recordingLive treats it as
+      gone and the next sweep removes it. Left as debt rather than locked, since
+      no public deployment exists yet (Phase 11 is gated on adoption evidence)
     the claims lens never ran. Numbers in this file were re-derived by hand, but
       no independent pass has audited them
 

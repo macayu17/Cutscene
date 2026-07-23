@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { addStoreBytes, createId, ensureRecording, isBundleFile, isValidId, recordingReady, saveBundleFile,
@@ -103,8 +103,11 @@ it('caches the store total and keeps it current as bytes arrive', async () => {
     addStoreBytes(root, 500);
     expect(await storeBytesCached(root)).toBe(first + 500);
 
-    // Past the window it re-walks and settles on the truth.
-    expect(await storeBytesCached(root, Date.now() + 120_000)).toBeGreaterThanOrEqual(1_500);
+    // Timeline version snapshots live in a subdirectory; the re-walk must count them too,
+    // or the cap is blind to the store's fastest-growing files.
+    await mkdir(join(root, id, 'timeline-versions'), { recursive: true });
+    await writeFile(join(root, id, 'timeline-versions', '000001.bin'), Buffer.alloc(2_000));
+    expect(await storeBytesCached(root, Date.now() + 120_000)).toBeGreaterThanOrEqual(3_500);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

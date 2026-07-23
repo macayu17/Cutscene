@@ -190,6 +190,8 @@ export async function handle(req: IncomingMessage, res: ServerResponse, root: st
       if (!canApprove(member.role)) return json(res, 403, { error: 'member cannot access timeline edits' });
       if (req.method === 'GET') return binary(res, 200, await readTimelineUpdate(root, id));
       if (req.method !== 'POST') return json(res, 405, { error: 'method not allowed' });
+      // Each accepted edit writes a version snapshot, so this route grows the store too.
+      if (await storeBytesCached(root) >= STORE_LIMIT_BYTES) return json(res, 507, { error: 'this server is full' });
       const contentLength = Number(req.headers['content-length'] ?? 0);
       if (contentLength > MAX_TIMELINE_BYTES) return json(res, 413, { error: 'timeline update is too large' });
       const update = await readBody(req, MAX_TIMELINE_BYTES);
