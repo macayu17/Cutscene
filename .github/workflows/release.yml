@@ -25,9 +25,11 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
+      # Build and browser before test: the runner's unit suite needs the editor dist and Chromium.
+      - run: pnpm build
+      - run: pnpm --filter @cutscene/runner exec playwright install --with-deps chromium
       - run: pnpm test
       - run: pnpm typecheck
-      - run: pnpm build
       - name: Publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -19,9 +19,12 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # The runner's unit suite launches Chromium and reads the editor build, so both
+      # have to exist before pnpm test — locally a cached browser and stale dist hide this.
+      - run: pnpm build
+      - run: pnpm --filter @cutscene/runner exec playwright install --with-deps chromium
       - run: pnpm test
       - run: pnpm typecheck
-      - run: pnpm build
 
   end-to-end:
     runs-on: ubuntu-latest
@@ -34,7 +37,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm --filter @cutscene/runner exec playwright install --with-deps chromium
       # The extension capture suite records a third-party site in a headed browser and
       # stays a local acceptance gate. These two are self-contained.
       - run: pnpm --filter @cutscene/editor e2e
@@ -57,7 +60,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm --filter @cutscene/runner exec playwright install --with-deps chromium
       # Prove the published artefacts work outside the workspace, not just inside it.
       - name: Pack and install into a clean project
         run: |
