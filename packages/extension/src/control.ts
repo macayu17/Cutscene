@@ -12,6 +12,12 @@ const mic = required<HTMLInputElement>('#mic');
 const redact = required<HTMLTextAreaElement>('#redact');
 const output = required<HTMLOutputElement>('#status');
 const warning = required<HTMLParagraphElement>('#length-warning');
+const sourceNote = required<HTMLParagraphElement>('#source-note');
+const sourceRadios = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="source"]'));
+
+function currentSource(): 'tab' | 'screen' {
+  return sourceRadios.some((radio) => radio.checked && radio.value === 'screen') ? 'screen' : 'tab';
+}
 
 const LONG_RECORDING_MS = 10 * 60 * 1_000;
 
@@ -35,7 +41,8 @@ function render(result: Result<RecorderStatus>): void {
     stop.disabled = true;
     return;
   }
-  const state = result.value.recording ? 'recording' : result.value.clickCount ? 'saved' : 'idle';
+  // A screen recording has no clicks, so a saved take is one that produced a recording id.
+  const state = result.value.recording ? 'recording' : result.value.recordingId ? 'saved' : 'idle';
   output.dataset.state = state;
   output.value = state === 'idle' ? state
     : [state, elapsed(result.value.startedAt), `${result.value.clickCount} clicks`].filter(Boolean).join(' · ');
@@ -44,7 +51,10 @@ function render(result: Result<RecorderStatus>): void {
   start.disabled = result.value.recording;
   stop.disabled = !result.value.recording;
   mic.disabled = result.value.recording;
-  redact.disabled = result.value.recording;
+  // No DOM to match against on a screen recording, so blur selectors would silently
+  // match nothing, which is a privacy trap. Disable the field rather than lie.
+  redact.disabled = result.value.recording || currentSource() === 'screen';
+  sourceRadios.forEach((radio) => { radio.disabled = result.value.recording; });
 }
 
 // Stopping takes seconds: the recorder quiesces, encodes, saves and opens the editor.
@@ -73,11 +83,22 @@ async function poll(): Promise<void> {
   render(result);
 }
 
+function reflectSource(): void {
+  const screen = currentSource() === 'screen';
+  sourceNote.hidden = !screen;
+  start.textContent = screen ? 'Record screen' : 'Record tab';
+  redact.disabled = screen;
+}
+sourceRadios.forEach((radio) => radio.addEventListener('change', reflectSource));
+reflectSource();
+
 start.addEventListener('click', async () => {
   const targetTabId = await tabId();
   if (targetTabId === null) return render({ ok: false, error: 'No active tab.' });
-  const redactSelectors = redact.value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
-  await act('recording.start', { tabId: targetTabId, includeMic: mic.checked, redactSelectors });
+  const source = currentSource();
+  const redactSelectors = source === 'screen' ? []
+    : redact.value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+  await act('recording.start', { tabId: targetTabId, includeMic: mic.checked, redactSelectors, source });
 });
 stop.addEventListener('click', () => void act('recording.stop'));
 

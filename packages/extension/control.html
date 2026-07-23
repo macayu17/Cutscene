@@ -18,10 +18,17 @@
 
       <section class="settings" aria-labelledby="capture-heading">
         <h2 id="capture-heading">Capture</h2>
+        <div class="source-row" role="radiogroup" aria-label="Capture source">
+          <label class="check-row"><input type="radio" name="source" value="tab" checked><span>This tab</span></label>
+          <label class="check-row"><input type="radio" name="source" value="screen"><span>Screen or window</span></label>
+        </div>
         <label class="check-row" for="mic">
           <input id="mic" type="checkbox">
           <span>Include microphone</span>
         </label>
+        <p id="source-note" class="source-note" hidden>A screen recording captures whatever you pick in Chrome's
+          share dialog, including windows from other apps and a second monitor. It has no page structure, so
+          element zooms, drift checks and regeneration are unavailable.</p>
       </section>
 
       <section class="settings" aria-labelledby="privacy-heading">

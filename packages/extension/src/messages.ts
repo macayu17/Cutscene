@@ -6,6 +6,8 @@ export type RecorderStatus = {
   clickCount: number;
   startedAt: number | null;
   recordingId: string | null;
+  // A screen recording has no content script, so the stop path must not message the tab.
+  source: 'tab' | 'screen';
 };
 
 export type Result<T = undefined> = TraceResult<T>;

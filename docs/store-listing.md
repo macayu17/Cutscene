@@ -102,11 +102,15 @@ tab's URL or title.
 
 - Does the extension collect personally identifiable information? No.
 - Health, financial, authentication, personal communications, location? No.
-- Web history? No. It records only the tab the user chose, only while recording.
+- Web history? No. It records only the tab or screen the user chose, only while
+  recording.
 - User activity? Yes, within that recording: clicks, typing, scrolling and
-  navigation on the recorded page. Stored locally, transmitted nowhere.
-- Website content? Yes, within that recording: the video of the tab and the
-  structure of the elements interacted with. Stored locally.
+  navigation on the recorded page. Stored locally, transmitted nowhere. A screen
+  recording captures no page structure and no interactions — pixels only.
+- Website content? Yes, within a tab recording: the video of the tab and the
+  structure of the elements interacted with. A screen or window recording
+  captures whatever the user grants in Chrome's share picker, which can include
+  content from applications other than Chrome. Stored locally.
 - Is any of it sold, transferred, or used for anything unrelated? No.
 - Input values are masked at capture, before anything is written to disk.
 

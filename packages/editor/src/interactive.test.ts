@@ -90,6 +90,15 @@ it('uses a structural label for masked targets and rejects an empty flow', () =>
     .toEqual({ ok: false, error: 'No clickable trace events captured.' });
 });
 
+it('refuses a pixel-only recording that carries no clickable events', () => {
+  const systemOnly: TraceEvent[] = [
+    { v: 1, id: 'start', t: 0, type: 'system.recordingStart', stepId: 'step_start', route: '/', viewport: meta.viewport, scroll: { x: 0, y: 0 } },
+    { v: 1, id: 'nav', t: 100, type: 'navigation', stepId: 'step_nav', route: '/', viewport: meta.viewport, scroll: { x: 0, y: 0 } },
+  ];
+  expect(deriveInteractiveManifest(meta, systemOnly, clock, [], 0))
+    .toEqual({ ok: false, error: 'No clickable trace events captured.' });
+});
+
 it('escapes embedded manifest text and includes the complete native player', () => {
   const html = renderInteractivePlayer(manifest({ steps: [{ ...manifest().steps[0]!, label: '</script><img src=x>' }] }));
   expect(html).not.toContain('</script><img src=x>');

@@ -39,17 +39,18 @@ async function hasOffscreen(): Promise<boolean> {
 
 async function ensureOffscreen(): Promise<void> {
   if (await hasOffscreen()) return;
-  await chrome.offscreen.createDocument({ url: offscreenPath, reasons: [chrome.offscreen.Reason.USER_MEDIA, chrome.offscreen.Reason.BLOBS], justification: 'Record a tab and persist its local recording bundle.' });
+  await chrome.offscreen.createDocument({ url: offscreenPath, reasons: [chrome.offscreen.Reason.USER_MEDIA, chrome.offscreen.Reason.DISPLAY_MEDIA, chrome.offscreen.Reason.BLOBS], justification: 'Record a tab or screen and persist its local recording bundle.' });
 }
 
-const IDLE: RecorderStatus = { recording: false, tabId: null, clickCount: 0, startedAt: null, recordingId: null };
+const IDLE: RecorderStatus = { recording: false, tabId: null, clickCount: 0, startedAt: null, recordingId: null, source: 'tab' };
 
 // A second start must never touch the running recording: it resets the content
 // session's clock and its rollback would cancel and delete a take it does not own.
 // The flag closes the double-click window the status check alone cannot see.
 let starting = false;
 
-async function start(tabId: number, includeMic: boolean, redactSelectors: readonly string[]): Promise<Result<RecorderStatus>> {
+async function start(tabId: number, includeMic: boolean, redactSelectors: readonly string[],
+  source: 'tab' | 'screen' = 'tab'): Promise<Result<RecorderStatus>> {
   if (starting) return { ok: false, error: RECORDER_BUSY };
   starting = true;
   let sessionStarted = false;
@@ -62,6 +63,19 @@ async function start(tabId: number, includeMic: boolean, redactSelectors: readon
       .catch(() => null) as Result<RecorderStatus> | null;
     if (active?.ok && active.value.recording) return { ok: false, error: RECORDER_BUSY };
     const sessionEpoch = Date.now();
+    if (source === 'screen') {
+      // No content script attaches: the offscreen document opens Chrome's own source
+      // picker and there is no page to trace, so redaction selectors do not apply.
+      const context = { viewport: { width: 1, height: 1, dpr: 1 }, scroll: { x: 0, y: 0 }, route: '',
+        url: 'about:screen-capture', origin: 'screen', contentClockMs: 0, visualRedactionSelectors: [] };
+      const result = await chrome.runtime.sendMessage({ type: 'offscreen.start', source: 'screen', tabId,
+        sessionEpoch, includeMic, context }) as Result<RecorderStatus>;
+      if (result.ok) {
+        await saveActiveRecording({ tabId, sessionEpoch, redactSelectors: [], captureReady: true });
+        indicate(true);
+      }
+      return result;
+    }
     const context = await chrome.tabs.sendMessage(tabId, { type: 'session.start', sessionEpoch, redactSelectors }) as Result;
     if (!context.ok) return context;
     sessionStarted = true;
@@ -103,6 +117,11 @@ async function stop(): Promise<Result<RecorderStatus>> {
     const tabId = status.value.tabId;
     await clearActiveRecording().catch(() => undefined);
     indicate(false);
+    if (status.value.source === 'screen') {
+      // No content session was ever started, so there is nothing on the tab to quiesce
+      // or stop; the offscreen document owns the whole take.
+      return await chrome.runtime.sendMessage({ type: 'offscreen.stop' }) as Result<RecorderStatus>;
+    }
     let quiesced: Result;
     try { quiesced = await chrome.tabs.sendMessage(tabId, { type: 'session.quiesce' }) as Result; }
     catch (error: unknown) { quiesced = { ok: false, error: error instanceof Error ? error.message : String(error) }; }
@@ -126,7 +145,8 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, respond) => {
   if (message.type === 'recording.start' && 'tabId' in message && typeof message.tabId === 'number') {
     const redactSelectors = 'redactSelectors' in message && Array.isArray(message.redactSelectors) &&
       message.redactSelectors.every((value) => typeof value === 'string') ? message.redactSelectors : [];
-    void start(message.tabId, 'includeMic' in message && message.includeMic === true, redactSelectors).then(respond); return true;
+    const source = 'source' in message && message.source === 'screen' ? 'screen' : 'tab';
+    void start(message.tabId, 'includeMic' in message && message.includeMic === true, redactSelectors, source).then(respond); return true;
   }
   if (message.type === 'recording.stop') { void stop().then(respond); return true; }
   // Never create the offscreen document just to answer a question. The popup polls this

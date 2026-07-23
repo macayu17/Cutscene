@@ -103,7 +103,8 @@ export type RecordingMeta = {
   url: string;
   origin: string;
   viewport: Viewport;
-  capture: { width: number; height: number; fps: number };
+  // source absent means 'tab': every recording made before the screen fallback still parses.
+  capture: { width: number; height: number; fps: number; source?: 'tab' | 'screen' };
   media: { mimeType: string; hasAudio: boolean; durationMs: number };
   privacy: {
     maskInputValues: boolean;
@@ -295,6 +296,10 @@ export function parseRecordingMeta(input: unknown): Result<RecordingMeta> {
   if (!isPositiveDimensions(input.viewport, ['width', 'height', 'dpr']) ||
       !isPositiveDimensions(input.capture, ['width', 'height', 'fps'])) {
     return { ok: false, error: 'metadata dimensions are invalid' };
+  }
+  const captureSource = (input.capture as { source?: unknown }).source;
+  if (captureSource !== undefined && captureSource !== 'tab' && captureSource !== 'screen') {
+    return { ok: false, error: 'metadata capture source must be tab or screen' };
   }
   if (!hasValidMedia(input.media)) {
     return { ok: false, error: 'metadata media is invalid' };

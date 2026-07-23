@@ -94,6 +94,13 @@ export async function runDemo(demo: DemoConfig, configDir: string,
     console.error(`${demo.id}: trace has no events`);
     return 2;
   }
+  // A screen or canvas recording captures pixels only: no elements, no ranked locators,
+  // nothing to replay or drift-check. Refuse by naming the cause rather than exiting 0 or 1.
+  if (!trace.value.some((event) => event.type.startsWith('interaction.') && event.type !== 'interaction.hover')) {
+    console.error(`${demo.id}: this recording has no interaction events. A screen or canvas ` +
+      'recording captures pixels only — it carries no elements or locators to replay.');
+    return 2;
+  }
   const plan = planReplay(trace.value, demo.inputs);
   if (!plan.ok) {
     console.error(`${demo.id}: ${plan.error}`);

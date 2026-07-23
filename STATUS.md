@@ -1,4 +1,39 @@
-Phase: 10
+Phase: 12
+
+Phase 12 (screen-capture fallback, deliberately last) shipped on 2026-07-23.
+A recording can now capture a screen or window, not only a Chrome tab, and the
+whole pipeline degrades honestly rather than pretending a pixel recording is a
+Cutscene recording.
+  capture: getDisplayMedia in the existing offscreen document (DISPLAY_MEDIA
+           reason added). No content script attaches, so the offscreen document's
+           own clock is both the content and worker clock; fitMediaClock still
+           fits. No new manifest permission — Chrome's own picker is the grant.
+  schema: capture.source is 'tab' | 'screen', optional. Absent means tab, so
+          every recording made before this phase still parses. schemaVersion
+          stays 1. parseRecordingMeta rejects any other source string
+  editor: a bundle with no interaction events states the cause in place — screen
+          recording vs canvas — and disables the interactive demo, demo kit,
+          Playwright skeleton, docs and screenshots with the reason on each
+          control. GIF and MP4 still export
+  runner: a pixel-only trace exits 2 with a named cause, before launching a
+          browser, rather than exiting 0 having done nothing or 1 meaning drift
+  interactive export: refuses a pixel-only bundle (no clickable events)
+  popup: a source toggle; the blur-selector field is disabled for a screen
+         recording, because a selector matching no DOM would be a privacy trap;
+         the picker-is-the-grant warning is stated once, not as a dismissible toast
+  privacy + listing: both now describe screen capture, including that it can
+          record content from applications other than Chrome
+  verification: 333 tests (98 trace, 32 server, 133 editor, 16 extension,
+          54 runner — screen source parse, runner exit-2 refusal, interactive
+          refusal), 5/5 typecheck, 4/4 build, capture e2e green (tab path intact
+          after the start/stop/status refactor)
+  manually verified, not in CI: live getDisplayMedia capture, like the existing
+          headed capture suite. The editor/runner refusal path is covered by a
+          fixture without a human
+  exit criteria (design doc): 1 capture-shape, 2 old-parses, 3 editor-degrades,
+          4 runner+interactive-refuse, 5 blur-disabled, 6 fixture-asserts-3-and-4,
+          7 docs — all met. Cursor-zoom "guess" relabel (prose, not a numbered
+          criterion) left to the Timeline pass
 
 Phase 10 (the regeneration story, installable, PRD.md section 16) opened on
 2026-07-22. Chrome Web Store submission remains open owner action; it needs a

@@ -235,6 +235,21 @@ describe('parseRecordingMeta', () => {
       .toEqual({ ok: false, error: 'metadata privacy is invalid' });
   });
 
+  it('accepts an optional capture source and rejects an unknown one', () => {
+    const base = {
+      schemaVersion: 1, recordingId: 'rec_1', createdAt: '2026-07-14T09:00:00.000Z', sessionEpoch: 1,
+      url: 'https://example.com', origin: 'https://example.com', viewport: envelope.viewport,
+      capture: { width: 1920, height: 1080, fps: 30 }, media: { mimeType: 'video/webm', hasAudio: false, durationMs: 1 },
+      privacy: { maskInputValues: true, captureNetwork: false, maskedSelectors: [] },
+      app: { commit: null, version: null, environment: null },
+    };
+    expect(parseRecordingMeta(base).ok).toBe(true); // absent means tab
+    expect(parseRecordingMeta({ ...base, capture: { ...base.capture, source: 'tab' } }).ok).toBe(true);
+    expect(parseRecordingMeta({ ...base, capture: { ...base.capture, source: 'screen' } }).ok).toBe(true);
+    expect(parseRecordingMeta({ ...base, capture: { ...base.capture, source: 'window' } }))
+      .toEqual({ ok: false, error: 'metadata capture source must be tab or screen' });
+  });
+
   it('rejects invalid metadata trust-boundary values', () => {
     const base = {
       schemaVersion: 1, recordingId: 'rec_1', createdAt: '2026-07-14T09:00:00.000Z', sessionEpoch: 1,

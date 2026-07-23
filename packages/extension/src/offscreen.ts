@@ -8,7 +8,7 @@ type PageContext = { viewport: Viewport; scroll: ScrollPosition; route: string; 
 type State = {
   recorder: MediaRecorder; stream: MediaStream; mic: MediaStream | null; chunks: Blob[]; events: TraceEvent[];
   tabId: number; sessionEpoch: number; startedAt: number; mediaStart: number; timer: number; flush: number;
-  recordingId: string; context: PageContext; persisted: boolean;
+  recordingId: string; context: PageContext; persisted: boolean; source: 'tab' | 'screen';
   capture: { width: number; height: number; fps: number };
 };
 
@@ -42,7 +42,7 @@ async function captureDimensions(stream: MediaStream): Promise<{ width: number; 
 function status(): RecorderStatus {
   return { recording: state !== null, tabId: state?.tabId ?? null,
     clickCount: state?.events.filter(({ type }) => type === 'interaction.click').length ?? 0,
-    startedAt: state?.startedAt ?? null, recordingId: state?.recordingId ?? null };
+    startedAt: state?.startedAt ?? null, recordingId: state?.recordingId ?? null, source: state?.source ?? 'tab' };
 }
 
 function systemEvent(type: 'system.recordingStart' | 'system.recordingStop' | 'navigation', current: State, t: number): TraceEvent {
@@ -56,7 +56,7 @@ export function bundle(current: State, durationMs: number): { media: Blob; trace
     { type: 'application/x-ndjson' });
   const meta: RecordingMeta = { schemaVersion: 1, recordingId: current.recordingId, createdAt: new Date(current.sessionEpoch).toISOString(),
     sessionEpoch: current.sessionEpoch, url: current.context.url, origin: current.context.origin, viewport: current.context.viewport,
-    capture: current.capture,
+    capture: current.source === 'screen' ? { ...current.capture, source: 'screen' } : current.capture,
     media: { mimeType: current.recorder.mimeType, hasAudio: current.stream.getAudioTracks().length > 0, durationMs },
     privacy: { maskInputValues: true, captureNetwork: false, maskedSelectors: ['[data-sensitive]', '[data-private]', 'input[type=password]'],
       ...(current.context.visualRedactionSelectors.length ?
@@ -83,23 +83,39 @@ async function sync(): Promise<void> {
   const current = state;
   if (!current) return;
   const before = performance.now() - current.mediaStart;
-  const sample = await chrome.runtime.sendMessage({ type: 'clock.sample', tabId: current.tabId, sessionEpoch: current.sessionEpoch }) as Result<{ contentClockMs: number; workerClockMs: number }>;
-  if (!sample.ok || state !== current) return;
+  let sample: { contentClockMs: number; workerClockMs: number };
+  if (current.source === 'screen') {
+    // No content script to sync against, so the offscreen document's own clock is both
+    // clocks. fitMediaClock still fits and every downstream consumer keeps working.
+    const clockMs = Date.now() - current.sessionEpoch;
+    sample = { contentClockMs: clockMs, workerClockMs: clockMs };
+  } else {
+    const response = await chrome.runtime.sendMessage({ type: 'clock.sample', tabId: current.tabId,
+      sessionEpoch: current.sessionEpoch }) as Result<{ contentClockMs: number; workerClockMs: number }>;
+    if (!response.ok || state !== current) return;
+    sample = response.value;
+  }
   const mediaTimeMs = (before + performance.now() - current.mediaStart) / 2;
-  current.context.contentClockMs = sample.value.contentClockMs;
-  current.events.push({ v: 1, id: `evt_${crypto.randomUUID()}`, t: sample.value.contentClockMs, type: 'system.clockSync',
+  current.context.contentClockMs = sample.contentClockMs;
+  current.events.push({ v: 1, id: `evt_${crypto.randomUUID()}`, t: sample.contentClockMs, type: 'system.clockSync',
     stepId: 'step_clock', route: current.context.route, viewport: current.context.viewport, scroll: current.context.scroll,
-    contentClockMs: sample.value.contentClockMs, workerClockMs: sample.value.workerClockMs, mediaTimeMs });
+    contentClockMs: sample.contentClockMs, workerClockMs: sample.workerClockMs, mediaTimeMs });
 }
 
-async function start(message: { streamId: string; tabId: number; sessionEpoch: number; includeMic: boolean; context: PageContext }): Promise<Result<RecorderStatus>> {
+async function start(message: { streamId?: string | undefined; source: 'tab' | 'screen'; tabId: number; sessionEpoch: number; includeMic: boolean; context: PageContext }): Promise<Result<RecorderStatus>> {
   if (state) return { ok: false, error: 'A recording is already active.' };
   let tab: MediaStream | null = null;
   let mic: MediaStream | null = null;
   let recorder: MediaRecorder | null = null;
   try {
-    const video = { mandatory: { chromeMediaSource: 'tab', chromeMediaSourceId: message.streamId } } as MediaTrackConstraints & { mandatory: { chromeMediaSource: 'tab'; chromeMediaSourceId: string } };
-    tab = await navigator.mediaDevices.getUserMedia({ video, audio: false });
+    if (message.source === 'screen') {
+      // The picker is the permission: Chrome shows its own source chooser and the
+      // extension never enumerates or sees what it was not granted.
+      tab = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+    } else {
+      const video = { mandatory: { chromeMediaSource: 'tab', chromeMediaSourceId: message.streamId } } as MediaTrackConstraints & { mandatory: { chromeMediaSource: 'tab'; chromeMediaSourceId: string } };
+      tab = await navigator.mediaDevices.getUserMedia({ video, audio: false });
+    }
     mic = message.includeMic ? await navigator.mediaDevices.getUserMedia({ audio: true }) : null;
     const stream = new MediaStream([...tab.getVideoTracks(), ...(mic?.getAudioTracks() ?? [])]);
     const dimensions = await captureDimensions(stream);
@@ -107,9 +123,13 @@ async function start(message: { streamId: string; tabId: number; sessionEpoch: n
     recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
     const chunks: Blob[] = [];
     recorder.addEventListener('dataavailable', (event) => { if (event.data.size) chunks.push(event.data); });
+    // A screen recording has no page, so its viewport is the captured surface itself.
+    const context = message.source === 'screen'
+      ? { ...message.context, viewport: { ...dimensions, dpr: 1 } }
+      : message.context;
     const current: State = { recorder, stream, mic, chunks, events: [], tabId: message.tabId, sessionEpoch: message.sessionEpoch,
       startedAt: Date.now(), mediaStart: performance.now(), timer: 0, flush: 0, recordingId: `rec_${crypto.randomUUID()}`,
-      context: message.context, persisted: false,
+      context, persisted: false, source: message.source,
       capture: { ...dimensions, fps: tab.getVideoTracks()[0]?.getSettings().frameRate ?? 30 } };
     recorder.start(1_000);
     state = current;
@@ -178,9 +198,12 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, respond) => {
     else respond({ ok: false, error: 'Recording is not active.' } satisfies Result);
     return false;
   }
-  if (message.type === 'offscreen.start' && 'streamId' in message && typeof message.streamId === 'string' &&
+  if (message.type === 'offscreen.start' &&
       'tabId' in message && typeof message.tabId === 'number' && 'sessionEpoch' in message && typeof message.sessionEpoch === 'number' && 'context' in message) {
-    void start({ streamId: message.streamId, tabId: message.tabId, sessionEpoch: message.sessionEpoch,
+    const source = 'source' in message && message.source === 'screen' ? 'screen' : 'tab';
+    const streamId = 'streamId' in message && typeof message.streamId === 'string' ? message.streamId : undefined;
+    if (source === 'tab' && streamId === undefined) { respond({ ok: false, error: 'missing tab stream id' } satisfies Result<RecorderStatus>); return false; }
+    void start({ streamId, source, tabId: message.tabId, sessionEpoch: message.sessionEpoch,
       includeMic: 'includeMic' in message && message.includeMic === true, context: message.context as PageContext }).then(respond); return true;
   }
   if (message.type === 'offscreen.stop') { void stop().then(respond); return true; }

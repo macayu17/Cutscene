@@ -203,10 +203,16 @@ export default function App() {
     if (result.ok) await connectSharedTimeline(result.value);
     setSharing(false);
   };
+  // A bundle with no interaction events has no elements, locators, or accessible names,
+  // so every tool built from them is unavailable — stated on each control, not hidden.
+  const pixelOnly = !hasMeaningfulTraceEvents(bundle.events);
+  const noTraceReason = bundle.meta.capture.source === 'screen'
+    ? 'This is a screen recording. It has no page structure by definition, so element zooms, callouts, the quality report, the demo kit, the interactive demo and Playwright output are unavailable. GIF and MP4 export still work.'
+    : 'No page events were captured. The page may render to a canvas, which cannot be traced, so element-derived tools are unavailable. GIF and MP4 export still work.';
   return <main className="instrument">
     <header className="topbar">
       <div className="recording-meta"><span>{bundle.meta.recordingId}</span><span>·</span>
-        <span>{new URL(bundle.meta.url).host}</span><span>·</span>
+        <span>{bundle.meta.capture.source === 'screen' ? 'screen recording' : new URL(bundle.meta.url).host}</span><span>·</span>
         <span>{bundle.meta.capture.width}×{bundle.meta.capture.height}</span><span>·</span>
         <span>{(bundle.meta.media.durationMs / 1_000).toFixed(1)}s</span>
         {timelineSyncStatus.state !== 'idle' ? <span className={timelineSyncStatus.state === 'error' ? 'timeline-sync error' : 'timeline-sync'}>{timelineSyncStatus.state === 'error' ? timelineSyncStatus.error : `timeline ${timelineSyncStatus.state}`}</span> : null}
@@ -222,18 +228,18 @@ export default function App() {
         <details className="action-menu"><summary>Export</summary><div>
           <button disabled={exportProgress !== null} onClick={() => void runExport('gif')}>Export GIF</button>
           <button disabled={exportProgress !== null} onClick={() => void runExport('mp4')}>Export MP4</button>
-          <button disabled={exportProgress !== null} onClick={() => void runInteractive()}>Export interactive demo</button>
+          <button disabled={exportProgress !== null || pixelOnly} title={pixelOnly ? noTraceReason : undefined} onClick={() => void runInteractive()}>Export interactive demo</button>
           <button disabled={exportProgress !== null} onClick={() => void runExport('vertical')}>Export 9:16 MP4</button>
           <button disabled={exportProgress !== null || segments.length === 0} onClick={() => void runStepGifs()}>Export step GIFs</button>
-          <button disabled={exportProgress !== null} onClick={exportSkeleton}>Export Playwright skeleton</button>
-          <button disabled={exportProgress !== null} onClick={() => void runArtifacts('docs')}>Export docs</button>
-          <button disabled={exportProgress !== null} onClick={() => void runArtifacts('screenshots')}>Export screenshots</button>
+          <button disabled={exportProgress !== null || pixelOnly} title={pixelOnly ? noTraceReason : undefined} onClick={exportSkeleton}>Export Playwright skeleton</button>
+          <button disabled={exportProgress !== null || pixelOnly} title={pixelOnly ? noTraceReason : undefined} onClick={() => void runArtifacts('docs')}>Export docs</button>
+          <button disabled={exportProgress !== null || pixelOnly} title={pixelOnly ? noTraceReason : undefined} onClick={() => void runArtifacts('screenshots')}>Export screenshots</button>
           <label className="file-label">Import captions<input type="file" accept=".srt,.vtt,.txt" onChange={(event) => { const file = event.currentTarget.files?.[0]; if (file) void file.text().then(loadCaptions); }}/></label>
           <button disabled={captions.length === 0} onClick={() => exportCaptions('srt')}>Export SRT</button>
           <button disabled={captions.length === 0} onClick={() => exportCaptions('vtt')}>Export VTT</button>
         </div></details>
-        <button className="primary-action" disabled={exportProgress !== null}
-          onClick={() => void runDemoKit()}>Build demo kit</button>
+        <button className="primary-action" disabled={exportProgress !== null || pixelOnly}
+          title={pixelOnly ? noTraceReason : undefined} onClick={() => void runDemoKit()}>Build demo kit</button>
       </div>
       {exportProgress !== null ? <span className="export-progress" role="progressbar" aria-label="Export progress"
         aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(exportProgress * 100)}
@@ -249,7 +255,7 @@ export default function App() {
           selectedTarget.boundingBox.width, selectedTarget.boundingBox.height].map(Math.round).join(', ')}</dd></div>
         {selectedLocator ? <div><dt>LOCATOR</dt><dd>{selectedLocator.type} · {Math.round(selectedLocator.confidence * 100)}%</dd></div> : null}
       </dl> : null}
-      {hasMeaningfulTraceEvents(bundle.events) ? bundle.events.filter(isHumanEvent).map((event) => { const time = Math.max(0, bundle.clock.toMediaTime(event.t)); return <button className="event" key={event.id} aria-current={selected?.id === event.id} onClick={() => { selectEvent(event.id, time); if (video.current) video.current.currentTime = time / 1_000; }}><time>{(time / 1_000).toFixed(1)}s</time><span>{event.type}<br/><small>{event.target ? targetLabel(event.target) : event.route}</small></span></button>; }) : <p className="no-events">No trace events captured. The page may render to a canvas, which cannot be traced.</p>}</aside>
+      {hasMeaningfulTraceEvents(bundle.events) ? bundle.events.filter(isHumanEvent).map((event) => { const time = Math.max(0, bundle.clock.toMediaTime(event.t)); return <button className="event" key={event.id} aria-current={selected?.id === event.id} onClick={() => { selectEvent(event.id, time); if (video.current) video.current.currentTime = time / 1_000; }}><time>{(time / 1_000).toFixed(1)}s</time><span>{event.type}<br/><small>{event.target ? targetLabel(event.target) : event.route}</small></span></button>; }) : <p className="no-events">{noTraceReason}</p>}</aside>
     <section className="viewer" aria-label="Video preview"><VideoView video={video}/></section>
     <Timeline video={video}/>
     {captionError ? <output className="export-error">{captionError}</output> : null}
